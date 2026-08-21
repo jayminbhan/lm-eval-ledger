@@ -1,0 +1,13 @@
+# gsm8k_smoke.yaml - quick smoke test: 20 GSM8K samples on a small cached model
+# Run: python run_bench.py -c gsm8k_smoke.yaml
+
+models:
+  - Qwen/Qwen2.5-0.5B-Instruct   # already in HF cache, loads instantly
+
+tasks:
+  - gsm8k_main:0
+
+max_examples: 20
+apply_chat_template: true        # instruct model
+max_tokens: 512
+temperature: 0.0

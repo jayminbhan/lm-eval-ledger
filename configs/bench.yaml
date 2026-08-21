@@ -1,0 +1,91 @@
+# bench.yaml - benchmark run configuration
+#
+# Usage:
+#   python run_bench.py                       # uses this file
+#   python run_bench.py -c other.yaml         # a different config
+#   python run_bench.py --max-examples 10     # any CLI flag overrides this file
+#
+# Unknown keys are rejected (typos fail loudly). See config.py for all fields
+# and their defaults; the resolved config for every run is saved to
+# results/{run_name}_config.yaml and into the run's SQLite DB.
+
+# ── Models ────────────────────────────────────────────────
+# HuggingFace ids or local paths, run sequentially.
+# "verl:<run_dir>" expands to every global_step checkpoint in a veRL run, e.g.:
+#   - verl:/mnt/data8tb/Documents/project/rlvr_winter/verl-my-rlvr/finished-models/grpo-gsm8k-train-13ep-success
+models:
+  - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-1.5B-Instruct
+  # - /mnt/2data/Documents/safetensors/openai_gpt-oss-20b
+  # - /mnt/2data/Documents/safetensors/deepseek-ai_deepseek-moe-16b-base
+  # - /mnt/2data/Documents/safetensors/google_gemma-3-12b-it
+  # - /mnt/2data/Documents/safetensors/deepseek-ai_DeepSeek-R1-0528-Qwen3-8B
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-14B
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-14B-FP8
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-8B
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-4B-Thinking-2507
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-4B
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-7B
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-Math-7B
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-Math-7B-Instruct
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2-7B-Instruct
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen-7B
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-3B-Instruct
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-Math-1.5B
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-Math-1.5B-Instruct
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-1.5B
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-1.7B
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-0.6B
+  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-0.5B
+  # - /mnt/2data/Documents/safetensors/deepseek-ai_deepseek-llm-7b-base
+  # - /mnt/2data/Documents/safetensors/deepseek-ai_Janus-Pro-7B-LLM   # Extracted Janus LLM
+
+# ── Tasks ─────────────────────────────────────────────────
+# Forms: "name" (task-default fewshot), "name:4", "name:0,4,8" (ladder),
+# or mappings: {name: gsm8k_main, fewshot: [0, 4, 8]}.
+# Empty list = run ALL registered tasks with their defaults.
+# Full task list: run_bench.py docstring or tasks/__init__.py.
+tasks:
+  - gsm8k_main:0
+  # - {name: gsm8k_main, fewshot: [0, 1, 2, 3, 4, 5, 6, 7, 8]}   # fewshot ladder
+  # - math500:0
+  # - hendrycks_math:0
+  # - aime_2024:0
+  # - aime_2025:0
+  # - theoremqa:0
+  # - mmlu_redux_2_generate:0
+  # - mmlu_redux_1_generate:0
+  # - mmlu_pro_generate:0
+  # - arc_challenge_generate:0
+  # - hellaswag_generate:0
+  # - winogrande_generate:0
+  # - gpqa_diamond_logprob_seq:0
+  # - bbh:0
+
+# ── Evaluation size / batching ────────────────────────────
+max_examples: null        # null = all examples; small number for debugging
+batch_size: null          # null = single llm.generate call; set if OOM
+
+# ── Prompting ─────────────────────────────────────────────
+apply_chat_template: false   # true for instruct/chat models, false for base models
+
+# ── Sampling ──────────────────────────────────────────────
+temperature: 0.0
+top_p: 0.95
+max_tokens: 1024
+pass_k: 1                 # >1 = pass@k (use temperature > 0 for diversity)
+seed: 42
+
+# ── vLLM / hardware ───────────────────────────────────────
+gpu_memory_utilization: 0.95   # lower if OOM
+max_model_len: 4096            # null = model default; lower if OOM
+enforce_eager: true            # disable CUDA graphs to save memory
+gpu_ids: null                  # null = default GPU, [7] = pin, [0,1,2] = parallel workers
+
+# ── Quantization ──────────────────────────────────────────
+# null, one method for all models ("bitsandbytes"/"awq"/"gptq"/"fp8"),
+# or a per-model mapping keyed by model tag (basename of the model path).
+quantization:
+  google_gemma-3-12b-it: bitsandbytes
+  openai_gpt-oss-20b: null            # already mxfp4 quantized
+  deepseek-ai_deepseek-moe-16b-base: bitsandbytes
+  Qwen_Qwen3-14B: bitsandbytes
