@@ -1290,13 +1290,12 @@ def _resolve_tasks_to_run(cfg: RunConfig) -> list[tuple[str, int | None]]:
     return [(task, None) for task in get_available_tasks()]
 
 
-def _run_coordinator(cfg: RunConfig) -> None:
+def _run_coordinator(cfg: RunConfig) -> Path:
     """Multi-GPU coordinator: spawn parallel workers and collect results."""
     total_start = time.time()
-    script_dir = Path(__file__).parent
-    results_dir = script_dir / "results"
+    results_dir = Path(cfg.results_dir)
     results_dir.mkdir(exist_ok=True, parents=True)
-    logs_dir = script_dir / "logs"
+    logs_dir = Path(cfg.logs_dir)
     logs_dir.mkdir(exist_ok=True, parents=True)
 
     # Determine tasks (for run_name generation and header display)
@@ -1421,25 +1420,23 @@ def _run_coordinator(cfg: RunConfig) -> None:
     print(f"\nResults saved to: {benchmark_db_path}")
     print(f"Logs saved to: {logs_dir}")
     print(f"{'#'*60}")
+    return benchmark_db_path
 
 
-def main() -> None:
-    args = build_arg_parser().parse_args()
-    try:
-        cfg = resolve_config(args)
-    except ValueError as e:
-        print(f"[ERROR] {e}", file=sys.stderr)
-        sys.exit(1)
+def run(cfg: RunConfig, *, shard: str | None = None, run_name: str | None = None) -> Path:
+    """Run all configured benchmarks and return the results database path.
 
+    This is the library entry point: build a RunConfig and call run(cfg).
+    shard and run_name are internal parameters for multi-GPU worker processes.
+    """
     # Multi-GPU coordinator mode: gpu_ids has 2+ GPUs and not already a worker
-    if cfg.gpu_ids and len(cfg.gpu_ids) > 1 and args.shard is None:
-        _run_coordinator(cfg)
-        return
+    if cfg.gpu_ids and len(cfg.gpu_ids) > 1 and shard is None:
+        return _run_coordinator(cfg)
 
     # ---------- single-GPU / worker mode ----------
 
     # Pin to specific GPU if gpu_ids has exactly one entry (e.g., gpu_ids: [7])
-    if cfg.gpu_ids and len(cfg.gpu_ids) == 1 and args.shard is None:
+    if cfg.gpu_ids and len(cfg.gpu_ids) == 1 and shard is None:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(cfg.gpu_ids[0])
         print(f"[INFO] Pinning to GPU {cfg.gpu_ids[0]} (CUDA_VISIBLE_DEVICES={cfg.gpu_ids[0]})")
 
@@ -1449,31 +1446,27 @@ def main() -> None:
     models = cfg.models
     shard_idx = None
     num_shards = None
-    if args.shard is not None:
-        shard_idx, num_shards = (int(x) for x in args.shard.split("/"))
+    if shard is not None:
+        shard_idx, num_shards = (int(x) for x in shard.split("/"))
         models = cfg.models[shard_idx::num_shards]
         if not models:
             print(f"[WORKER {shard_idx}] No models assigned, exiting.")
-            return
+            return None
 
     # ---------- setup paths ----------
-    script_dir = Path(__file__).parent
-    data_dir = script_dir / "data"
+    data_dir = Path(cfg.data_dir)
     timestamp = datetime.now().strftime("%m%d_%H%M")
 
     # ---------- setup results directory ----------
-    results_dir = script_dir / "results"
+    results_dir = Path(cfg.results_dir)
     results_dir.mkdir(exist_ok=True, parents=True)
 
     # ---------- determine tasks to run ----------
     tasks_to_run = _resolve_tasks_to_run(cfg)
 
     # ---------- setup consolidated benchmark database and logs ----------
-    if args.run_name:
-        # Worker mode: use shared run name from coordinator
-        run_name = args.run_name
-    else:
-        # Standalone mode: generate run name
+    if run_name is None:
+        # Standalone mode: generate run name (workers get it from the coordinator)
         run_name = _make_run_name(cfg, len(models), len(tasks_to_run))
 
     benchmark_db_path = results_dir / f"{run_name}.sqlite3"
@@ -1481,13 +1474,13 @@ def main() -> None:
 
     # Standalone mode: record the resolved config (file + DB).
     # In worker mode the coordinator already did both.
-    if args.shard is None:
+    if shard is None:
         resolved_config_path = results_dir / f"{run_name}_config.yaml"
         resolved_config_path.write_text(cfg.to_yaml(), encoding="utf-8")
         benchmark_db.save_run_config(cfg.to_yaml())
 
     # ---------- setup output logging ----------
-    logs_dir = script_dir / "logs"
+    logs_dir = Path(cfg.logs_dir)
     logs_dir.mkdir(exist_ok=True, parents=True)
     # Suffix log files with shard ID to avoid collisions in multi-GPU mode
     log_name = f"{run_name}_gpu{shard_idx}" if shard_idx is not None else run_name
@@ -1500,12 +1493,24 @@ def main() -> None:
     finally:
         # In multi-GPU mode other workers may still hold the DB open;
         # only the last close of a run may delete the WAL/SHM sidecars.
-        benchmark_db.close(remove_sidecars=args.shard is None)
+        benchmark_db.close(remove_sidecars=shard is None)
         output_logger.stop()
 
     print(f"\nResults saved to: {benchmark_db_path}")
     print(f"Logs saved to: {logs_dir / log_name}_stdout.log and _combined.log")
     print(f"{'#'*60}")
+    return benchmark_db_path
+
+
+def main() -> None:
+    args = build_arg_parser().parse_args()
+    try:
+        cfg = resolve_config(args)
+    except ValueError as e:
+        print(f"[ERROR] {e}", file=sys.stderr)
+        sys.exit(1)
+
+    run(cfg, shard=args.shard, run_name=args.run_name)
 
 
 def _run_models(

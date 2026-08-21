@@ -56,6 +56,12 @@ class RunConfig:
     # "awq", "gptq", "fp8"), or a {model_tag: method} mapping.
     quantization: str | dict[str, str | None] | None = None
 
+    # Output/input directories; relative paths resolve against the
+    # current working directory.
+    results_dir: str = "results"   # SQLite DBs + resolved config YAMLs
+    logs_dir: str = "logs"         # tee'd stdout/stderr logs
+    data_dir: str = "data"         # optional local few-shot files
+
     def quantization_for(self, model_tag: str) -> str | None:
         """Resolve the quantization method for one model."""
         if isinstance(self.quantization, dict):
@@ -247,6 +253,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--quantization", type=str, default=None, metavar="METHOD",
                    help="quantization for all models (bitsandbytes/awq/gptq/fp8; "
                         "'none' to force model default; per-model maps are YAML-only)")
+    p.add_argument("--results-dir", type=str, default=None, metavar="DIR",
+                   help="directory for result DBs and resolved configs (default: ./results)")
+    p.add_argument("--logs-dir", type=str, default=None, metavar="DIR",
+                   help="directory for run logs (default: ./logs)")
+    p.add_argument("--data-dir", type=str, default=None, metavar="DIR",
+                   help="directory with optional local few-shot files (default: ./data)")
     # Internal flags for multi-GPU worker processes (not user-facing)
     p.add_argument("--shard", type=str, default=None, help=argparse.SUPPRESS)
     p.add_argument("--run-name", type=str, default=None, help=argparse.SUPPRESS)
@@ -271,7 +283,7 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
     # ---------- CLI override layer (only flags the user actually passed) ----------
     for key in ("max_examples", "batch_size", "apply_chat_template", "temperature",
                 "top_p", "max_tokens", "pass_k", "seed", "gpu_memory_utilization",
-                "max_model_len", "enforce_eager"):
+                "max_model_len", "enforce_eager", "results_dir", "logs_dir", "data_dir"):
         value = getattr(args, key)
         if value is not None:
             data[key] = value

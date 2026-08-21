@@ -101,6 +101,22 @@ TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
 }
 
 
+def register_task(name: str, factory: Callable[..., TaskConfig],
+                  overwrite: bool = False) -> None:
+    """Register a custom task so it can be referenced by name in configs.
+
+    Args:
+        name: Task name (e.g., "my_task").
+        factory: Zero-arg callable returning a TaskConfig.
+        overwrite: Allow replacing an existing registration.
+    """
+    if name in TASK_REGISTRY and not overwrite:
+        raise ValueError(
+            f"Task '{name}' is already registered (pass overwrite=True to replace)"
+        )
+    TASK_REGISTRY[name] = factory
+
+
 def get_available_tasks() -> list[str]:
     """Return list of available task names."""
     return list(TASK_REGISTRY.keys())
@@ -126,6 +142,7 @@ def get_task(task_name: str) -> TaskConfig:
 __all__ = [
     "TaskConfig",
     "TASK_REGISTRY",
+    "register_task",
     "get_available_tasks",
     "get_task",
     "load_jsonl",
