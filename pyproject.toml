@@ -1,13 +1,28 @@
 [project]
 name = "lm-eval-ledger"
 version = "0.1.1"
-description = "Add your description here"
+description = "vLLM-based LLM benchmark harness that records every prompt, response, and score to SQLite"
 readme = "README.md"
 authors = [
     { name = "Jaymin Bhan", email = "jayminbhan@gmail.com" }
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "vllm>=0.6",
+    "datasets>=2.19",
+    "pyyaml>=6.0",
+]
+keywords = ["llm", "evaluation", "benchmark", "vllm", "eval-harness"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.scripts]
+lm-eval-ledger = "lm_eval_ledger.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.9.18,<0.10.0"]

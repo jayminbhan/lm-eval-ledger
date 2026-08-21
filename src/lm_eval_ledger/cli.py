@@ -1,13 +1,13 @@
-# run_bench.py
+# cli.py
 """
 LLM Benchmark Runner
 
 Usage:
-    python run_bench.py                        # settings from ./bench.yaml
-    python run_bench.py -c my_run.yaml         # explicit config file
-    python run_bench.py -c my_run.yaml --max-examples 10   # flag overrides file
-    python run_bench.py --model Qwen/Qwen2.5-0.5B-Instruct --task gsm8k_main:0
-    python run_bench.py --help                 # all flags
+    lm-eval-ledger                        # settings from ./bench.yaml
+    lm-eval-ledger -c my_run.yaml         # explicit config file
+    lm-eval-ledger -c my_run.yaml --max-examples 10   # flag overrides file
+    lm-eval-ledger --model Qwen/Qwen2.5-0.5B-Instruct --task gsm8k_main:0
+    lm-eval-ledger --help                 # all flags
 
 Settings precedence: RunConfig defaults < YAML config < CLI flags (see config.py).
 
@@ -53,9 +53,9 @@ from pathlib import Path
 from vllm import LLM, SamplingParams
 from vllm.distributed.parallel_state import destroy_model_parallel
 
-from config import RunConfig, build_arg_parser, resolve_config
-from tasks import get_task, get_available_tasks
-from tasks.base import load_from_hf, load_jsonl
+from .config import RunConfig, build_arg_parser, resolve_config
+from .tasks import get_task, get_available_tasks
+from .tasks.base import load_from_hf, load_jsonl
 
 
 os.environ["VLLM_USE_FLASHINFER_SAMPLER"] = "0"
@@ -1334,14 +1334,13 @@ def _run_coordinator(cfg: RunConfig) -> None:
     print(f"{'='*60}")
 
     # ---------- spawn worker processes ----------
-    script_path = str(Path(__file__).resolve())
     processes = []
     for worker_id in range(num_workers):
         gpu_id = gpu_ids[worker_id]
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = gpu_id
         cmd = [
-            sys.executable, script_path,
+            sys.executable, "-m", "lm_eval_ledger.cli",
             "--config", str(resolved_config_path),
             "--shard", f"{worker_id}/{num_workers}",
             "--run-name", run_name,
