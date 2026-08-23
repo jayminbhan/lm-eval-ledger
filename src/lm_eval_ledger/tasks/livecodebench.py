@@ -45,6 +45,24 @@ _TEST_TIMEOUT_S = 6
 
 _CODE_BLOCK_RE = re.compile(r"```(?:python)?\s*\n(.*?)```", re.DOTALL)
 
+# Prepended before the model's code, mirroring the official harness: LeetCode
+# solutions routinely use List/deque/Counter/etc. without importing them.
+_PRELUDE = """\
+import sys as _lel_prelude_sys
+_lel_prelude_sys.setrecursionlimit(600000)
+import collections, functools, heapq, itertools, math, random, re, string, sys
+from collections import Counter, OrderedDict, defaultdict, deque
+from functools import lru_cache, cache, reduce
+from heapq import heappush, heappop, heapify
+from itertools import accumulate, combinations, permutations, product
+from math import ceil, floor, gcd, inf, sqrt
+from typing import *
+try:
+    from sortedcontainers import SortedList, SortedDict, SortedSet
+except ImportError:
+    pass
+"""
+
 # Appended below the model's code; reads JSON args (one per line) from stdin,
 # calls Solution().<func> (or a bare function of that name), prints JSON result.
 _FUNCTIONAL_HARNESS = """
@@ -183,10 +201,10 @@ def _run_one_test(code: str, test: dict, func_name: str | None) -> bool:
     if test.get("testtype") == "functional":
         if not func_name:
             return False
-        script = code + _FUNCTIONAL_HARNESS
+        script = _PRELUDE + code + _FUNCTIONAL_HARNESS
         argv = [sys.executable, "-c", script, func_name]
     else:
-        argv = [sys.executable, "-c", code]
+        argv = [sys.executable, "-c", _PRELUDE + code]
 
     try:
         proc = subprocess.run(
