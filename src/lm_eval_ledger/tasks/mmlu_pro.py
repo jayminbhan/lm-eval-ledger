@@ -1,5 +1,10 @@
 # tasks/mmlu_pro.py
-"""MMLU-Pro benchmark task - Harder MCQ with up to 10 options."""
+"""MMLU-Pro benchmark task - Harder MCQ with up to 10 options.
+
+Paper: Wang et al., "MMLU-Pro: A More Robust and Challenging Multi-Task
+Language Understanding Benchmark", arXiv:2406.01574 (NeurIPS 2024).
+Dataset: TIGER-Lab/MMLU-Pro (official)
+"""
 from __future__ import annotations
 
 from .base import TaskConfig, exact_match, extract_boxed_letter

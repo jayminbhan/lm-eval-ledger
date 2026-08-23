@@ -1,7 +1,9 @@
 # tasks/gpqa.py
 """GPQA (Graduate-Level Google-Proof Q&A) benchmark tasks.
 
-Dataset: Idavidrein/gpqa
+Paper: Rein et al., "GPQA: A Graduate-Level Google-Proof Q&A Benchmark",
+arXiv:2311.12022 (2023).
+Dataset: Idavidrein/gpqa (official; gated - accept terms on the HF page)
 Splits: diamond (198), main (448), extended (546)
 Format: rows with Question, Correct Answer, Incorrect Answer 1-3.
 Choices are shuffled deterministically (seeded by row index) so the

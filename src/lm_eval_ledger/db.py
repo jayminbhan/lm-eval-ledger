@@ -152,7 +152,9 @@ class BenchmarkDatabase:
                 entry.get("prompt_actual", ""),
                 entry.get("prompt_full", ""),
                 entry.get("gold_answer", ""),
-                1 if entry.get("is_correct") else 0,
+                # bool for binary tasks; float score in [0,1] for partial-credit
+                # tasks (SQLite stores either in the is_correct column)
+                float(entry.get("is_correct") or 0.0),
                 json.dumps(entry.get("extracted_answers", [])),
                 json.dumps(entry.get("stop_reasons", [])),
                 *response_values,

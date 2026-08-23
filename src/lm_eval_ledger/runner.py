@@ -50,7 +50,11 @@ def format_time(seconds: float) -> str:
 
 
 def load_examples(task) -> list[dict]:
-    """Load evaluation examples from HuggingFace."""
+    """Load evaluation examples from HuggingFace (or the task's custom loader)."""
+    if task.load_fn is not None:
+        examples = task.load_fn()
+        print(f"[INFO] Loaded {len(examples)} examples via custom loader ({task.name})")
+        return examples
     examples = load_from_hf(task, split=task.hf_split)
     print(f"[INFO] Loaded {len(examples)} examples from HF ({task.hf_repo})")
     return examples
@@ -68,9 +72,20 @@ def apply_chat_template(tokenizer, task, example: dict, prompt_raw: str,
     With a few-shot chat prefix, the few-shot examples become user/assistant
     turns and only the test question goes in the final user message.
     Falls back to the raw prompt if the tokenizer has no template or it fails.
+
+    Multi-turn tasks (task.build_messages set) supply their own full message
+    list; prompt_raw serves as the plain-text fallback for base models.
     """
     if not enabled or not hasattr(tokenizer, "apply_chat_template"):
         return prompt_raw
+    if task.build_messages is not None:
+        try:
+            return tokenizer.apply_chat_template(
+                task.build_messages(example), tokenize=False,
+                add_generation_prompt=True,
+            )
+        except Exception:
+            return prompt_raw
     try:
         if fewshot_chat_prefix:
             test_question = task.build_prompt(example, "")
@@ -404,6 +419,21 @@ def run_task(
             for ex in eval_examples
         ]
 
+        # Drop prompts that don't fit the context window (vLLM would abort the
+        # whole task otherwise). Mainly relevant for long-context tasks (MRCR).
+        if cfg.max_model_len is not None:
+            budget = cfg.max_model_len - cfg.max_tokens
+            keep = [i for i, p in enumerate(prompts)
+                    if len(tokenizer.encode(p)) <= budget]
+            if len(keep) < len(prompts):
+                print(f"[WARN] Skipping {len(prompts) - len(keep)} examples whose "
+                      f"prompts exceed max_model_len - max_tokens = {budget} tokens")
+                prompts = [prompts[i] for i in keep]
+                eval_examples = [eval_examples[i] for i in keep]
+                sample_ids = [sample_ids[i] for i in keep]
+                gold_answers = [gold_answers[i] for i in keep]
+                prompts_without_fewshot = [prompts_without_fewshot[i] for i in keep]
+
         print(f"[INFO] Running batch inference on {len(prompts)} examples...")
         inference_start = time.time()
         outputs = generate_batched(llm, prompts, sampling_params, cfg.batch_size)
@@ -418,7 +448,9 @@ def run_task(
         for idx, (output, ex) in enumerate(zip(outputs, eval_examples)):
             gold = gold_answers[idx]
             all_responses = output.outputs
-            any_correct = False
+            # match_fn may return bool (binary tasks) or a float score in [0, 1]
+            # (partial-credit tasks like MRCR); pass@k keeps the best score.
+            best_score = 0.0
             responses_list = []
 
             for resp_idx, result in enumerate(all_responses):
@@ -431,28 +463,26 @@ def run_task(
                     stop_reason_str = f"{finish_reason}:-"
 
                 pred = task.extract_pred(pred_raw)
-                is_correct = task.match_fn(gold, pred)
+                score = float(task.match_fn(gold, pred))
 
                 responses_list.append({
                     "response": pred_raw,
                     "extracted": pred,
-                    "correct": is_correct,
+                    "correct": score,
                     "stop_reason": stop_reason_str,
                 })
                 all_stop_reasons.append(stop_reason_str)
 
-                if is_correct:
-                    any_correct = True
+                best_score = max(best_score, score)
 
-            if any_correct:
-                correct_count += 1
+            correct_count += best_score
 
             log_entries.append({
                 "sample_id": sample_ids[idx],
                 "prompt_actual": prompts_without_fewshot[idx],
                 "prompt_full": prompts[idx],
                 "gold_answer": gold,
-                "is_correct": any_correct,
+                "is_correct": best_score,
                 "extracted_answers": [r["extracted"] for r in responses_list],
                 "stop_reasons": [r["stop_reason"] for r in responses_list],
                 "responses": [r["response"] for r in responses_list],
@@ -506,7 +536,7 @@ def run_task(
     }
 
     # ---------- print results ----------
-    print(f"[{task_name_with_fewshot}] Accuracy: {correct}/{total} = {acc:.4f} | Duration: {format_time(duration)}")
+    print(f"[{task_name_with_fewshot}] Accuracy: {correct:g}/{total} = {acc:.4f} | Duration: {format_time(duration)}")
 
     return summary, log_entries
 
@@ -659,7 +689,7 @@ def run_model(
         if "error" in summary:
             print(f"  {summary['task']}: ERROR - {summary['error']}")
         else:
-            print(f"  {summary['task']}: {summary['accuracy']:.4f} ({summary['correct']}/{summary['total_examples']})")
+            print(f"  {summary['task']}: {summary['accuracy']:.4f} ({summary['correct']:g}/{summary['total_examples']})")
 
     return model_summary
 
@@ -1006,7 +1036,3 @@ def _run_models(
             "model": f"Models: {', '.join(model_tags)} | Tasks: {', '.join(sorted(task_names))}",
         }
         benchmark_db.add_summary(total_summary)
-
-
-if __name__ == "__main__":
-    main()

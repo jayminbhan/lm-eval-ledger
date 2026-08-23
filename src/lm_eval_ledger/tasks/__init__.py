@@ -24,6 +24,9 @@ from . import hendrycks_math
 from . import theoremqa
 from . import bbh
 from . import gpqa
+from . import hle
+from . import livecodebench
+from . import mrcr
 
 
 # ============================================================
@@ -98,6 +101,17 @@ TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
     "gpqa_extended_generate": gpqa.get_task_extended_generate,
     "gpqa_extended_logprob_token": gpqa.get_task_extended_logprob_token,
     "gpqa_extended_logprob_seq": gpqa.get_task_extended_logprob_seq,
+
+    # HLE (Humanity's Last Exam, text-only; gated dataset)
+    "hle": hle.get_task,
+
+    # LiveCodeBench (code generation; executes generated code locally)
+    "livecodebench": livecodebench.get_task,
+
+    # MRCR (long-context multi-round co-reference; partial-credit scoring)
+    "mrcr_2needle": mrcr.get_task_2needle,
+    "mrcr_4needle": mrcr.get_task_4needle,
+    "mrcr_8needle": mrcr.get_task_8needle,
 }
 
 

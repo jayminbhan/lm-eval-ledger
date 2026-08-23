@@ -15,8 +15,19 @@ class TaskConfig:
     build_prompt: Callable[[dict, str], str]
     extract_gold: Callable[[dict], str]
     extract_pred: Callable[[str], str]
-    match_fn: Callable[[str, str], bool]
+    # Returns bool for binary tasks, or a float score in [0, 1] for
+    # partial-credit tasks (e.g., MRCR's sequence-match ratio).
+    match_fn: Callable[[str, str], bool | float]
     stop_strings: list[str] = field(default_factory=list)
+
+    # Multi-turn tasks (e.g., MRCR): build the full chat message list for one
+    # example. When set and apply_chat_template is enabled, this replaces the
+    # single-user-message wrapping of build_prompt's output.
+    build_messages: Callable[[dict], list[dict]] | None = None
+
+    # Custom dataset loader for repos the `datasets` library can't load
+    # (e.g., script-based datasets). When set, used instead of load_from_hf.
+    load_fn: Callable[[], list[dict]] | None = None
 
     # Curated few-shot examples file (relative to data/ directory)
     fewshot_path: str = ""
@@ -58,8 +69,9 @@ class TaskConfig:
 # Common utilities
 # ============================================================
 
-def load_jsonl(path: Path) -> list[dict]:
+def load_jsonl(path: Path | str) -> list[dict]:
     """Load JSONL file into list of dicts."""
+    path = Path(path)
     items = []
     with path.open("r", encoding="utf-8") as f:
         for line in f:
