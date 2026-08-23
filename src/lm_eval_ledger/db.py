@@ -102,10 +102,17 @@ class LedgerDatabase:
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_task ON benchmarks(task, model_tag)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_samples_benchmark ON samples(benchmark_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_samples_sample_id ON samples(sample_id)")
+        # Recreated (not IF NOT EXISTS) so view improvements reach existing
+        # ledgers; views are cheap. Oversized golds (e.g. LiveCodeBench's
+        # packed test suites) are truncated here - full values stay in samples.
+        c.execute("DROP VIEW IF EXISTS samples_flat")
         c.execute("""
-            CREATE VIEW IF NOT EXISTS samples_flat AS
+            CREATE VIEW samples_flat AS
             SELECT s.sample_pk, b.run_id, b.model_tag, b.task, b.fewshot_k,
-                   s.sample_id, s.gold,
+                   s.sample_id,
+                   CASE WHEN length(s.gold) > 200
+                        THEN substr(s.gold, 1, 200) || '...'
+                        ELSE s.gold END AS gold,
                    json_extract(s.responses, '$[0].extracted') AS extracted,
                    json_extract(s.responses, '$[0].stop_reason') AS stop_reason,
                    json_extract(s.responses, '$[0].text') AS response,
