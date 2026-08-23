@@ -1,49 +1,39 @@
 # bench.yaml - benchmark run configuration
 #
 # Usage:
-#   python run_bench.py                       # uses this file
-#   python run_bench.py -c other.yaml         # a different config
-#   python run_bench.py --max-examples 10     # any CLI flag overrides this file
+#   lm-eval-ledger                       # uses ./bench.yaml
+#   lm-eval-ledger -c other.yaml         # a different config
+#   lm-eval-ledger --max-examples 10     # any CLI flag overrides this file
 #
 # Unknown keys are rejected (typos fail loudly). See config.py for all fields
 # and their defaults; the resolved config for every run is saved to
 # results/{run_name}_config.yaml and into the run's SQLite DB.
 
 # ── Models ────────────────────────────────────────────────
-# HuggingFace ids or local paths, run sequentially.
-# "verl:<run_dir>" expands to every global_step checkpoint in a veRL run, e.g.:
-#   - verl:/mnt/data8tb/Documents/project/rlvr_winter/verl-my-rlvr/finished-models/grpo-gsm8k-train-13ep-success
+# HuggingFace ids (downloaded into the HF hub cache on first load) or local
+# paths, run sequentially. Gated repos need `huggingface-cli login`.
+# "verl:<run_dir>" expands to every global_step checkpoint in a veRL run.
 models:
-  - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-1.5B-Instruct
-  # - /mnt/2data/Documents/safetensors/openai_gpt-oss-20b
-  # - /mnt/2data/Documents/safetensors/deepseek-ai_deepseek-moe-16b-base
-  # - /mnt/2data/Documents/safetensors/google_gemma-3-12b-it
-  # - /mnt/2data/Documents/safetensors/deepseek-ai_DeepSeek-R1-0528-Qwen3-8B
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-14B
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-14B-FP8
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-8B
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-4B-Thinking-2507
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-4B
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-7B
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-Math-7B
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-Math-7B-Instruct
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2-7B-Instruct
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen-7B
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-3B-Instruct
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-Math-1.5B
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-Math-1.5B-Instruct
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-1.5B
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-1.7B
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen3-0.6B
-  # - /mnt/2data/Documents/safetensors/Qwen_Qwen2.5-0.5B
-  # - /mnt/2data/Documents/safetensors/deepseek-ai_deepseek-llm-7b-base
-  # - /mnt/2data/Documents/safetensors/deepseek-ai_Janus-Pro-7B-LLM   # Extracted Janus LLM
+  - Qwen/Qwen2.5-1.5B-Instruct
+  # - openai/gpt-oss-20b
+  # - deepseek-ai/deepseek-moe-16b-base
+  # - google/gemma-3-12b-it
+  # - deepseek-ai/DeepSeek-R1-0528-Qwen3-8B
+  # - Qwen/Qwen3-14B
+  # - Qwen/Qwen3-8B
+  # - Qwen/Qwen3-4B-Thinking-2507
+  # - Qwen/Qwen2.5-7B
+  # - Qwen/Qwen2.5-Math-7B-Instruct
+  # - Qwen/Qwen2.5-Math-1.5B
+  # - Qwen/Qwen3-0.6B
+  # - /path/to/local/checkpoint            # local snapshots still work
+  # - verl:/path/to/verl-run               # every checkpoint of a veRL run
 
 # ── Tasks ─────────────────────────────────────────────────
 # Forms: "name" (task-default fewshot), "name:4", "name:0,4,8" (ladder),
 # or mappings: {name: gsm8k_main, fewshot: [0, 4, 8]}.
 # Empty list = run ALL registered tasks with their defaults.
-# Full task list: run_bench.py docstring or tasks/__init__.py.
+# Full task list: `lm-eval-ledger --help` or tasks/__init__.py.
 tasks:
   - gsm8k_main:0
   # - {name: gsm8k_main, fewshot: [0, 1, 2, 3, 4, 5, 6, 7, 8]}   # fewshot ladder
@@ -53,13 +43,15 @@ tasks:
   # - aime_2025:0
   # - theoremqa:0
   # - mmlu_redux_2_generate:0
-  # - mmlu_redux_1_generate:0
   # - mmlu_pro_generate:0
   # - arc_challenge_generate:0
   # - hellaswag_generate:0
   # - winogrande_generate:0
   # - gpqa_diamond_logprob_seq:0
   # - bbh:0
+  # - hle:0                      # gated: accept terms on hf.co/datasets/cais/hle
+  # - livecodebench:0            # executes generated code; max_tokens >= 2048
+  # - mrcr_2needle:0             # long context; needs chat template + large max_model_len
 
 # ── Evaluation size / batching ────────────────────────────
 max_examples: null        # null = all examples; small number for debugging
@@ -83,9 +75,16 @@ gpu_ids: null                  # null = default GPU, [7] = pin, [0,1,2] = parall
 
 # ── Quantization ──────────────────────────────────────────
 # null, one method for all models ("bitsandbytes"/"awq"/"gptq"/"fp8"),
-# or a per-model mapping keyed by model tag (basename of the model path).
+# or a per-model mapping keyed by MODEL TAG. The tag is the basename of the
+# model entry: "Qwen/Qwen3-14B" -> "Qwen3-14B", "/path/to/ckpt" -> "ckpt".
 quantization:
-  google_gemma-3-12b-it: bitsandbytes
-  openai_gpt-oss-20b: null            # already mxfp4 quantized
-  deepseek-ai_deepseek-moe-16b-base: bitsandbytes
-  Qwen_Qwen3-14B: bitsandbytes
+  gemma-3-12b-it: bitsandbytes
+  gpt-oss-20b: null                   # already mxfp4 quantized
+  deepseek-moe-16b-base: bitsandbytes
+  Qwen3-14B: bitsandbytes
+
+# ── LLM answer verification (optional post-run pass) ──────
+# Re-judges stored responses with a verifier model after the run;
+# writes verified_accuracy next to accuracy in the results DB.
+# verifier_model: opencompass/CompassVerifier-7B
+# verifier_mode: fallback      # fallback = only re-judge string-match failures
