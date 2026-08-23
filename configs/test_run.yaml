@@ -1,15 +1,15 @@
-# test_run.yaml - smoke test: 5 ~8B instruct models, recent tasks included.
+# test_run.yaml - smoke test: 5 ~10B instruct models, recent tasks included.
 #
-# All models are ungated HF repos (~16GB each, downloaded into the HF hub
-# cache on first load). 10 examples per task keeps the run short; drop
-# max_examples to null for real numbers.
+# All five models are ALREADY in the HF hub cache (no model downloads).
+# 10 examples per task keeps the run short; drop max_examples to null for
+# real numbers.
 
 models:
   - Qwen/Qwen2.5-7B-Instruct
-  - Qwen/Qwen3-8B
-  - deepseek-ai/DeepSeek-R1-0528-Qwen3-8B   # thinking model; may hit max_tokens
-  - mistralai/Mistral-7B-Instruct-v0.3
-  - ibm-granite/granite-3.3-8b-instruct
+  - Qwen/Qwen2-7B-Instruct
+  - Qwen/Qwen3-8B                          # hybrid thinking model; may hit max_tokens
+  - Qwen/Qwen3.5-9B
+  - google/gemma-4-12B-it-qat-w4a16-ct     # pre-quantized (w4a16); 12B fits fine
 
 tasks:
   - gsm8k_main:0
