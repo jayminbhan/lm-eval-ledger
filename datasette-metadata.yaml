@@ -1,0 +1,67 @@
+# Datasette metadata for browsing a ledger.
+#
+#   pip install datasette
+#   datasette results/ledger.sqlite3 -m datasette-metadata.yaml
+#
+# Canned queries appear in the UI with input forms for their parameters
+# and are linkable / exportable as JSON and CSV.
+title: lm-eval-ledger
+databases:
+  ledger:
+    tables:
+      samples:
+        sort_desc: sample_pk
+    queries:
+      leaderboard:
+        title: Leaderboard (all runs)
+        sql: |-
+          SELECT b.run_id, b.model_tag, b.task, b.fewshot_k,
+                 ROUND(b.accuracy, 4) AS accuracy,
+                 ROUND(b.verified_accuracy, 4) AS verified_accuracy,
+                 b.total_examples, r.started_at
+          FROM benchmarks b JOIN runs r USING (run_id)
+          WHERE b.error IS NULL OR b.error = ''
+          ORDER BY b.task, COALESCE(b.verified_accuracy, b.accuracy) DESC
+      wrong_answers:
+        title: Wrong answers for one run
+        sql: |-
+          SELECT b.model_tag, b.task, s.sample_id, s.gold,
+                 json_extract(s.responses, '$[0].extracted') AS extracted,
+                 json_extract(s.responses, '$[0].stop_reason') AS stop_reason,
+                 s.verifier_verdicts,
+                 json_extract(s.responses, '$[0].text') AS response
+          FROM samples s JOIN benchmarks b USING (benchmark_id)
+          WHERE b.run_id = :run_id
+            AND COALESCE(s.verified_score, s.score) < 1
+          ORDER BY b.task, s.sample_id
+      sample_flips:
+        title: Sample flips between two runs
+        sql: |-
+          SELECT ba.task, ba.fewshot_k, ba.model_tag, sa.sample_id, sa.gold,
+                 json_extract(sa.responses, '$[0].extracted') AS answer_a,
+                 json_extract(sb.responses, '$[0].extracted') AS answer_b,
+                 COALESCE(sa.verified_score, sa.score) AS score_a,
+                 COALESCE(sb.verified_score, sb.score) AS score_b,
+                 CASE WHEN COALESCE(sb.verified_score, sb.score)
+                           > COALESCE(sa.verified_score, sa.score)
+                      THEN 'FIXED' ELSE 'REGRESSED' END AS direction
+          FROM benchmarks ba
+          JOIN benchmarks bb ON ba.task = bb.task
+                            AND ba.fewshot_k IS bb.fewshot_k
+          JOIN samples sa ON sa.benchmark_id = ba.benchmark_id
+          JOIN samples sb ON sb.benchmark_id = bb.benchmark_id
+                         AND sb.sample_id = sa.sample_id
+          WHERE ba.run_id = :run_a AND bb.run_id = :run_b
+            AND COALESCE(sa.verified_score, sa.score)
+                != COALESCE(sb.verified_score, sb.score)
+          ORDER BY ba.task, sa.sample_id
+      format_noncompliance:
+        title: Format non-compliance by model and task
+        sql: |-
+          SELECT b.run_id, b.model_tag, b.task,
+                 b.no_answer_count, b.total_examples,
+                 ROUND(1.0 * b.no_answer_count / b.total_examples, 4) AS no_answer_rate,
+                 b.stop_reason_counts
+          FROM benchmarks b
+          WHERE b.total_examples > 0
+          ORDER BY no_answer_rate DESC
