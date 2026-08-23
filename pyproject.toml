@@ -1,6 +1,6 @@
 [project]
 name = "lm-eval-ledger"
-version = "0.2.0"
+version = "0.1.0"
 description = "vLLM-based LLM benchmark harness that records every prompt, response, and score to SQLite"
 readme = "README.md"
 authors = [
