@@ -1,0 +1,50 @@
+# full_run.yaml - full evaluation: 5 models x 8 tasks, all examples.
+#
+# Rough single-RTX-5090 estimate: ~1.5-2.5h per model (mmlu_pro is ~12k
+# examples; livecodebench executes tests sequentially; mrcr prefills long
+# prompts), so ~8-12h total plus the verifier pass at the end.
+# Cheap tasks run first for early signal in the logs.
+
+models:
+  - Qwen/Qwen2.5-7B-Instruct
+  - Qwen/Qwen2-7B-Instruct
+  - Qwen/Qwen3-8B                # hybrid thinking model
+  - Qwen/Qwen3.5-9B
+  - Qwen/Qwen3-14B               # 4-bit via quantization map below
+
+tasks:
+  - aime_2024:0                  # 30 examples
+  - aime_2025:0                  # 30
+  - gsm8k_main:0                 # 1319
+  - gpqa_diamond_generate:0      # 198 (gated)
+  - hle:0                        # 2158 text-only (gated)
+  - mmlu_pro_generate:0          # ~12k - the long pole
+  - livecodebench:0              # 1055, executes generated code locally
+  - mrcr_2needle:0               # shortest-first; ~236 of 800 fit the 32k window
+
+max_examples: null               # FULL runs
+batch_size: null
+
+apply_chat_template: true
+
+temperature: 0.0
+top_p: 0.95
+max_tokens: 4096                 # headroom for thinking models / AIME / code
+pass_k: 1
+seed: 42
+
+db_path: /mnt/data8tb/Documents/project/lm-eval-ledger/results/ledger.sqlite3
+
+gpu_memory_utilization: 0.90
+max_model_len: 32768             # doubles MRCR coverage vs 16k (236 examples fit)
+enforce_eager: true
+gpu_ids: null
+
+quantization:
+  Qwen3-14B: bitsandbytes        # 14B fp16 wouldn't fit 32GB
+
+# Post-run verification: re-judges string-match failures (recovers
+# format-noncompliant answers, e.g. Qwen2-7B on GPQA/HLE).
+# Downloads CompassVerifier-7B (~15GB) on first use.
+verifier_model: opencompass/CompassVerifier-7B
+verifier_mode: fallback
