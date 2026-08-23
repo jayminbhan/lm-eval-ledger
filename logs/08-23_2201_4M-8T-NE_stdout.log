@@ -1,0 +1,60 @@
+==== Benchmark Run: 2026-08-23T22:01:34.055296 ====
+
+============================================================
+LLM BENCHMARK RUNNER
+============================================================
+Models: 4
+  - Qwen2.5-7B-Instruct
+  - Qwen2-7B-Instruct
+  - Qwen3.5-9B
+  - Qwen3-14B
+Tasks: aime_2024(0), aime_2025(0), gsm8k_main(0), gpqa_diamond_generate(0), hle(0), mmlu_pro_generate(0), livecodebench(0), mrcr_2needle(0)
+Timestamp: 0823_2201
+Ledger: /mnt/data8tb/Documents/project/lm-eval-ledger/results/ledger.sqlite3 (run id 1)
+============================================================
+
+[MODEL 1/4]
+
+############################################################
+# MODEL: Qwen2.5-7B-Instruct
+############################################################
+
+[INFO] Loading model: Qwen/Qwen2.5-7B-Instruct
+[INFO] Using model default precision (no quantization override)
+
+[1/8] Running aime_2024 (fewshot=0)...
+
+============================================================
+[TASK] aime_2024 - AIME 2024 - competition math problems
+============================================================
+[INFO] Loaded 30 examples from HF (HuggingFaceH4/aime_2024)
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[INFO] Running batch inference on 30 examples...
+[INFO] Batch inference completed in 45s
+[aime_2024(0)] Accuracy: 2/30 = 0.0667 | Duration: 48s
+
+[2/8] Running aime_2025 (fewshot=0)...
+
+============================================================
+[TASK] aime_2025 - AIME 2025 - competition math problems
+============================================================
+[INFO] Loaded 30 examples from HF (MathArena/aime_2025)
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[INFO] Running batch inference on 30 examples...
+[INFO] Batch inference completed in 45s
+[aime_2025(0)] Accuracy: 3/30 = 0.1000 | Duration: 49s
+
+[3/8] Running gsm8k_main (fewshot=0)...
+
+============================================================
+[TASK] gsm8k_main - GSM8K Main - arithmetic word problems
+============================================================
+[INFO] Loaded 1319 examples from HF (openai/gsm8k)
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[INFO] Running batch inference on 1319 examples...

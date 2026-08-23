@@ -25,6 +25,11 @@ class TaskConfig:
     # single-user-message wrapping of build_prompt's output.
     build_messages: Callable[[dict], list[dict]] | None = None
 
+    # When extract_gold returns machine-oriented data (e.g., LiveCodeBench's
+    # packed test suites), this provides the short human-readable gold shown
+    # in the samples.gold column; the full value is stored in gold_data.
+    extract_gold_display: Callable[[dict], str] | None = None
+
     # Custom dataset loader for repos the `datasets` library can't load
     # (e.g., script-based datasets). When set, used instead of load_from_hf.
     load_fn: Callable[[], list[dict]] | None = None

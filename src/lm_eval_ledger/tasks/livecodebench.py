@@ -148,6 +148,21 @@ def extract_gold(example: dict) -> str:
     })
 
 
+def extract_gold_display(example: dict) -> str:
+    """Short human-readable gold for the ledger (full tests go to gold_data)."""
+    try:
+        n_public = len(json.loads(example.get("public_test_cases") or "[]"))
+    except (json.JSONDecodeError, ValueError):
+        n_public = 0
+    try:
+        n_private = len(_decode_private_tests(example.get("private_test_cases", "")))
+    except Exception:
+        n_private = 0
+    return (f"pass all {n_public + n_private} tests "
+            f"({n_public} public, {n_private} private) - "
+            f"{example.get('platform', '')} {example.get('question_title', '')}")
+
+
 def extract_pred(model_output: str) -> str:
     """Extract the last ```python ...``` code block (official behavior)."""
     matches = _CODE_BLOCK_RE.findall(model_output)
@@ -255,6 +270,7 @@ def get_task() -> TaskConfig:
         name="livecodebench",
         build_prompt=build_prompt,
         extract_gold=extract_gold,
+        extract_gold_display=extract_gold_display,
         extract_pred=extract_pred,
         match_fn=match_fn,
         default_fewshot_k=0,

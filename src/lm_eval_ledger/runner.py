@@ -183,13 +183,20 @@ def run_task(
     # Get tokenizer (needed for chat template and logprob token ID lookup)
     tokenizer = llm.get_tokenizer()
 
-    # Common: build sample IDs and gold answers
+    # Common: build sample IDs and gold answers.
+    # gold_answers feeds match_fn; when the task defines extract_gold_display,
+    # the short display form goes in samples.gold and the full payload in
+    # samples.gold_data.
     sample_ids: list[str] = []
     gold_answers: list[str] = []
+    gold_displays: list[str | None] = []
     prompts_without_fewshot: list[str] = []
     for idx, ex in enumerate(eval_examples):
         sample_ids.append(str(ex.get("id", ex.get("idx", ex.get("index", idx)))))
         gold_answers.append(task.extract_gold(ex))
+        gold_displays.append(
+            task.extract_gold_display(ex) if task.extract_gold_display else None
+        )
         prompts_without_fewshot.append(task.build_prompt(ex, ""))
 
     # ========================================
@@ -267,7 +274,8 @@ def run_task(
                 "sample_id": sample_ids[ex_idx],
                 "prompt": prompts_without_fewshot[ex_idx],
                 "prompt_full": prompts[ex_idx],
-                "gold": gold,
+                "gold": gold_displays[ex_idx] or gold,
+                "gold_data": gold if gold_displays[ex_idx] else None,
                 "score": float(is_correct),
                 "responses": [{"text": logprobs_json, "extracted": pred,
                                "stop_reason": "logprob_token",
@@ -386,7 +394,8 @@ def run_task(
                 "sample_id": sample_ids[ex_idx],
                 "prompt": prompts_without_fewshot[ex_idx],
                 "prompt_full": base_prompts[ex_idx],
-                "gold": gold,
+                "gold": gold_displays[ex_idx] or gold,
+                "gold_data": gold if gold_displays[ex_idx] else None,
                 "score": float(is_correct),
                 "responses": [{"text": scores_json, "extracted": pred,
                                "stop_reason": "logprob_seq",
@@ -432,6 +441,7 @@ def run_task(
                 eval_examples = [eval_examples[i] for i in keep]
                 sample_ids = [sample_ids[i] for i in keep]
                 gold_answers = [gold_answers[i] for i in keep]
+                gold_displays = [gold_displays[i] for i in keep]
                 prompts_without_fewshot = [prompts_without_fewshot[i] for i in keep]
 
             if not prompts:
@@ -510,7 +520,8 @@ def run_task(
                 "sample_id": sample_ids[idx],
                 "prompt": prompts_without_fewshot[idx],
                 "prompt_full": prompts[idx],
-                "gold": gold,
+                "gold": gold_displays[idx] or gold,
+                "gold_data": gold if gold_displays[idx] else None,
                 "score": best_score,
                 "responses": responses_list,
             })

@@ -92,12 +92,18 @@ class LedgerDatabase:
                 prompt TEXT,
                 prompt_full TEXT,
                 gold TEXT,
+                gold_data TEXT,
                 responses TEXT,
                 score REAL,
                 verifier_verdicts TEXT,
                 verified_score REAL
             )
         """)
+        # Ledgers created before gold/gold_data were split
+        try:
+            c.execute("ALTER TABLE samples ADD COLUMN gold_data TEXT")
+        except sqlite3.OperationalError:
+            pass
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_run ON benchmarks(run_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_task ON benchmarks(task, model_tag)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_samples_benchmark ON samples(benchmark_id)")
@@ -182,7 +188,8 @@ class LedgerDatabase:
     def add_samples(self, benchmark_id: int, entries: list[dict]) -> None:
         """Add sample rows for one benchmark.
 
-        Each entry: sample_id, prompt, prompt_full, gold, score, and
+        Each entry: sample_id, prompt, prompt_full, gold (human-readable),
+        optional gold_data (machine payload for re-scoring), score, and
         responses = [{"text", "extracted", "stop_reason", "correct"}, ...].
         """
         rows = [
@@ -192,6 +199,7 @@ class LedgerDatabase:
                 entry.get("prompt", ""),
                 entry.get("prompt_full", ""),
                 entry.get("gold", ""),
+                entry.get("gold_data"),
                 json.dumps(entry.get("responses", [])),
                 float(entry.get("score") or 0.0),
             )
@@ -199,7 +207,7 @@ class LedgerDatabase:
         ]
         self.conn.executemany(
             "INSERT INTO samples (benchmark_id, sample_id, prompt, prompt_full, "
-            "gold, responses, score) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "gold, gold_data, responses, score) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
 

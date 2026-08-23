@@ -74,6 +74,11 @@ def extract_gold(example: dict) -> str:
     })
 
 
+def extract_gold_display(example: dict) -> str:
+    """The expected answer text itself (grading metadata goes to gold_data)."""
+    return example["answer"]
+
+
 def extract_pred(model_output: str) -> str:
     """The raw response is graded; only strip leading whitespace and
     trailing special tokens (artifacts of raw-completion decoding)."""
@@ -98,6 +103,7 @@ def _make_task(n_needles: int) -> TaskConfig:
         build_prompt=build_prompt,
         build_messages=build_messages,
         extract_gold=extract_gold,
+        extract_gold_display=extract_gold_display,
         extract_pred=extract_pred,
         match_fn=match_fn,
         default_fewshot_k=0,
