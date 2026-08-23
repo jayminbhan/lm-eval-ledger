@@ -89,7 +89,8 @@ def _load(release: str) -> list[dict]:
     files = _VERSION_FILES[release]
     rows: list[dict] = []
     for i, fname in enumerate(files, 1):
-        print(f"  [{i}/{len(files)}] Downloading {_REPO_ID}/{fname}")
+        print(f"  [{i}/{len(files)}] Loading {_REPO_ID}/{fname} "
+              f"(downloaded on first use, cached after)")
         path = hf_hub_download(_REPO_ID, fname, repo_type="dataset")
         rows.extend(load_jsonl(path))
     for row in rows:

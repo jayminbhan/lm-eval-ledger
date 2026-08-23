@@ -40,7 +40,13 @@ def _make_post_process(n_needles: int):
             if ex.get("n_needles") == n_needles:
                 ex["id"] = idx
                 kept.append(ex)
-        print(f"  [INFO] MRCR: kept {len(kept)} examples with {n_needles} needles")
+        # Shortest first: examples over the context budget are skipped at run
+        # time, so this ordering lets max_examples subsets (smoke tests) pick
+        # examples that actually fit. Full runs evaluate every fitting example
+        # regardless of order.
+        kept.sort(key=lambda ex: ex.get("n_chars", 0))
+        print(f"  [INFO] MRCR: kept {len(kept)} examples with {n_needles} needles "
+              f"(sorted shortest-first)")
         return kept
     return _post
 

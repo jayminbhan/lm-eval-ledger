@@ -434,6 +434,35 @@ def run_task(
                 gold_answers = [gold_answers[i] for i in keep]
                 prompts_without_fewshot = [prompts_without_fewshot[i] for i in keep]
 
+            if not prompts:
+                # Record an error rather than a misleading 0.0 accuracy over
+                # zero examples.
+                error_msg = (f"All examples exceed the context budget "
+                             f"(max_model_len {cfg.max_model_len} - "
+                             f"max_tokens {cfg.max_tokens} = {budget} tokens); "
+                             f"raise max_model_len")
+                print(f"[WARN] {error_msg}")
+                return {
+                    "task": task.name,
+                    "fewshot_k": fewshot_k,
+                    "eval_mode": task.eval_mode,
+                    "model": model_name,
+                    "model_tag": model_tag,
+                    "error": error_msg,
+                    "pass_k": cfg.pass_k,
+                    "total_examples": 0,
+                    "correct": 0,
+                    "accuracy": 0.0,
+                    "no_answer_count": 0,
+                    "stop_reason_counts": {},
+                    "timestamp": timestamp,
+                    "settings": {
+                        "temperature": cfg.temperature,
+                        "top_p": cfg.top_p,
+                        "max_tokens": cfg.max_tokens,
+                    },
+                }, []
+
         print(f"[INFO] Running batch inference on {len(prompts)} examples...")
         inference_start = time.time()
         outputs = generate_batched(llm, prompts, sampling_params, cfg.batch_size)

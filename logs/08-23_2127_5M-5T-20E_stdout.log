@@ -1,0 +1,226 @@
+==== Benchmark Run: 2026-08-23T21:27:53.380853 ====
+
+============================================================
+LLM BENCHMARK RUNNER
+============================================================
+Models: 5
+  - Qwen2.5-7B-Instruct
+  - Qwen2-7B-Instruct
+  - Qwen3-8B
+  - Qwen3.5-9B
+  - Qwen3-14B
+Tasks: gsm8k_main(0), gpqa_diamond_generate(0), hle(0), livecodebench(0), mrcr_2needle(0)
+Timestamp: 0823_2127
+Ledger: /mnt/data8tb/Documents/project/lm-eval-ledger/results/ledger.sqlite3 (run id 2)
+============================================================
+
+[MODEL 1/5]
+
+############################################################
+# MODEL: Qwen2.5-7B-Instruct
+############################################################
+
+[INFO] Loading model: Qwen/Qwen2.5-7B-Instruct
+[INFO] Using model default precision (no quantization override)
+
+[1/5] Running gsm8k_main (fewshot=0)...
+
+============================================================
+[TASK] gsm8k_main - GSM8K Main - arithmetic word problems
+============================================================
+[INFO] Loaded 1319 examples from HF (openai/gsm8k)
+[INFO] Limited to 20 examples
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[INFO] Running batch inference on 20 examples...
+[INFO] Batch inference completed in 34s
+[gsm8k_main(0)] Accuracy: 16/20 = 0.8000 | Duration: 36s
+
+[2/5] Running gpqa_diamond_generate (fewshot=0)...
+
+============================================================
+[TASK] gpqa_diamond_generate - GPQA Diamond - graduate-level science MCQ (generative)
+============================================================
+[INFO] Loaded 198 examples from HF (Idavidrein/gpqa)
+[INFO] Limited to 20 examples
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[INFO] Running batch inference on 20 examples...
+[INFO] Batch inference completed in 21s
+[gpqa_diamond_generate(0)] Accuracy: 6/20 = 0.3000 | Duration: 28s
+
+[3/5] Running hle (fewshot=0)...
+
+============================================================
+[TASK] hle - Humanity's Last Exam - text-only expert questions (gated dataset; string-match approximation of LLM-judge scoring)
+============================================================
+  [INFO] HLE: 2158/2500 text-only questions kept
+[INFO] Loaded 2158 examples from HF (cais/hle)
+[INFO] Limited to 20 examples
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[INFO] Running batch inference on 20 examples...
+[INFO] Batch inference completed in 21s
+[hle(0)] Accuracy: 2/20 = 0.1000 | Duration: 31s
+
+[4/5] Running livecodebench (fewshot=0)...
+
+============================================================
+[TASK] livecodebench - LiveCodeBench (release_v6) - contamination-free code generation; EXECUTES generated code locally; use max_tokens >= 2048
+============================================================
+  [1/6] Downloading livecodebench/code_generation_lite/test.jsonl
+  [2/6] Downloading livecodebench/code_generation_lite/test2.jsonl
+  [3/6] Downloading livecodebench/code_generation_lite/test3.jsonl
+  [4/6] Downloading livecodebench/code_generation_lite/test4.jsonl
+  [5/6] Downloading livecodebench/code_generation_lite/test5.jsonl
+  [6/6] Downloading livecodebench/code_generation_lite/test6.jsonl
+[INFO] Loaded 1055 examples via custom loader (livecodebench)
+[INFO] Limited to 20 examples
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[INFO] Running batch inference on 20 examples...
+[INFO] Batch inference completed in 4s
+[livecodebench(0)] Accuracy: 7/20 = 0.3500 | Duration: 5m 14s
+
+[5/5] Running mrcr_2needle (fewshot=0)...
+
+============================================================
+[TASK] mrcr_2needle - MRCR 2-needle - long-context co-reference (partial credit: mean SequenceMatcher ratio; use apply_chat_template and a large max_model_len)
+============================================================
+  [INFO] MRCR: kept 800 examples with 2 needles
+[INFO] Loaded 800 examples from HF (openai/mrcr)
+[INFO] Limited to 20 examples
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[WARN] Skipping 20 examples whose prompts exceed max_model_len - max_tokens = 14336 tokens
+[INFO] Running batch inference on 0 examples...
+[INFO] Batch inference completed in 0s
+[mrcr_2needle(0)] Accuracy: 0/0 = 0.0000 | Duration: 59s
+
+[INFO] Unloading model: Qwen2.5-7B-Instruct
+
+============================================================
+MODEL COMPLETE: Qwen2.5-7B-Instruct
+============================================================
+Duration: 8m 49s
+Results:
+  gsm8k_main(0): 0.8000 (16/20)
+  gpqa_diamond_generate(0): 0.3000 (6/20)
+  hle(0): 0.1000 (2/20)
+  livecodebench(0): 0.3500 (7/20)
+  mrcr_2needle(0): 0.0000 (0/0)
+
+[MODEL 2/5]
+
+############################################################
+# MODEL: Qwen2-7B-Instruct
+############################################################
+
+[INFO] Loading model: Qwen/Qwen2-7B-Instruct
+[INFO] Using model default precision (no quantization override)
+
+[1/5] Running gsm8k_main (fewshot=0)...
+
+============================================================
+[TASK] gsm8k_main - GSM8K Main - arithmetic word problems
+============================================================
+[INFO] Loaded 1319 examples from HF (openai/gsm8k)
+[INFO] Limited to 20 examples
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[INFO] Running batch inference on 20 examples...
+[INFO] Batch inference completed in 5s
+[gsm8k_main(0)] Accuracy: 12/20 = 0.6000 | Duration: 7s
+
+[2/5] Running gpqa_diamond_generate (fewshot=0)...
+
+============================================================
+[TASK] gpqa_diamond_generate - GPQA Diamond - graduate-level science MCQ (generative)
+============================================================
+[INFO] Loaded 198 examples from HF (Idavidrein/gpqa)
+[INFO] Limited to 20 examples
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[INFO] Running batch inference on 20 examples...
+[INFO] Batch inference completed in 21s
+[gpqa_diamond_generate(0)] Accuracy: 1/20 = 0.0500 | Duration: 23s
+
+[3/5] Running hle (fewshot=0)...
+
+============================================================
+[TASK] hle - Humanity's Last Exam - text-only expert questions (gated dataset; string-match approximation of LLM-judge scoring)
+============================================================
+  [INFO] HLE: 2158/2500 text-only questions kept
+[INFO] Loaded 2158 examples from HF (cais/hle)
+[INFO] Limited to 20 examples
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[INFO] Running batch inference on 20 examples...
+[INFO] Batch inference completed in 21s
+[hle(0)] Accuracy: 1/20 = 0.0500 | Duration: 29s
+
+[4/5] Running livecodebench (fewshot=0)...
+
+============================================================
+[TASK] livecodebench - LiveCodeBench (release_v6) - contamination-free code generation; EXECUTES generated code locally; use max_tokens >= 2048
+============================================================
+  [1/6] Downloading livecodebench/code_generation_lite/test.jsonl
+  [2/6] Downloading livecodebench/code_generation_lite/test2.jsonl
+  [3/6] Downloading livecodebench/code_generation_lite/test3.jsonl
+  [4/6] Downloading livecodebench/code_generation_lite/test4.jsonl
+  [5/6] Downloading livecodebench/code_generation_lite/test5.jsonl
+  [6/6] Downloading livecodebench/code_generation_lite/test6.jsonl
+[INFO] Loaded 1055 examples via custom loader (livecodebench)
+[INFO] Limited to 20 examples
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[INFO] Running batch inference on 20 examples...
+[INFO] Batch inference completed in 4s
+[livecodebench(0)] Accuracy: 7/20 = 0.3500 | Duration: 24s
+
+[5/5] Running mrcr_2needle (fewshot=0)...
+
+============================================================
+[TASK] mrcr_2needle - MRCR 2-needle - long-context co-reference (partial credit: mean SequenceMatcher ratio; use apply_chat_template and a large max_model_len)
+============================================================
+  [INFO] MRCR: kept 800 examples with 2 needles
+[INFO] Loaded 800 examples from HF (openai/mrcr)
+[INFO] Limited to 20 examples
+[INFO] Few-shot examples: 0
+[INFO] Eval mode: generate
+[INFO] Building prompts...
+[WARN] Skipping 20 examples whose prompts exceed max_model_len - max_tokens = 14336 tokens
+[INFO] Running batch inference on 0 examples...
+[INFO] Batch inference completed in 0s
+[mrcr_2needle(0)] Accuracy: 0/0 = 0.0000 | Duration: 8s
+
+[INFO] Unloading model: Qwen2-7B-Instruct
+
+============================================================
+MODEL COMPLETE: Qwen2-7B-Instruct
+============================================================
+Duration: 1m 48s
+Results:
+  gsm8k_main(0): 0.6000 (12/20)
+  gpqa_diamond_generate(0): 0.0500 (1/20)
+  hle(0): 0.0500 (1/20)
+  livecodebench(0): 0.3500 (7/20)
+  mrcr_2needle(0): 0.0000 (0/0)
+
+[MODEL 3/5]
+
+############################################################
+# MODEL: Qwen3-8B
+############################################################
+
+[INFO] Loading model: Qwen/Qwen3-8B
+[INFO] Using model default precision (no quantization override)
