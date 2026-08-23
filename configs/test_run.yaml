@@ -1,0 +1,42 @@
+# test_run.yaml - smoke test: 5 ~8B instruct models, recent tasks included.
+#
+# All models are ungated HF repos (~16GB each, downloaded into the HF hub
+# cache on first load). 10 examples per task keeps the run short; drop
+# max_examples to null for real numbers.
+
+models:
+  - Qwen/Qwen2.5-7B-Instruct
+  - Qwen/Qwen3-8B
+  - deepseek-ai/DeepSeek-R1-0528-Qwen3-8B   # thinking model; may hit max_tokens
+  - mistralai/Mistral-7B-Instruct-v0.3
+  - ibm-granite/granite-3.3-8b-instruct
+
+tasks:
+  - gsm8k_main:0
+  - gpqa_diamond_generate:0     # gated dataset (you have access)
+  - hle:0                       # NEW - gated dataset (you have access)
+  - livecodebench:0             # NEW - executes generated code locally
+  - mrcr_2needle:0              # NEW - long context; over-budget prompts are skipped
+
+max_examples: 10                # per task; smoke-test size
+batch_size: null
+
+apply_chat_template: true       # all five are instruct models
+
+temperature: 0.0
+top_p: 0.95
+max_tokens: 2048                # livecodebench wants >= 2048
+pass_k: 1
+seed: 42
+
+gpu_memory_utilization: 0.90
+max_model_len: 16384            # lets some MRCR examples fit; 8B fp16 + 16k fits 32GB
+enforce_eager: true
+gpu_ids: null                   # single GPU
+
+quantization: null              # all models fit in fp16 on the RTX 5090
+
+# Post-run LLM verification (NEW): re-judges string-match failures.
+# Downloads CompassVerifier-7B (~15GB) on first use. Comment out to skip.
+verifier_model: opencompass/CompassVerifier-7B
+verifier_mode: fallback
