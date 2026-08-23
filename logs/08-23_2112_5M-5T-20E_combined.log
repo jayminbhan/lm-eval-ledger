@@ -1,0 +1,472 @@
+==== Benchmark Run: 2026-08-23T21:12:15.098766 ====
+
+============================================================
+LLM BENCHMARK RUNNER
+============================================================
+Models: 5
+  - Qwen2.5-7B-Instruct
+  - Qwen2-7B-Instruct
+  - Qwen3-8B
+  - Qwen3.5-9B
+  - gemma-4-12B-it-qat-w4a16-ct
+Tasks: gsm8k_main(0), gpqa_diamond_generate(0), hle(0), livecodebench(0), mrcr_2needle(0)
+Timestamp: 0823_2112
+Ledger: /mnt/data8tb/Documents/project/lm-eval-ledger/results/ledger.sqlite3 (run id 1)
+============================================================
+
+[MODEL 1/5]
+
+############################################################
+# MODEL: Qwen2.5-7B-Instruct
+############################################################
+
+[INFO] Loading model: Qwen/Qwen2.5-7B-Instruct
+[INFO] Using model default precision (no quantization override)
+[0;36m(EngineCore pid=2046082)[0;0m Failed to get device capability: SM 12.x requires CUDA >= 12.9.
+[0;36m(EngineCore pid=2046082)[0;0m Failed to get device capability: SM 12.x requires CUDA >= 12.9.
+[0;36m(EngineCore pid=2046082)[0;0m Loading safetensors checkpoint shards:   0% Completed | 0/4 [00:00<?, ?it/s]
+[0;36m(EngineCore pid=2046082)[0;0m Loading safetensors checkpoint shards:  25% Completed | 1/4 [00:01<00:03,  1.10s/it]
+[0;36m(EngineCore pid=2046082)[0;0m Loading safetensors checkpoint shards:  50% Completed | 2/4 [00:02<00:02,  1.13s/it]
+[0;36m(EngineCore pid=2046082)[0;0m Loading safetensors checkpoint shards:  75% Completed | 3/4 [00:03<00:01,  1.10s/it]
+[0;36m(EngineCore pid=2046082)[0;0m Loading safetensors checkpoint shards: 100% Completed | 4/4 [00:04<00:00,  1.05s/it]
+[0;36m(EngineCore pid=2046082)[0;0m Loading safetensors checkpoint shards: 100% Completed | 4/4 [00:04<00:00,  1.08s/it]
+[0;36m(EngineCore pid=2046082)[0;0m 
+[0;36m(EngineCore pid=2046082)[0;0m Process EngineCore:
+[0;36m(EngineCore pid=2046082)[0;0m Traceback (most recent call last):
+[0;36m(EngineCore pid=2046082)[0;0m   File "/home/jaymin/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/multiprocessing/process.py", line 314, in _bootstrap
+[0;36m(EngineCore pid=2046082)[0;0m     self.run()
+[0;36m(EngineCore pid=2046082)[0;0m   File "/home/jaymin/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/multiprocessing/process.py", line 108, in run
+[0;36m(EngineCore pid=2046082)[0;0m     self._target(*self._args, **self._kwargs)
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 1353, in run_engine_core
+[0;36m(EngineCore pid=2046082)[0;0m     raise e
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 1318, in run_engine_core
+[0;36m(EngineCore pid=2046082)[0;0m     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+[0;36m(EngineCore pid=2046082)[0;0m                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+[0;36m(EngineCore pid=2046082)[0;0m     return func(*args, **kwargs)
+[0;36m(EngineCore pid=2046082)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 1074, in __init__
+[0;36m(EngineCore pid=2046082)[0;0m     super().__init__(
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 143, in __init__
+[0;36m(EngineCore pid=2046082)[0;0m     kv_cache_config = self._initialize_kv_caches(vllm_config)
+[0;36m(EngineCore pid=2046082)[0;0m                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+[0;36m(EngineCore pid=2046082)[0;0m     return func(*args, **kwargs)
+[0;36m(EngineCore pid=2046082)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 332, in _initialize_kv_caches
+[0;36m(EngineCore pid=2046082)[0;0m     self.model_executor.compile_or_warm_up_model()
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/executor/abstract.py", line 124, in compile_or_warm_up_model
+[0;36m(EngineCore pid=2046082)[0;0m     compilation_times: list[CompilationTimes] = self.collective_rpc(
+[0;36m(EngineCore pid=2046082)[0;0m                                                 ^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/executor/uniproc_executor.py", line 92, in collective_rpc
+[0;36m(EngineCore pid=2046082)[0;0m     result = run_method(self.driver_worker, method, args, kwargs)
+[0;36m(EngineCore pid=2046082)[0;0m              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/serial_utils.py", line 510, in run_method
+[0;36m(EngineCore pid=2046082)[0;0m     return func(*args, **kwargs)
+[0;36m(EngineCore pid=2046082)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+[0;36m(EngineCore pid=2046082)[0;0m     return func(*args, **kwargs)
+[0;36m(EngineCore pid=2046082)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/worker/gpu_worker.py", line 713, in compile_or_warm_up_model
+[0;36m(EngineCore pid=2046082)[0;0m     kernel_warmup(self)
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/model_executor/warmup/kernel_warmup.py", line 100, in kernel_warmup
+[0;36m(EngineCore pid=2046082)[0;0m     from vllm.model_executor.warmup.minimax_m3_msa_warmup import (
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/model_executor/warmup/minimax_m3_msa_warmup.py", line 7, in <module>
+[0;36m(EngineCore pid=2046082)[0;0m     from vllm.models.minimax_m3.nvidia.model import MiniMaxM3SparseAttention
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/models/minimax_m3/__init__.py", line 17, in <module>
+[0;36m(EngineCore pid=2046082)[0;0m     from .nvidia.model import (
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/models/minimax_m3/nvidia/model.py", line 30, in <module>
+[0;36m(EngineCore pid=2046082)[0;0m     from vllm.model_executor.layers.fused_allreduce_gemma_rms_norm import (
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/model_executor/layers/fused_allreduce_gemma_rms_norm.py", line 33, in <module>
+[0;36m(EngineCore pid=2046082)[0;0m     from vllm.compilation.passes.fusion.allreduce_rms_fusion import (
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/compilation/passes/fusion/allreduce_rms_fusion.py", line 90, in <module>
+[0;36m(EngineCore pid=2046082)[0;0m     import flashinfer.comm as _flashinfer_comm
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/flashinfer/comm/__init__.py", line 4, in <module>
+[0;36m(EngineCore pid=2046082)[0;0m     from .trtllm_ar import AllReduceFusionOp as AllReduceFusionOp
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/flashinfer/comm/trtllm_ar.py", line 24, in <module>
+[0;36m(EngineCore pid=2046082)[0;0m     from flashinfer.comm.mnnvl import CommBackend, SymmDeviceMemory, TorchDistBackend
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/flashinfer/comm/mnnvl.py", line 54, in <module>
+[0;36m(EngineCore pid=2046082)[0;0m     from .fd_exchange import broadcast_fd, exchange_fds
+[0;36m(EngineCore pid=2046082)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/flashinfer/comm/fd_exchange.py", line 55, in <module>
+[0;36m(EngineCore pid=2046082)[0;0m     def _fd_ancillary(fd: int) -> tuple[tuple[int, int, array.array[int]]]:
+[0;36m(EngineCore pid=2046082)[0;0m                                                         ~~~~~~~~~~~^^^^^
+[0;36m(EngineCore pid=2046082)[0;0m TypeError: type 'array.array' is not subscriptable
+
+[ERROR] Model Qwen/Qwen2.5-7B-Instruct failed: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+[INFO] Continuing to next model...
+Traceback (most recent call last):
+  File "/mnt/data8tb/Documents/project/lm-eval-ledger/src/lm_eval_ledger/runner.py", line 977, in _run_models
+    model_summary = run_model(
+                    ^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/lm-eval-ledger/src/lm_eval_ledger/runner.py", line 601, in run_model
+    llm = LLM(**llm_kwargs)
+          ^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/entrypoints/llm.py", line 339, in __init__
+    self.llm_engine = LLMEngine.from_engine_args(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 179, in from_engine_args
+    return cls(
+           ^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 105, in __init__
+    self.engine_core = EngineCoreClient.make_client(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 110, in make_client
+    return SyncMPClient(vllm_config, executor_class, log_stats)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 809, in __init__
+    super().__init__(
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 609, in __init__
+    with launch_core_engines(
+  File "/home/jaymin/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/utils.py", line 1194, in launch_core_engines
+    wait_for_engine_startup(
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/utils.py", line 1253, in wait_for_engine_startup
+    raise RuntimeError(
+RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+
+[MODEL 2/5]
+
+############################################################
+# MODEL: Qwen2-7B-Instruct
+############################################################
+
+[INFO] Loading model: Qwen/Qwen2-7B-Instruct
+[INFO] Using model default precision (no quantization override)
+[0;36m(EngineCore pid=2046533)[0;0m Failed to get device capability: SM 12.x requires CUDA >= 12.9.
+[0;36m(EngineCore pid=2046533)[0;0m Failed to get device capability: SM 12.x requires CUDA >= 12.9.
+[0;36m(EngineCore pid=2046533)[0;0m Loading safetensors checkpoint shards:   0% Completed | 0/4 [00:00<?, ?it/s]
+[0;36m(EngineCore pid=2046533)[0;0m Loading safetensors checkpoint shards:  25% Completed | 1/4 [00:01<00:03,  1.16s/it]
+[0;36m(EngineCore pid=2046533)[0;0m Loading safetensors checkpoint shards:  50% Completed | 2/4 [00:02<00:02,  1.13s/it]
+[0;36m(EngineCore pid=2046533)[0;0m Loading safetensors checkpoint shards:  75% Completed | 3/4 [00:03<00:01,  1.12s/it]
+[0;36m(EngineCore pid=2046533)[0;0m Loading safetensors checkpoint shards: 100% Completed | 4/4 [00:04<00:00,  1.06s/it]
+[0;36m(EngineCore pid=2046533)[0;0m Loading safetensors checkpoint shards: 100% Completed | 4/4 [00:04<00:00,  1.08s/it]
+[0;36m(EngineCore pid=2046533)[0;0m 
+[0;36m(EngineCore pid=2046533)[0;0m Process EngineCore:
+[0;36m(EngineCore pid=2046533)[0;0m Traceback (most recent call last):
+[0;36m(EngineCore pid=2046533)[0;0m   File "/home/jaymin/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/multiprocessing/process.py", line 314, in _bootstrap
+[0;36m(EngineCore pid=2046533)[0;0m     self.run()
+[0;36m(EngineCore pid=2046533)[0;0m   File "/home/jaymin/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/multiprocessing/process.py", line 108, in run
+[0;36m(EngineCore pid=2046533)[0;0m     self._target(*self._args, **self._kwargs)
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 1353, in run_engine_core
+[0;36m(EngineCore pid=2046533)[0;0m     raise e
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 1318, in run_engine_core
+[0;36m(EngineCore pid=2046533)[0;0m     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+[0;36m(EngineCore pid=2046533)[0;0m                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+[0;36m(EngineCore pid=2046533)[0;0m     return func(*args, **kwargs)
+[0;36m(EngineCore pid=2046533)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 1074, in __init__
+[0;36m(EngineCore pid=2046533)[0;0m     super().__init__(
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 143, in __init__
+[0;36m(EngineCore pid=2046533)[0;0m     kv_cache_config = self._initialize_kv_caches(vllm_config)
+[0;36m(EngineCore pid=2046533)[0;0m                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+[0;36m(EngineCore pid=2046533)[0;0m     return func(*args, **kwargs)
+[0;36m(EngineCore pid=2046533)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 332, in _initialize_kv_caches
+[0;36m(EngineCore pid=2046533)[0;0m     self.model_executor.compile_or_warm_up_model()
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/executor/abstract.py", line 124, in compile_or_warm_up_model
+[0;36m(EngineCore pid=2046533)[0;0m     compilation_times: list[CompilationTimes] = self.collective_rpc(
+[0;36m(EngineCore pid=2046533)[0;0m                                                 ^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/executor/uniproc_executor.py", line 92, in collective_rpc
+[0;36m(EngineCore pid=2046533)[0;0m     result = run_method(self.driver_worker, method, args, kwargs)
+[0;36m(EngineCore pid=2046533)[0;0m              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/serial_utils.py", line 510, in run_method
+[0;36m(EngineCore pid=2046533)[0;0m     return func(*args, **kwargs)
+[0;36m(EngineCore pid=2046533)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+[0;36m(EngineCore pid=2046533)[0;0m     return func(*args, **kwargs)
+[0;36m(EngineCore pid=2046533)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/worker/gpu_worker.py", line 713, in compile_or_warm_up_model
+[0;36m(EngineCore pid=2046533)[0;0m     kernel_warmup(self)
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/model_executor/warmup/kernel_warmup.py", line 100, in kernel_warmup
+[0;36m(EngineCore pid=2046533)[0;0m     from vllm.model_executor.warmup.minimax_m3_msa_warmup import (
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/model_executor/warmup/minimax_m3_msa_warmup.py", line 7, in <module>
+[0;36m(EngineCore pid=2046533)[0;0m     from vllm.models.minimax_m3.nvidia.model import MiniMaxM3SparseAttention
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/models/minimax_m3/__init__.py", line 17, in <module>
+[0;36m(EngineCore pid=2046533)[0;0m     from .nvidia.model import (
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/models/minimax_m3/nvidia/model.py", line 30, in <module>
+[0;36m(EngineCore pid=2046533)[0;0m     from vllm.model_executor.layers.fused_allreduce_gemma_rms_norm import (
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/model_executor/layers/fused_allreduce_gemma_rms_norm.py", line 33, in <module>
+[0;36m(EngineCore pid=2046533)[0;0m     from vllm.compilation.passes.fusion.allreduce_rms_fusion import (
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/compilation/passes/fusion/allreduce_rms_fusion.py", line 90, in <module>
+[0;36m(EngineCore pid=2046533)[0;0m     import flashinfer.comm as _flashinfer_comm
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/flashinfer/comm/__init__.py", line 4, in <module>
+[0;36m(EngineCore pid=2046533)[0;0m     from .trtllm_ar import AllReduceFusionOp as AllReduceFusionOp
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/flashinfer/comm/trtllm_ar.py", line 24, in <module>
+[0;36m(EngineCore pid=2046533)[0;0m     from flashinfer.comm.mnnvl import CommBackend, SymmDeviceMemory, TorchDistBackend
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/flashinfer/comm/mnnvl.py", line 54, in <module>
+[0;36m(EngineCore pid=2046533)[0;0m     from .fd_exchange import broadcast_fd, exchange_fds
+[0;36m(EngineCore pid=2046533)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/flashinfer/comm/fd_exchange.py", line 55, in <module>
+[0;36m(EngineCore pid=2046533)[0;0m     def _fd_ancillary(fd: int) -> tuple[tuple[int, int, array.array[int]]]:
+[0;36m(EngineCore pid=2046533)[0;0m                                                         ~~~~~~~~~~~^^^^^
+[0;36m(EngineCore pid=2046533)[0;0m TypeError: type 'array.array' is not subscriptable
+
+[ERROR] Model Qwen/Qwen2-7B-Instruct failed: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+[INFO] Continuing to next model...
+Traceback (most recent call last):
+  File "/mnt/data8tb/Documents/project/lm-eval-ledger/src/lm_eval_ledger/runner.py", line 977, in _run_models
+    model_summary = run_model(
+                    ^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/lm-eval-ledger/src/lm_eval_ledger/runner.py", line 601, in run_model
+    llm = LLM(**llm_kwargs)
+          ^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/entrypoints/llm.py", line 339, in __init__
+    self.llm_engine = LLMEngine.from_engine_args(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 179, in from_engine_args
+    return cls(
+           ^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 105, in __init__
+    self.engine_core = EngineCoreClient.make_client(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 110, in make_client
+    return SyncMPClient(vllm_config, executor_class, log_stats)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 809, in __init__
+    super().__init__(
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 609, in __init__
+    with launch_core_engines(
+  File "/home/jaymin/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/utils.py", line 1194, in launch_core_engines
+    wait_for_engine_startup(
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/utils.py", line 1253, in wait_for_engine_startup
+    raise RuntimeError(
+RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+
+[MODEL 3/5]
+
+############################################################
+# MODEL: Qwen3-8B
+############################################################
+
+[INFO] Loading model: Qwen/Qwen3-8B
+[INFO] Using model default precision (no quantization override)
+[0;36m(EngineCore pid=2047062)[0;0m Failed to get device capability: SM 12.x requires CUDA >= 12.9.
+[0;36m(EngineCore pid=2047062)[0;0m Failed to get device capability: SM 12.x requires CUDA >= 12.9.
+[0;36m(EngineCore pid=2047062)[0;0m Loading safetensors checkpoint shards:   0% Completed | 0/5 [00:00<?, ?it/s]
+[0;36m(EngineCore pid=2047062)[0;0m Loading safetensors checkpoint shards:  20% Completed | 1/5 [00:01<00:04,  1.23s/it]
+[0;36m(EngineCore pid=2047062)[0;0m Loading safetensors checkpoint shards:  40% Completed | 2/5 [00:04<00:07,  2.45s/it]
+[0;36m(EngineCore pid=2047062)[0;0m Loading safetensors checkpoint shards:  60% Completed | 3/5 [00:06<00:04,  2.37s/it]
+[0;36m(EngineCore pid=2047062)[0;0m Loading safetensors checkpoint shards:  80% Completed | 4/5 [00:07<00:01,  1.79s/it]
+[0;36m(EngineCore pid=2047062)[0;0m Loading safetensors checkpoint shards: 100% Completed | 5/5 [00:08<00:00,  1.28s/it]
+[0;36m(EngineCore pid=2047062)[0;0m Loading safetensors checkpoint shards: 100% Completed | 5/5 [00:08<00:00,  1.62s/it]
+[0;36m(EngineCore pid=2047062)[0;0m 
+[0;36m(EngineCore pid=2047062)[0;0m Process EngineCore:
+[0;36m(EngineCore pid=2047062)[0;0m Traceback (most recent call last):
+[0;36m(EngineCore pid=2047062)[0;0m   File "/home/jaymin/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/multiprocessing/process.py", line 314, in _bootstrap
+[0;36m(EngineCore pid=2047062)[0;0m     self.run()
+[0;36m(EngineCore pid=2047062)[0;0m   File "/home/jaymin/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/multiprocessing/process.py", line 108, in run
+[0;36m(EngineCore pid=2047062)[0;0m     self._target(*self._args, **self._kwargs)
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 1353, in run_engine_core
+[0;36m(EngineCore pid=2047062)[0;0m     raise e
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 1318, in run_engine_core
+[0;36m(EngineCore pid=2047062)[0;0m     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+[0;36m(EngineCore pid=2047062)[0;0m                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+[0;36m(EngineCore pid=2047062)[0;0m     return func(*args, **kwargs)
+[0;36m(EngineCore pid=2047062)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 1074, in __init__
+[0;36m(EngineCore pid=2047062)[0;0m     super().__init__(
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 143, in __init__
+[0;36m(EngineCore pid=2047062)[0;0m     kv_cache_config = self._initialize_kv_caches(vllm_config)
+[0;36m(EngineCore pid=2047062)[0;0m                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+[0;36m(EngineCore pid=2047062)[0;0m     return func(*args, **kwargs)
+[0;36m(EngineCore pid=2047062)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 332, in _initialize_kv_caches
+[0;36m(EngineCore pid=2047062)[0;0m     self.model_executor.compile_or_warm_up_model()
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/executor/abstract.py", line 124, in compile_or_warm_up_model
+[0;36m(EngineCore pid=2047062)[0;0m     compilation_times: list[CompilationTimes] = self.collective_rpc(
+[0;36m(EngineCore pid=2047062)[0;0m                                                 ^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/executor/uniproc_executor.py", line 92, in collective_rpc
+[0;36m(EngineCore pid=2047062)[0;0m     result = run_method(self.driver_worker, method, args, kwargs)
+[0;36m(EngineCore pid=2047062)[0;0m              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/serial_utils.py", line 510, in run_method
+[0;36m(EngineCore pid=2047062)[0;0m     return func(*args, **kwargs)
+[0;36m(EngineCore pid=2047062)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+[0;36m(EngineCore pid=2047062)[0;0m     return func(*args, **kwargs)
+[0;36m(EngineCore pid=2047062)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/worker/gpu_worker.py", line 713, in compile_or_warm_up_model
+[0;36m(EngineCore pid=2047062)[0;0m     kernel_warmup(self)
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/model_executor/warmup/kernel_warmup.py", line 100, in kernel_warmup
+[0;36m(EngineCore pid=2047062)[0;0m     from vllm.model_executor.warmup.minimax_m3_msa_warmup import (
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/model_executor/warmup/minimax_m3_msa_warmup.py", line 7, in <module>
+[0;36m(EngineCore pid=2047062)[0;0m     from vllm.models.minimax_m3.nvidia.model import MiniMaxM3SparseAttention
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/models/minimax_m3/__init__.py", line 17, in <module>
+[0;36m(EngineCore pid=2047062)[0;0m     from .nvidia.model import (
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/models/minimax_m3/nvidia/model.py", line 30, in <module>
+[0;36m(EngineCore pid=2047062)[0;0m     from vllm.model_executor.layers.fused_allreduce_gemma_rms_norm import (
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/model_executor/layers/fused_allreduce_gemma_rms_norm.py", line 33, in <module>
+[0;36m(EngineCore pid=2047062)[0;0m     from vllm.compilation.passes.fusion.allreduce_rms_fusion import (
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/compilation/passes/fusion/allreduce_rms_fusion.py", line 90, in <module>
+[0;36m(EngineCore pid=2047062)[0;0m     import flashinfer.comm as _flashinfer_comm
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/flashinfer/comm/__init__.py", line 4, in <module>
+[0;36m(EngineCore pid=2047062)[0;0m     from .trtllm_ar import AllReduceFusionOp as AllReduceFusionOp
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/flashinfer/comm/trtllm_ar.py", line 24, in <module>
+[0;36m(EngineCore pid=2047062)[0;0m     from flashinfer.comm.mnnvl import CommBackend, SymmDeviceMemory, TorchDistBackend
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/flashinfer/comm/mnnvl.py", line 54, in <module>
+[0;36m(EngineCore pid=2047062)[0;0m     from .fd_exchange import broadcast_fd, exchange_fds
+[0;36m(EngineCore pid=2047062)[0;0m   File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/flashinfer/comm/fd_exchange.py", line 55, in <module>
+[0;36m(EngineCore pid=2047062)[0;0m     def _fd_ancillary(fd: int) -> tuple[tuple[int, int, array.array[int]]]:
+[0;36m(EngineCore pid=2047062)[0;0m                                                         ~~~~~~~~~~~^^^^^
+[0;36m(EngineCore pid=2047062)[0;0m TypeError: type 'array.array' is not subscriptable
+
+[ERROR] Model Qwen/Qwen3-8B failed: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+[INFO] Continuing to next model...
+Traceback (most recent call last):
+  File "/mnt/data8tb/Documents/project/lm-eval-ledger/src/lm_eval_ledger/runner.py", line 977, in _run_models
+    model_summary = run_model(
+                    ^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/lm-eval-ledger/src/lm_eval_ledger/runner.py", line 601, in run_model
+    llm = LLM(**llm_kwargs)
+          ^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/entrypoints/llm.py", line 339, in __init__
+    self.llm_engine = LLMEngine.from_engine_args(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 179, in from_engine_args
+    return cls(
+           ^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 105, in __init__
+    self.engine_core = EngineCoreClient.make_client(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 110, in make_client
+    return SyncMPClient(vllm_config, executor_class, log_stats)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 809, in __init__
+    super().__init__(
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 609, in __init__
+    with launch_core_engines(
+  File "/home/jaymin/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/utils.py", line 1194, in launch_core_engines
+    wait_for_engine_startup(
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/utils.py", line 1253, in wait_for_engine_startup
+    raise RuntimeError(
+RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+
+[MODEL 4/5]
+
+############################################################
+# MODEL: Qwen3.5-9B
+############################################################
+
+[INFO] Loading model: Qwen/Qwen3.5-9B
+[INFO] Using model default precision (no quantization override)
+
+[ERROR] Model Qwen/Qwen3.5-9B failed: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+[INFO] Continuing to next model...
+Traceback (most recent call last):
+  File "/mnt/data8tb/Documents/project/lm-eval-ledger/src/lm_eval_ledger/runner.py", line 977, in _run_models
+    model_summary = run_model(
+                    ^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/lm-eval-ledger/src/lm_eval_ledger/runner.py", line 601, in run_model
+    llm = LLM(**llm_kwargs)
+          ^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/entrypoints/llm.py", line 339, in __init__
+    self.llm_engine = LLMEngine.from_engine_args(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 179, in from_engine_args
+    return cls(
+           ^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 105, in __init__
+    self.engine_core = EngineCoreClient.make_client(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 110, in make_client
+    return SyncMPClient(vllm_config, executor_class, log_stats)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 809, in __init__
+    super().__init__(
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 609, in __init__
+    with launch_core_engines(
+  File "/home/jaymin/.local/share/uv/python/cpython-3.11.14-linux-x86_64-gnu/lib/python3.11/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/utils.py", line 1194, in launch_core_engines
+    wait_for_engine_startup(
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/utils.py", line 1253, in wait_for_engine_startup
+    raise RuntimeError(
+RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+
+[MODEL 5/5]
+
+############################################################
+# MODEL: gemma-4-12B-it-qat-w4a16-ct
+############################################################
+
+[INFO] Loading model: google/gemma-4-12B-it-qat-w4a16-ct
+[INFO] Using model default precision (no quantization override)
+
+[ERROR] Model google/gemma-4-12B-it-qat-w4a16-ct failed: 'head_dim' is a per-layer attribute and may vary across layers. Access it via the individual layer configs instead (e.g. config.per_layer_config[i].head_dim). To read the global config value from config.head_dim anyway, set `allow_global_per_layer_attribute_access` to `True` on the config. Warning: only do this if the caller can safely handle heterogeneous configs; code that assumes a homogeneous model may use the global value incorrectly.
+[INFO] Continuing to next model...
+Traceback (most recent call last):
+  File "/mnt/data8tb/Documents/project/lm-eval-ledger/src/lm_eval_ledger/runner.py", line 977, in _run_models
+    model_summary = run_model(
+                    ^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/lm-eval-ledger/src/lm_eval_ledger/runner.py", line 601, in run_model
+    llm = LLM(**llm_kwargs)
+          ^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/entrypoints/llm.py", line 339, in __init__
+    self.llm_engine = LLMEngine.from_engine_args(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 171, in from_engine_args
+    vllm_config = engine_args.create_engine_config(usage_context)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/engine/arg_utils.py", line 1929, in create_engine_config
+    model_config = self.create_model_config()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/engine/arg_utils.py", line 1686, in create_model_config
+    return ModelConfig(
+           ^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+    s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/config/model.py", line 595, in __post_init__
+    self.model_arch_config = self.get_model_arch_config()
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/config/model.py", line 856, in get_model_arch_config
+    return convertor.convert(
+           ^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/transformers_utils/model_arch_config_convertor.py", line 378, in convert
+    head_size=self.get_head_size(),
+              ^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/vllm/transformers_utils/model_arch_config_convertor.py", line 608, in get_head_size
+    head_dim = getattr(self.hf_text_config, "head_dim", 0)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/transformers/configuration_utils.py", line 482, in __getattribute__
+    return super().__getattribute__(key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data8tb/Documents/project/my_bench_harness/ledger_venv/lib/python3.11/site-packages/transformers/integrations/heterogeneity/configuration_utils.py", line 298, in __getattribute__
+    raise AmbiguousGlobalPerLayerAttributeError(
+transformers.integrations.heterogeneity.configuration_utils.AmbiguousGlobalPerLayerAttributeError: 'head_dim' is a per-layer attribute and may vary across layers. Access it via the individual layer configs instead (e.g. config.per_layer_config[i].head_dim). To read the global config value from config.head_dim anyway, set `allow_global_per_layer_attribute_access` to `True` on the config. Warning: only do this if the caller can safely handle heterogeneous configs; code that assumes a homogeneous model may use the global value incorrectly.
+
+############################################################
+# BENCHMARKS COMPLETE
+############################################################
+Duration: 3m 03s
+
+Results by model:
+------------------------------------------------------------
+
+Qwen2.5-7B-Instruct:
+
+Qwen2-7B-Instruct:
+
+Qwen3-8B:
+
+Qwen3.5-9B:
+
+gemma-4-12B-it-qat-w4a16-ct:
