@@ -42,10 +42,15 @@ from __future__ import annotations
 import sys
 
 from .config import build_arg_parser, resolve_config
-from .runner import run
 
 
 def main() -> None:
+    # Ledger query subcommands (everything else is a benchmark run)
+    if len(sys.argv) > 1 and sys.argv[1] in ("runs", "compare"):
+        from .queries import main_query
+        main_query(sys.argv[1:])
+        return
+
     args = build_arg_parser().parse_args()
     try:
         cfg = resolve_config(args)
@@ -53,6 +58,7 @@ def main() -> None:
         print(f"[ERROR] {e}", file=sys.stderr)
         sys.exit(1)
 
+    from .runner import run  # deferred: pulls in vLLM
     run(cfg, shard=args.shard, run_name=args.run_name)
 
 

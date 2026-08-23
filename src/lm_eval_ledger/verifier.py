@@ -1,5 +1,5 @@
 # verifier.py
-"""LLM-based answer verification over a finished run's database.
+"""LLM-based answer verification over one run in the ledger.
 
 Uses CompassVerifier (Liu et al., "CompassVerifier: A Unified and Robust
 Verifier for LLMs Evaluation and Outcome Reward", arXiv:2508.03686;
@@ -9,29 +9,31 @@ independent of the string-matching extract/match pipeline. This is a local
 substitute for API-judge scoring (e.g., HLE's official o3-mini judge) -
 same role, not the identical pipeline.
 
-The verifier runs AFTER benchmarking, over the results already stored in
-SQLite (so the eval model and the verifier never share GPU memory), and
-writes per-response verdicts plus verified accuracies back into the DB:
+The verifier runs AFTER benchmarking, over samples already stored in the
+ledger (so the eval model and the verifier never share GPU memory), scoped
+to one run, and writes verdicts back:
 
-- results.verifier_verdicts: JSON list of A/B/C verdicts (A=correct,
-  B=incorrect, C=invalid response; B and C both count as incorrect)
-- results.verified_correct: 0.0/1.0 (rows the verifier skipped stay NULL)
-- summaries.verified_correct / verified_accuracy: recomputed per task
+- samples.verifier_verdicts: JSON list of A/B/C verdicts per judged
+  response (A=correct, B=incorrect, C=invalid; B and C count as incorrect)
+- samples.verified_score: 0.0/1.0 (skipped samples stay NULL; queries use
+  COALESCE(verified_score, score))
+- benchmarks.verifier_model/verifier_mode/verified_correct/verified_accuracy
 
 Modes:
 - "fallback" (default): only responses that string-matching marked wrong
-  are verified; a sample counts as verified-correct if either pipeline
-  accepts it. Cheap, and recovers format-noncompliant answers.
-- "all": every response is verified; the verifier's verdict alone decides.
+  are re-judged; a sample counts as verified-correct if either pipeline
+  accepts any of its responses. Cheap, recovers format-noncompliant answers.
+- "all": every response is judged; the verifier's verdict alone decides.
 
-Tasks where LLM verification is meaningless are skipped automatically:
-logprob modes (responses are score dicts), MRCR (official metric is a
+Benchmarks where LLM verification is meaningless are skipped automatically:
+logprob eval modes (responses are score dicts), MRCR (official metric is a
 sequence ratio), and LiveCodeBench (correctness is execution-defined).
 
-Activate via config (verifier_model: opencompass/CompassVerifier-7B) to
-run automatically after a benchmark run, or standalone on any past DB:
+Activate via config (verifier_model: opencompass/CompassVerifier-7B) to run
+automatically after a benchmark run, or standalone on any run in a ledger:
 
-    lm-eval-ledger-verify results/run.sqlite3 --model opencompass/CompassVerifier-7B
+    lm-eval-ledger-verify results/ledger.sqlite3 --run 3 \\
+        --model opencompass/CompassVerifier-7B
 """
 from __future__ import annotations
 
@@ -40,7 +42,6 @@ import json
 import re
 import sqlite3
 import sys
-from datetime import datetime
 from pathlib import Path
 
 # Official CompassVerifier prompt (verbatim from open-compass/CompassVerifier
@@ -71,7 +72,7 @@ Here is your task. Simply reply with either CORRECT, INCORRECT, or INVALID. Don'
 Judging the correctness of the candidate's answer:
 """
 
-# Tasks whose correctness cannot be judged by an LLM verifier
+# Benchmarks whose correctness cannot be judged by an LLM verifier
 _SKIP_TASK_PREFIXES = ("mrcr_", "livecodebench")
 
 
@@ -103,26 +104,10 @@ def _truncate_response(response: str, max_chars: int) -> str:
     return response[:head] + "\n...[truncated]...\n" + response[-tail:]
 
 
-def _skip_task(task_name: str) -> bool:
-    return task_name.startswith(_SKIP_TASK_PREFIXES) or task_name == "TOTAL"
-
-
-def _ensure_columns(conn: sqlite3.Connection) -> None:
-    for table, col, decl in [
-        ("results", "verifier_verdicts", "TEXT"),
-        ("results", "verified_correct", "REAL"),
-        ("summaries", "verified_correct", "REAL"),
-        ("summaries", "verified_accuracy", "REAL"),
-    ]:
-        try:
-            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
-        except sqlite3.OperationalError:
-            pass  # column already exists
-
-
 def verify_run(
     db_path: Path | str,
     verifier_model: str,
+    run_id: int | None = None,
     mode: str = "fallback",
     max_model_len: int = 16384,
     gpu_memory_utilization: float = 0.95,
@@ -130,11 +115,11 @@ def verify_run(
     seed: int = 42,
     _generate=None,
 ) -> None:
-    """Verify a run's stored responses with an LLM verifier and record
-    verified accuracies in the database.
+    """Judge one run's stored responses with an LLM verifier and record
+    verified scores in the ledger.
 
-    _generate is an internal test seam: a callable prompts -> list[str]
-    replacing the vLLM engine.
+    run_id None means the newest run in the ledger. _generate is an internal
+    test seam: a callable prompts -> list[str] replacing the vLLM engine.
     """
     if mode not in ("fallback", "all"):
         raise ValueError(f"verifier mode must be 'fallback' or 'all', got {mode!r}")
@@ -142,127 +127,114 @@ def verify_run(
     db_path = Path(db_path)
     conn = sqlite3.connect(db_path, isolation_level=None, timeout=60)
     conn.row_factory = sqlite3.Row
-    _ensure_columns(conn)
 
-    # Discover response_1..k columns
-    cols = [r["name"] for r in conn.execute("PRAGMA table_info(results)")]
-    response_cols = sorted(
-        (c for c in cols if re.fullmatch(r"response_\d+", c)),
-        key=lambda c: int(c.split("_")[1]),
-    )
+    if run_id is None:
+        row = conn.execute("SELECT MAX(run_id) AS m FROM runs").fetchone()
+        run_id = row["m"]
+        if run_id is None:
+            print("[VERIFY] Ledger has no runs; nothing to do")
+            return
+        print(f"[VERIFY] No run specified; using newest run id {run_id}")
 
-    rows = conn.execute(
-        f"SELECT id, task_name, prompt_actual, gold_answer, is_correct, "
-        f"stop_reasons, {', '.join(response_cols)} FROM results"
+    # Benchmarks of this run that an LLM can judge
+    bench_rows = conn.execute(
+        "SELECT benchmark_id, task, model_tag, eval_mode, accuracy FROM benchmarks "
+        "WHERE run_id = ? AND (error IS NULL OR error = '')", (run_id,)
+    ).fetchall()
+    judgeable, skipped = [], []
+    for b in bench_rows:
+        if b["eval_mode"] != "generate" or b["task"].startswith(_SKIP_TASK_PREFIXES):
+            skipped.append(f"{b['task']} ({b['model_tag']})")
+        else:
+            judgeable.append(b)
+    if skipped:
+        print(f"[VERIFY] Skipping non-verifiable benchmarks: {skipped}")
+    if not judgeable:
+        print("[VERIFY] No verifiable benchmarks in this run")
+        conn.close()
+        return
+
+    bench_ids = [b["benchmark_id"] for b in judgeable]
+    placeholders = ",".join("?" * len(bench_ids))
+    samples = conn.execute(
+        f"SELECT sample_pk, benchmark_id, prompt, gold, responses, score "
+        f"FROM samples WHERE benchmark_id IN ({placeholders})", bench_ids
     ).fetchall()
 
-    # Select (row, response) pairs to judge
-    jobs: list[tuple[int, list[str]]] = []  # (row_id, responses to judge)
-    skipped_tasks: set[str] = set()
-    for row in rows:
-        if _skip_task(row["task_name"]):
-            skipped_tasks.add(row["task_name"])
+    # Build judging jobs: (sample_pk, [response indices to judge])
+    max_chars = max(4000, (max_model_len - 1500) * 3)
+    prompts: list[str] = []
+    prompt_map: list[tuple[int, int]] = []  # (sample_pk, response_idx)
+    responses_by_pk: dict[int, list[dict]] = {}
+    for s in samples:
+        if mode == "fallback" and (s["score"] or 0) >= 1:
             continue
-        if "logprob" in (row["stop_reasons"] or ""):
-            skipped_tasks.add(row["task_name"])
-            continue
-        if mode == "fallback" and row["is_correct"]:
-            continue
-        responses = [row[c] for c in response_cols if row[c]]
-        if responses:
-            jobs.append((row["id"], responses))
+        responses = json.loads(s["responses"] or "[]")
+        responses_by_pk[s["sample_pk"]] = responses
+        for r_idx, resp in enumerate(responses):
+            if mode == "fallback" and float(resp.get("correct") or 0) >= 1:
+                continue
+            text = resp.get("text", "")
+            if not text:
+                continue
+            prompts.append(CV_PROMPT.format(
+                question=s["prompt"],
+                gold_answer=s["gold"],
+                llm_response=_truncate_response(text, max_chars),
+            ))
+            prompt_map.append((s["sample_pk"], r_idx))
 
-    if skipped_tasks:
-        print(f"[VERIFY] Skipping non-verifiable tasks: {sorted(skipped_tasks)}")
-    n_prompts = sum(len(r) for _, r in jobs)
-    print(f"[VERIFY] Mode: {mode} | {len(jobs)} samples, {n_prompts} responses to judge")
+    print(f"[VERIFY] Run {run_id} | mode: {mode} | "
+          f"{len(responses_by_pk)} samples, {len(prompts)} responses to judge")
 
-    if jobs:
-        # Response char budget: leave room for the template, question, and gold
-        max_chars = max(4000, (max_model_len - 1500) * 3)
-
-        row_by_id = {row["id"]: row for row in rows}
-        prompts: list[str] = []
-        prompt_map: list[tuple[int, int]] = []  # (job_idx, response_idx)
-        raw_prompts: list[str] = []
-        for job_idx, (row_id, responses) in enumerate(jobs):
-            row = row_by_id[row_id]
-            for resp_idx, response in enumerate(responses):
-                raw_prompts.append(CV_PROMPT.format(
-                    question=row["prompt_actual"],
-                    gold_answer=row["gold_answer"],
-                    llm_response=_truncate_response(response, max_chars),
-                ))
-                prompt_map.append((job_idx, resp_idx))
-
+    if prompts:
         if _generate is None:
             _generate = _make_vllm_generate(
                 verifier_model, max_model_len, gpu_memory_utilization,
                 enforce_eager, seed,
             )
-        outputs = _generate(raw_prompts)
+        outputs = _generate(prompts)
 
-        # Collect verdicts per job
-        verdicts_by_job: dict[int, list[str]] = {i: [] for i in range(len(jobs))}
-        for (job_idx, _resp_idx), out_text in zip(prompt_map, outputs):
-            verdicts_by_job[job_idx].append(process_judgment(out_text) or "?")
+        verdicts_by_pk: dict[int, list[str]] = {}
+        for (pk, _r_idx), out_text in zip(prompt_map, outputs):
+            verdicts_by_pk.setdefault(pk, []).append(process_judgment(out_text) or "?")
 
-        # Write per-row verdicts and verified_correct
-        for job_idx, (row_id, _responses) in enumerate(jobs):
-            verdicts = verdicts_by_job[job_idx]
+        sample_by_pk = {s["sample_pk"]: s for s in samples}
+        for pk, verdicts in verdicts_by_pk.items():
             verifier_ok = 1.0 if "A" in verdicts else 0.0
             if mode == "fallback":
-                verified = max(float(row_by_id[row_id]["is_correct"] or 0.0), verifier_ok)
+                verified = max(float(sample_by_pk[pk]["score"] or 0.0), verifier_ok)
             else:
                 verified = verifier_ok
             conn.execute(
-                "UPDATE results SET verifier_verdicts = ?, verified_correct = ? WHERE id = ?",
-                (json.dumps(verdicts), verified, row_id),
+                "UPDATE samples SET verifier_verdicts = ?, verified_score = ? "
+                "WHERE sample_pk = ?",
+                (json.dumps(verdicts), verified, pk),
             )
 
-    # In fallback mode, rows that were already correct keep their score
-    if mode == "fallback":
-        conn.execute(
-            "UPDATE results SET verified_correct = is_correct "
-            "WHERE verified_correct IS NULL"
-        )
-
-    # ---------- recompute summaries ----------
+    # ---------- recompute benchmark scores ----------
+    # COALESCE keeps the original score for samples the verifier didn't touch
+    # (already-correct samples in fallback mode, empty responses).
     print(f"\n[VERIFY] Verified accuracies ({mode} mode):")
-    summary_rows = conn.execute(
-        "SELECT id, task_name, model_tag, accuracy FROM summaries "
-        "WHERE task_name != 'TOTAL' AND (error IS NULL OR error = '')"
-    ).fetchall()
-    for srow in summary_rows:
+    for b in judgeable:
         agg = conn.execute(
-            "SELECT SUM(COALESCE(verified_correct, is_correct)) AS c, COUNT(*) AS n "
-            "FROM results WHERE task_name = ? AND model_name = ?",
-            (srow["task_name"], srow["model_tag"]),
+            "SELECT SUM(COALESCE(verified_score, score)) AS c, COUNT(*) AS n "
+            "FROM samples WHERE benchmark_id = ?", (b["benchmark_id"],)
         ).fetchone()
         if not agg["n"]:
             continue
         verified_acc = (agg["c"] or 0.0) / agg["n"]
         conn.execute(
-            "UPDATE summaries SET verified_correct = ?, verified_accuracy = ? WHERE id = ?",
-            (agg["c"], verified_acc, srow["id"]),
+            "UPDATE benchmarks SET verifier_model = ?, verifier_mode = ?, "
+            "verified_correct = ?, verified_accuracy = ? WHERE benchmark_id = ?",
+            (verifier_model, mode, agg["c"], verified_acc, b["benchmark_id"]),
         )
-        delta = verified_acc - (srow["accuracy"] or 0.0)
-        print(f"  {srow['model_tag']} / {srow['task_name']}: "
-              f"{srow['accuracy']:.4f} -> {verified_acc:.4f} ({delta:+.4f})")
-
-    # Record verifier settings alongside the run config
-    try:
-        conn.execute(
-            "INSERT INTO run_config (created_at, config_yaml) VALUES (?, ?)",
-            (datetime.now().isoformat(timespec="seconds"),
-             f"# verifier pass\nverifier_model: {verifier_model}\n"
-             f"verifier_mode: {mode}\n"),
-        )
-    except sqlite3.OperationalError:
-        pass  # very old DB without run_config table
+        delta = verified_acc - (b["accuracy"] or 0.0)
+        print(f"  {b['model_tag']} / {b['task']}: "
+              f"{b['accuracy']:.4f} -> {verified_acc:.4f} ({delta:+.4f})")
 
     conn.close()
-    print(f"\n[VERIFY] Done. Verdicts and verified accuracies written to {db_path}")
+    print(f"\n[VERIFY] Done. Verdicts written to {db_path} (run id {run_id})")
 
 
 def _make_vllm_generate(model: str, max_model_len: int,
@@ -297,13 +269,16 @@ def _make_vllm_generate(model: str, max_model_len: int,
 
 
 def main() -> None:
-    """Standalone entry point: verify any past run's database."""
+    """Standalone entry point: verify any run in a ledger."""
     p = argparse.ArgumentParser(
         prog="lm-eval-ledger-verify",
-        description="LLM-verify the responses stored in a benchmark run's "
-                    "SQLite database and record verified accuracies.",
+        description="LLM-verify the responses of one run in a ledger database "
+                    "and record verified accuracies.",
     )
-    p.add_argument("db", type=Path, help="path to the run's .sqlite3 database")
+    p.add_argument("db", type=Path, help="path to the ledger .sqlite3 database")
+    p.add_argument("--run", type=int, default=None, metavar="RUN_ID",
+                   help="run to verify (default: the newest run; "
+                        "see `lm-eval-ledger runs`)")
     p.add_argument("--model", default="opencompass/CompassVerifier-7B",
                    help="verifier model HF id or local path")
     p.add_argument("--mode", choices=["fallback", "all"], default="fallback",
@@ -318,7 +293,7 @@ def main() -> None:
         sys.exit(1)
 
     verify_run(
-        args.db, args.model, mode=args.mode,
+        args.db, args.model, run_id=args.run, mode=args.mode,
         max_model_len=args.max_model_len,
         gpu_memory_utilization=args.gpu_memory_utilization,
     )

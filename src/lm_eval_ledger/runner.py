@@ -17,7 +17,7 @@ from vllm import LLM, SamplingParams
 from vllm.distributed.parallel_state import destroy_model_parallel
 
 from .config import RunConfig
-from .db import BenchmarkDatabase
+from .db import DEFAULT_LEDGER_NAME, LedgerDatabase
 from .fewshot import (
     build_fewshot_block,
     build_fewshot_block_logprob_seq,
@@ -261,17 +261,17 @@ def run_task(
 
             all_stop_reasons.append("logprob_token")
 
-            # Store logprobs dict as the "response" (JSON string)
+            # Store the per-choice logprobs dict as the response text (JSON)
             logprobs_json = json.dumps(logprobs_dict)
             log_entries.append({
                 "sample_id": sample_ids[ex_idx],
-                "prompt_actual": prompts_without_fewshot[ex_idx],
+                "prompt": prompts_without_fewshot[ex_idx],
                 "prompt_full": prompts[ex_idx],
-                "gold_answer": gold,
-                "is_correct": is_correct,
-                "extracted_answers": [pred],
-                "stop_reasons": ["logprob_token"],
-                "responses": [logprobs_json],
+                "gold": gold,
+                "score": float(is_correct),
+                "responses": [{"text": logprobs_json, "extracted": pred,
+                               "stop_reason": "logprob_token",
+                               "correct": float(is_correct)}],
             })
 
     # ========================================
@@ -378,19 +378,19 @@ def run_task(
 
             all_stop_reasons.append("logprob_seq")
 
-            # Store scores as JSON for inspection
+            # Store per-choice scores as the response text (JSON) for inspection
             scores_dict = {lbl: sc for lbl, sc in ex_scores}
             scores_json = json.dumps(scores_dict)
 
             log_entries.append({
                 "sample_id": sample_ids[ex_idx],
-                "prompt_actual": prompts_without_fewshot[ex_idx],
+                "prompt": prompts_without_fewshot[ex_idx],
                 "prompt_full": base_prompts[ex_idx],
-                "gold_answer": gold,
-                "is_correct": is_correct,
-                "extracted_answers": [pred],
-                "stop_reasons": ["logprob_seq"],
-                "responses": [scores_json],
+                "gold": gold,
+                "score": float(is_correct),
+                "responses": [{"text": scores_json, "extracted": pred,
+                               "stop_reason": "logprob_seq",
+                               "correct": float(is_correct)}],
             })
 
     # ========================================
@@ -466,10 +466,10 @@ def run_task(
                 score = float(task.match_fn(gold, pred))
 
                 responses_list.append({
-                    "response": pred_raw,
+                    "text": pred_raw,
                     "extracted": pred,
-                    "correct": score,
                     "stop_reason": stop_reason_str,
+                    "correct": score,
                 })
                 all_stop_reasons.append(stop_reason_str)
 
@@ -479,13 +479,11 @@ def run_task(
 
             log_entries.append({
                 "sample_id": sample_ids[idx],
-                "prompt_actual": prompts_without_fewshot[idx],
+                "prompt": prompts_without_fewshot[idx],
                 "prompt_full": prompts[idx],
-                "gold_answer": gold,
-                "is_correct": best_score,
-                "extracted_answers": [r["extracted"] for r in responses_list],
-                "stop_reasons": [r["stop_reason"] for r in responses_list],
-                "responses": [r["response"] for r in responses_list],
+                "gold": gold,
+                "score": best_score,
+                "responses": responses_list,
             })
 
     # ---------- sort entries ----------
@@ -505,19 +503,18 @@ def run_task(
     # (empty extracted answer on the first response of each sample)
     no_answer_count = sum(
         1 for entry in log_entries
-        if entry["extracted_answers"] and entry["extracted_answers"][0] == ""
+        if entry["responses"] and entry["responses"][0].get("extracted") == ""
     )
 
     # Count occurrences of each stop_reason across all responses
     stop_reason_counts = dict(Counter(all_stop_reasons))
 
-    # Include fewshot in task name for unique identification
-    task_name_with_fewshot = f"{task.name}({fewshot_k})"
-
     summary = {
         "model": model_name,
         "model_tag": model_tag,
-        "task": task_name_with_fewshot,
+        "task": task.name,
+        "fewshot_k": fewshot_k,
+        "eval_mode": task.eval_mode,
         "pass_k": cfg.pass_k,
         "total_examples": total,
         "correct": correct,
@@ -536,7 +533,7 @@ def run_task(
     }
 
     # ---------- print results ----------
-    print(f"[{task_name_with_fewshot}] Accuracy: {correct:g}/{total} = {acc:.4f} | Duration: {format_time(duration)}")
+    print(f"[{task.name}({fewshot_k})] Accuracy: {correct:g}/{total} = {acc:.4f} | Duration: {format_time(duration)}")
 
     return summary, log_entries
 
@@ -551,7 +548,8 @@ def run_model(
     tasks_to_run: list[tuple[str, int | None]],
     data_dir: Path,
     timestamp: str,
-    benchmark_db: BenchmarkDatabase,
+    ledger: LedgerDatabase,
+    run_id: int,
 ) -> dict:
     """Run all tasks for a single model and return combined summary."""
     model_start = time.time()
@@ -623,18 +621,19 @@ def run_model(
         except Exception as e:
             print(f"\n[ERROR] Task {task_name} failed: {e}")
             traceback.print_exc()
-            fewshot_k_actual = fewshot_k if fewshot_k is not None else 0
             summary = {
-                "task": f"{task_name}({fewshot_k_actual})",
+                "task": task_name,
+                "fewshot_k": fewshot_k,
                 "model": model_name,
                 "model_tag": model_tag,
                 "error": str(e),
+                "pass_k": cfg.pass_k,
                 "total_examples": 0,
                 "correct": 0,
                 "accuracy": 0.0,
                 "no_answer_count": 0,
                 "stop_reason_counts": {},
-                "duration_human": "",
+                "timestamp": timestamp,
                 "settings": {
                     "temperature": cfg.temperature,
                     "top_p": cfg.top_p,
@@ -646,12 +645,10 @@ def run_model(
 
         task_summaries.append(summary)
 
-        # Write to consolidated benchmark database
-        benchmark_db.add_summary(summary)
-
+        # Append to the ledger
+        benchmark_id = ledger.add_benchmark(run_id, summary)
         if log_entries:
-            # Write results to benchmark database (use task name with fewshot from summary)
-            benchmark_db.add_results(summary["task"], model_tag, log_entries)
+            ledger.add_samples(benchmark_id, log_entries)
 
     # ---------- unload model to free GPU memory ----------
     print(f"\n[INFO] Unloading model: {model_tag}")
@@ -686,10 +683,11 @@ def run_model(
     print(f"Duration: {format_time(model_duration)}")
     print(f"Results:")
     for summary in task_summaries:
+        label = f"{summary['task']}({summary.get('fewshot_k')})"
         if "error" in summary:
-            print(f"  {summary['task']}: ERROR - {summary['error']}")
+            print(f"  {label}: ERROR - {summary['error']}")
         else:
-            print(f"  {summary['task']}: {summary['accuracy']:.4f} ({summary['correct']:g}/{summary['total_examples']})")
+            print(f"  {label}: {summary['accuracy']:.4f} ({summary['correct']:g}/{summary['total_examples']})")
 
     return model_summary
 
@@ -713,13 +711,26 @@ def _resolve_tasks_to_run(cfg: RunConfig) -> list[tuple[str, int | None]]:
     return [(task, None) for task in get_available_tasks()]
 
 
-def _maybe_verify(cfg: RunConfig, db_path: Path | None) -> None:
+def _ledger_path(cfg: RunConfig) -> Path:
+    """The ledger DB file: cfg.db_path, or <results_dir>/ledger.sqlite3."""
+    if cfg.db_path:
+        return Path(cfg.db_path)
+    return Path(cfg.results_dir) / DEFAULT_LEDGER_NAME
+
+
+def _harness_version() -> str:
+    from . import __version__
+    return __version__
+
+
+def _maybe_verify(cfg: RunConfig, db_path: Path | None, run_id: int | None) -> None:
     """Run the post-run LLM verification pass if configured."""
-    if not cfg.verifier_model or db_path is None:
+    if not cfg.verifier_model or db_path is None or run_id is None:
         return
     from .verifier import verify_run
     verify_run(
         db_path, cfg.verifier_model,
+        run_id=run_id,
         mode=cfg.verifier_mode,
         max_model_len=cfg.verifier_max_model_len,
         gpu_memory_utilization=cfg.gpu_memory_utilization,
@@ -739,23 +750,23 @@ def _run_coordinator(cfg: RunConfig) -> Path:
     # Determine tasks (for run_name generation and header display)
     tasks_to_run = _resolve_tasks_to_run(cfg)
 
-    # Generate shared run name (all workers use the same DB)
+    # Generate shared run name (all workers append to the same run row)
     run_name = _make_run_name(cfg, len(cfg.models), len(tasks_to_run))
-    benchmark_db_path = results_dir / f"{run_name}.sqlite3"
+    ledger_path = _ledger_path(cfg)
 
     gpu_ids = [str(g) for g in cfg.gpu_ids]
     num_workers = min(len(gpu_ids), len(cfg.models))
 
-    # Write the RESOLVED config next to the DB: it's the run's reproducibility
-    # artifact, and workers load it so they see exactly the coordinator's config
-    # (including any CLI overrides).
+    # Write the RESOLVED config next to the ledger: it's the run's
+    # reproducibility artifact, and workers load it so they see exactly the
+    # coordinator's config (including any CLI overrides).
     resolved_config_path = results_dir / f"{run_name}_config.yaml"
     resolved_config_path.write_text(cfg.to_yaml(), encoding="utf-8")
 
-    # Pre-create the DB so WAL mode and tables are ready before workers connect
-    benchmark_db = BenchmarkDatabase(benchmark_db_path, pass_k=cfg.pass_k)
-    benchmark_db.save_run_config(cfg.to_yaml())
-    benchmark_db.close()
+    # Pre-create the ledger and the run row before workers connect
+    ledger = LedgerDatabase(ledger_path)
+    run_id = ledger.create_run(run_name, cfg.to_yaml(), _harness_version())
+    ledger.close()
 
     # ---------- print header ----------
     task_strs = [f"{name}({k})" if k is not None else name for name, k in tasks_to_run]
@@ -766,7 +777,7 @@ def _run_coordinator(cfg: RunConfig) -> Path:
     for i, m in enumerate(cfg.models):
         print(f"  GPU {gpu_ids[i % num_workers]}: {Path(m).name}")
     print(f"Tasks: {', '.join(task_strs)}")
-    print(f"Database: {benchmark_db_path}")
+    print(f"Ledger: {ledger_path} (run {run_name}, id {run_id})")
     print(f"Config: {resolved_config_path}")
     print(f"{'='*60}")
 
@@ -805,10 +816,10 @@ def _run_coordinator(cfg: RunConfig) -> Path:
     print(f"{'#'*60}")
     print(f"Total duration: {format_time(total_duration)}")
 
-    benchmark_db = BenchmarkDatabase(benchmark_db_path, pass_k=cfg.pass_k)
-    rows = benchmark_db.conn.execute(
-        "SELECT task_name, model_tag, accuracy, total_examples, correct, error "
-        "FROM summaries WHERE task_name != 'TOTAL' ORDER BY id"
+    ledger = LedgerDatabase(ledger_path)
+    rows = ledger.conn.execute(
+        "SELECT task, fewshot_k, model_tag, accuracy, total_examples, correct, error "
+        "FROM benchmarks WHERE run_id = ? ORDER BY benchmark_id", (run_id,)
     ).fetchall()
 
     if rows:
@@ -819,38 +830,14 @@ def _run_coordinator(cfg: RunConfig) -> Path:
             if row["model_tag"] != current_model:
                 current_model = row["model_tag"]
                 print(f"\n{current_model}:")
+            label = f"{row['task']}({row['fewshot_k']})"
             if row["error"]:
-                print(f"  {row['task_name']}: ERROR - {row['error']}")
+                print(f"  {label}: ERROR - {row['error']}")
             else:
-                print(f"  {row['task_name']}: {row['accuracy']:.4f} ({row['correct']}/{row['total_examples']})")
+                print(f"  {label}: {row['accuracy']:.4f} ({row['correct']:g}/{row['total_examples']})")
 
-    # Add TOTAL summary row
-    total_examples = sum(r["total_examples"] or 0 for r in rows if not r["error"])
-    total_correct = sum(r["correct"] or 0 for r in rows if not r["error"])
-    total_accuracy = total_correct / total_examples if total_examples > 0 else 0.0
-    model_tags = sorted(set(r["model_tag"] for r in rows))
-    task_names_set = sorted(set(r["task_name"] for r in rows))
-
-    total_summary = {
-        "task": "TOTAL",
-        "model_tag": f"{len(model_tags)} models",
-        "total_examples": total_examples,
-        "correct": total_correct,
-        "accuracy": total_accuracy,
-        "no_answer_count": 0,
-        "stop_reason_counts": {},
-        "duration_human": format_time(total_duration),
-        "settings": {
-            "temperature": cfg.temperature,
-            "top_p": cfg.top_p,
-            "max_tokens": cfg.max_tokens,
-        },
-        "error": None,
-        "model": f"Models: {', '.join(model_tags)} | Tasks: {', '.join(task_names_set)}",
-    }
-    benchmark_db.add_summary(total_summary)
     # All workers have exited, so it's safe to clean up the WAL/SHM files
-    benchmark_db.close(remove_sidecars=True)
+    ledger.close(remove_sidecars=True)
 
     if failed:
         print(f"\n[WARN] {len(failed)} worker(s) failed: {failed}")
@@ -858,12 +845,12 @@ def _run_coordinator(cfg: RunConfig) -> Path:
     # Optional LLM verification pass (workers are done; pin to first GPU)
     if cfg.verifier_model and cfg.gpu_ids:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(cfg.gpu_ids[0])
-    _maybe_verify(cfg, benchmark_db_path)
+    _maybe_verify(cfg, ledger_path, run_id)
 
-    print(f"\nResults saved to: {benchmark_db_path}")
+    print(f"\nResults appended to ledger: {ledger_path} (run id {run_id})")
     print(f"Logs saved to: {logs_dir}")
     print(f"{'#'*60}")
-    return benchmark_db_path
+    return ledger_path
 
 
 def run(cfg: RunConfig, *, shard: str | None = None, run_name: str | None = None) -> Path:
@@ -907,20 +894,24 @@ def run(cfg: RunConfig, *, shard: str | None = None, run_name: str | None = None
     # ---------- determine tasks to run ----------
     tasks_to_run = _resolve_tasks_to_run(cfg)
 
-    # ---------- setup consolidated benchmark database and logs ----------
+    # ---------- open the ledger and register the run ----------
     if run_name is None:
         # Standalone mode: generate run name (workers get it from the coordinator)
         run_name = _make_run_name(cfg, len(models), len(tasks_to_run))
 
-    benchmark_db_path = results_dir / f"{run_name}.sqlite3"
-    benchmark_db = BenchmarkDatabase(benchmark_db_path, pass_k=cfg.pass_k)
+    ledger_path = _ledger_path(cfg)
+    ledger = LedgerDatabase(ledger_path)
 
-    # Standalone mode: record the resolved config (file + DB).
-    # In worker mode the coordinator already did both.
     if shard is None:
+        # Standalone mode: register the run and record the resolved config.
         resolved_config_path = results_dir / f"{run_name}_config.yaml"
         resolved_config_path.write_text(cfg.to_yaml(), encoding="utf-8")
-        benchmark_db.save_run_config(cfg.to_yaml())
+        run_id = ledger.create_run(run_name, cfg.to_yaml(), _harness_version())
+    else:
+        # Worker mode: the coordinator already registered the run.
+        run_id = ledger.get_run_id(run_name)
+        if run_id is None:
+            raise RuntimeError(f"Run {run_name!r} not found in ledger {ledger_path}")
 
     # ---------- setup output logging ----------
     logs_dir = Path(cfg.logs_dir)
@@ -931,23 +922,23 @@ def run(cfg: RunConfig, *, shard: str | None = None, run_name: str | None = None
     output_logger.start()
 
     try:
-        _run_models(cfg, models, tasks_to_run, data_dir, timestamp, benchmark_db,
-                    shard_idx, num_shards, total_start)
+        _run_models(cfg, models, tasks_to_run, data_dir, timestamp, ledger,
+                    run_id, shard_idx, num_shards, total_start)
     finally:
-        # In multi-GPU mode other workers may still hold the DB open;
+        # In multi-GPU mode other workers may still hold the ledger open;
         # only the last close of a run may delete the WAL/SHM sidecars.
-        benchmark_db.close(remove_sidecars=shard is None)
+        ledger.close(remove_sidecars=shard is None)
         output_logger.stop()
 
     # Optional LLM verification pass (standalone mode only; the coordinator
     # runs it once for multi-GPU runs)
     if shard is None:
-        _maybe_verify(cfg, benchmark_db_path)
+        _maybe_verify(cfg, ledger_path, run_id)
 
-    print(f"\nResults saved to: {benchmark_db_path}")
+    print(f"\nResults appended to ledger: {ledger_path} (run id {run_id})")
     print(f"Logs saved to: {logs_dir / log_name}_stdout.log and _combined.log")
     print(f"{'#'*60}")
-    return benchmark_db_path
+    return ledger_path
 
 def _run_models(
     cfg: RunConfig,
@@ -955,7 +946,8 @@ def _run_models(
     tasks_to_run: list[tuple[str, int | None]],
     data_dir: Path,
     timestamp: str,
-    benchmark_db: BenchmarkDatabase,
+    ledger: LedgerDatabase,
+    run_id: int,
     shard_idx: int | None,
     num_shards: int | None,
     total_start: float,
@@ -973,7 +965,7 @@ def _run_models(
     task_strs = [f"{name}({k})" if k is not None else name for name, k in tasks_to_run]
     print(f"Tasks: {', '.join(task_strs)}")
     print(f"Timestamp: {timestamp}")
-    print(f"Database: {benchmark_db.db_path}")
+    print(f"Ledger: {ledger.db_path} (run id {run_id})")
     print(f"{'='*60}")
 
     # ---------- run all models ----------
@@ -988,7 +980,8 @@ def _run_models(
                 tasks_to_run=tasks_to_run,
                 data_dir=data_dir,
                 timestamp=timestamp,
-                benchmark_db=benchmark_db,
+                ledger=ledger,
+                run_id=run_id,
             )
             all_model_summaries.append(model_summary)
         except Exception as e:
@@ -1017,47 +1010,8 @@ def _run_models(
     for model_summary in all_model_summaries:
         print(f"\n{model_summary['model_tag']}:")
         for task_summary in model_summary["tasks"]:
+            label = f"{task_summary.get('task')}({task_summary.get('fewshot_k')})"
             if "error" in task_summary:
-                print(f"  {task_summary['task']}: ERROR")
+                print(f"  {label}: ERROR")
             else:
-                print(f"  {task_summary['task']}: {task_summary['accuracy']:.4f}")
-
-    # ---------- add total summary row to database ----------
-    # Only in standalone mode (single-GPU). In multi-GPU mode, coordinator adds TOTAL.
-    if shard_idx is None:
-        total_examples = 0
-        total_correct = 0
-        total_no_answer = 0
-        model_tags = []
-        task_names = set()
-
-        for model_summary in all_model_summaries:
-            model_tags.append(model_summary.get("model_tag", ""))
-            for task_summary in model_summary.get("tasks", []):
-                if "error" not in task_summary:
-                    total_examples += task_summary.get("total_examples", 0)
-                    total_correct += task_summary.get("correct", 0)
-                    total_no_answer += task_summary.get("no_answer_count", 0)
-                    task_names.add(task_summary.get("task", ""))
-
-        total_accuracy = total_correct / total_examples if total_examples > 0 else 0.0
-
-        # Add TOTAL row to summaries table
-        total_summary = {
-            "task": "TOTAL",
-            "model_tag": f"{len(model_tags)} models",
-            "total_examples": total_examples,
-            "correct": total_correct,
-            "accuracy": total_accuracy,
-            "no_answer_count": total_no_answer,
-            "stop_reason_counts": {},
-            "duration_human": format_time(total_duration),
-            "settings": {
-                "temperature": cfg.temperature,
-                "top_p": cfg.top_p,
-                "max_tokens": cfg.max_tokens,
-            },
-            "error": None,  # None means completed successfully
-            "model": f"Models: {', '.join(model_tags)} | Tasks: {', '.join(sorted(task_names))}",
-        }
-        benchmark_db.add_summary(total_summary)
+                print(f"  {label}: {task_summary['accuracy']:.4f}")

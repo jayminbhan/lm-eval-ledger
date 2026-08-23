@@ -73,6 +73,11 @@ max_model_len: 4096            # null = model default; lower if OOM
 enforce_eager: true            # disable CUDA graphs to save memory
 gpu_ids: null                  # null = default GPU, [7] = pin, [0,1,2] = parallel workers
 
+# ── Ledger ────────────────────────────────────────────────
+# All runs append to one SQLite ledger; inspect with `lm-eval-ledger runs`
+# and diff runs with `lm-eval-ledger compare <id_a> <id_b> [--samples]`.
+db_path: null                  # null = <results_dir>/ledger.sqlite3
+
 # ── Quantization ──────────────────────────────────────────
 # null, one method for all models ("bitsandbytes"/"awq"/"gptq"/"fp8"),
 # or a per-model mapping keyed by MODEL TAG. The tag is the basename of the

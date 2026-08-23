@@ -58,9 +58,13 @@ class RunConfig:
 
     # Output/input directories; relative paths resolve against the
     # current working directory.
-    results_dir: str = "results"   # SQLite DBs + resolved config YAMLs
+    results_dir: str = "results"   # ledger DB + resolved config YAMLs
     logs_dir: str = "logs"         # tee'd stdout/stderr logs
     data_dir: str = "data"         # optional local few-shot files
+
+    # The ledger database file all runs append to.
+    # None = <results_dir>/ledger.sqlite3
+    db_path: str | None = None
 
     # LLM answer verification (post-run pass over the results DB).
     # Set verifier_model (e.g. "opencompass/CompassVerifier-7B") to enable.
@@ -267,6 +271,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="directory for run logs (default: ./logs)")
     p.add_argument("--data-dir", type=str, default=None, metavar="DIR",
                    help="directory with optional local few-shot files (default: ./data)")
+    p.add_argument("--db-path", type=str, default=None, metavar="FILE",
+                   help="ledger database file (default: <results-dir>/ledger.sqlite3)")
     p.add_argument("--verifier-model", type=str, default=None, metavar="MODEL",
                    help="LLM verifier for a post-run verification pass "
                         "(e.g. opencompass/CompassVerifier-7B)")
@@ -301,7 +307,7 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
     for key in ("max_examples", "batch_size", "apply_chat_template", "temperature",
                 "top_p", "max_tokens", "pass_k", "seed", "gpu_memory_utilization",
                 "max_model_len", "enforce_eager", "results_dir", "logs_dir", "data_dir",
-                "verifier_model", "verifier_mode", "verifier_max_model_len"):
+                "db_path", "verifier_model", "verifier_mode", "verifier_max_model_len"):
         value = getattr(args, key)
         if value is not None:
             data[key] = value

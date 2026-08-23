@@ -15,10 +15,10 @@ Custom tasks:
 """
 from __future__ import annotations
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 
 from .config import RunConfig, load_yaml_config, resolve_config
-from .db import BenchmarkDatabase
+from .db import LedgerDatabase
 from .tasks import (
     TASK_REGISTRY,
     TaskConfig,
@@ -52,7 +52,7 @@ __all__ = [
     "RunConfig",
     "run",
     "verify_run",
-    "BenchmarkDatabase",
+    "LedgerDatabase",
     "load_yaml_config",
     "resolve_config",
     "TaskConfig",

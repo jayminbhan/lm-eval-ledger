@@ -1,5 +1,26 @@
 # db.py
-"""Consolidated SQLite results database for benchmark runs."""
+"""The ledger: one SQLite database that every benchmark run appends to.
+
+Schema v1 (PRAGMA user_version = 1), three tables:
+
+- runs        one row per harness invocation: name, start time, harness
+              version, and the resolved config YAML (full provenance)
+- benchmarks  one row per (run, model, task, fewshot) evaluation with all
+              scores and metadata; verified_* columns are filled by the
+              optional LLM-verifier pass
+- samples     one row per evaluated sample. The k pass@k responses live in
+              the `responses` column as a JSON array
+              [{"text","extracted","stop_reason","correct"}, ...] so the
+              schema is identical for every pass_k. `score` is the best
+              over k (0/1 for binary tasks, a ratio for partial-credit).
+
+The samples_flat view flattens the first response per sample for quick
+inspection in a SQLite browser. Cross-run comparison: `lm-eval-ledger runs`
+and `lm-eval-ledger compare`.
+
+Concurrency: WAL mode + autocommit + busy timeout, so multi-GPU workers
+(and even concurrent runs) can append to the same ledger safely.
+"""
 from __future__ import annotations
 
 import json
@@ -7,193 +28,187 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+SCHEMA_VERSION = 1
 
-class BenchmarkDatabase:
-    """
-    Consolidated SQLite database for all benchmark data.
+DEFAULT_LEDGER_NAME = "ledger.sqlite3"
 
-    Tables:
-    - summaries: Per-task accuracy, timing, and settings
-    - results: Individual example results (one row per sample, with response_1..response_k columns)
-    - (gpu_metrics table removed)
-    """
 
-    def __init__(self, db_path: Path, pass_k: int = 1):
-        self.db_path = db_path
-        self.pass_k = pass_k
-        # Use autocommit mode (isolation_level=None) for immediate writes
-        # busy_timeout lets concurrent writers retry instead of failing immediately
-        self.conn = sqlite3.connect(db_path, isolation_level=None, timeout=60)
+class LedgerDatabase:
+    """Append-only ledger of benchmark runs (see module docstring)."""
+
+    def __init__(self, db_path: Path | str):
+        self.db_path = Path(db_path)
+        # Autocommit (isolation_level=None) for immediate writes; busy_timeout
+        # lets concurrent writers retry instead of failing immediately.
+        self.conn = sqlite3.connect(self.db_path, isolation_level=None, timeout=60)
         self.conn.row_factory = sqlite3.Row
         # WAL mode allows concurrent reads + writes from multiple processes
         self.conn.execute("PRAGMA journal_mode=WAL")
         self._create_tables()
 
-    def _create_tables(self):
-        """Create all tables with proper schema."""
-        cursor = self.conn.cursor()
-
-        # Summaries table - per-task results with all metadata
-        # stop_reason_counts is JSON: {"stop:-": 450, "stop:####": 50, "length:-": 10}
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS summaries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                task_name TEXT NOT NULL,
+    def _create_tables(self) -> None:
+        c = self.conn
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS runs (
+                run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_name TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                harness_version TEXT,
+                config_yaml TEXT
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS benchmarks (
+                benchmark_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id INTEGER NOT NULL REFERENCES runs(run_id),
                 model_tag TEXT NOT NULL,
+                model TEXT NOT NULL,
+                task TEXT NOT NULL,
+                fewshot_k INTEGER,
+                eval_mode TEXT,
+                pass_k INTEGER,
                 total_examples INTEGER,
-                correct INTEGER,
+                correct REAL,
                 accuracy REAL,
                 no_answer_count INTEGER,
                 stop_reason_counts TEXT,
-                duration_human TEXT,
-                pass_k INTEGER,
+                duration_seconds REAL,
+                timestamp TEXT,
                 temperature REAL,
                 top_p REAL,
                 max_tokens INTEGER,
                 error TEXT,
-                model TEXT NOT NULL
+                verifier_model TEXT,
+                verifier_mode TEXT,
+                verified_correct REAL,
+                verified_accuracy REAL
             )
         """)
-
-        # Results table - individual example results (one row per sample)
-        # For pass@k, responses are stored in response_1, response_2, ... response_k columns
-        # extracted_answers and stop_reasons are JSON arrays with all k values
-        response_columns = []
-        for i in range(1, self.pass_k + 1):
-            response_columns.append(f"response_{i} TEXT")
-        response_columns_sql = ",\n                ".join(response_columns)
-
-        cursor.execute(f"""
-            CREATE TABLE IF NOT EXISTS results (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                model_name TEXT NOT NULL,
-                task_name TEXT NOT NULL,
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS samples (
+                sample_pk INTEGER PRIMARY KEY AUTOINCREMENT,
+                benchmark_id INTEGER NOT NULL REFERENCES benchmarks(benchmark_id),
                 sample_id TEXT,
-                prompt_actual TEXT,
+                prompt TEXT,
                 prompt_full TEXT,
-                gold_answer TEXT,
-                is_correct INTEGER,
-                extracted_answers TEXT,
-                stop_reasons TEXT,
-                {response_columns_sql}
+                gold TEXT,
+                responses TEXT,
+                score REAL,
+                verifier_verdicts TEXT,
+                verified_score REAL
             )
         """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_run ON benchmarks(run_id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_task ON benchmarks(task, model_tag)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_samples_benchmark ON samples(benchmark_id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_samples_sample_id ON samples(sample_id)")
+        c.execute("""
+            CREATE VIEW IF NOT EXISTS samples_flat AS
+            SELECT s.sample_pk, b.run_id, b.model_tag, b.task, b.fewshot_k,
+                   s.sample_id, s.gold,
+                   json_extract(s.responses, '$[0].extracted') AS extracted,
+                   json_extract(s.responses, '$[0].stop_reason') AS stop_reason,
+                   json_extract(s.responses, '$[0].text') AS response,
+                   s.score, s.verified_score, s.prompt
+            FROM samples s JOIN benchmarks b USING (benchmark_id)
+        """)
+        c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
-        # Create indexes for common queries
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_summaries_model ON summaries(model_tag)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_summaries_task ON summaries(task_name)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_results_model ON results(model_name)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_results_task ON results(task_name)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_results_correct ON results(is_correct)")
+    # ---------- runs ----------
 
-        self.conn.commit()
+    def create_run(self, run_name: str, config_yaml: str,
+                   harness_version: str = "") -> int:
+        """Register a new run; returns its run_id."""
+        cur = self.conn.execute(
+            "INSERT INTO runs (run_name, started_at, harness_version, config_yaml) "
+            "VALUES (?, ?, ?, ?)",
+            (run_name, datetime.now().isoformat(timespec="seconds"),
+             harness_version, config_yaml),
+        )
+        return cur.lastrowid
 
-    def add_summary(self, summary: dict):
-        """Add a task summary record."""
-        cursor = self.conn.cursor()
+    def get_run_id(self, run_name: str) -> int | None:
+        """Look up the newest run with this name (used by multi-GPU workers)."""
+        row = self.conn.execute(
+            "SELECT run_id FROM runs WHERE run_name = ? ORDER BY run_id DESC LIMIT 1",
+            (run_name,),
+        ).fetchone()
+        return row["run_id"] if row else None
+
+    # ---------- benchmarks ----------
+
+    def add_benchmark(self, run_id: int, summary: dict) -> int:
+        """Add one (model, task, fewshot) evaluation; returns benchmark_id."""
         settings = summary.get("settings", {})
-        # Convert stop_reason_counts dict to JSON string
-        stop_reason_counts = summary.get("stop_reason_counts", {})
-        stop_reason_counts_json = json.dumps(stop_reason_counts) if stop_reason_counts else "{}"
-        cursor.execute("""
-            INSERT INTO summaries (
-                task_name, model_tag, total_examples, correct, accuracy,
-                no_answer_count, stop_reason_counts, duration_human,
-                pass_k, temperature, top_p, max_tokens, error, model
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            summary.get("task", ""),
-            summary.get("model_tag", ""),
-            summary.get("total_examples", 0),
-            summary.get("correct", 0),
-            summary.get("accuracy", 0.0),
-            summary.get("no_answer_count", 0),
-            stop_reason_counts_json,
-            summary.get("duration_human", ""),
-            summary.get("pass_k", 1),
-            settings.get("temperature"),
-            settings.get("top_p"),
-            settings.get("max_tokens"),
-            summary.get("error"),
-            summary.get("model", ""),
-        ))
-        self.conn.commit()
+        cur = self.conn.execute(
+            """INSERT INTO benchmarks (
+                run_id, model_tag, model, task, fewshot_k, eval_mode, pass_k,
+                total_examples, correct, accuracy, no_answer_count,
+                stop_reason_counts, duration_seconds, timestamp,
+                temperature, top_p, max_tokens, error
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                run_id,
+                summary.get("model_tag", ""),
+                summary.get("model", ""),
+                summary.get("task", ""),
+                summary.get("fewshot_k"),
+                summary.get("eval_mode", ""),
+                summary.get("pass_k", 1),
+                summary.get("total_examples", 0),
+                float(summary.get("correct") or 0.0),
+                summary.get("accuracy", 0.0),
+                summary.get("no_answer_count", 0),
+                json.dumps(summary.get("stop_reason_counts") or {}),
+                summary.get("duration_seconds"),
+                summary.get("timestamp", ""),
+                settings.get("temperature"),
+                settings.get("top_p"),
+                settings.get("max_tokens"),
+                summary.get("error"),
+            ),
+        )
+        return cur.lastrowid
 
-    def add_results(self, task_name: str, model_name: str, entries: list[dict]):
-        """Add multiple result entries for a task.
+    # ---------- samples ----------
 
-        Each entry should have:
-        - sample_id, prompt_actual, prompt_full, gold_answer, is_correct (overall pass@k result)
-        - extracted_answers: list of extracted answers for each k (stored as JSON)
-        - stop_reasons: list of stop reasons for each k (stored as JSON)
-        - responses: list of response strings for each k
+    def add_samples(self, benchmark_id: int, entries: list[dict]) -> None:
+        """Add sample rows for one benchmark.
+
+        Each entry: sample_id, prompt, prompt_full, gold, score, and
+        responses = [{"text", "extracted", "stop_reason", "correct"}, ...].
         """
-        # Build column names and placeholders dynamically based on pass_k
-        base_columns = ["model_name", "task_name", "sample_id", "prompt_actual", "prompt_full",
-                        "gold_answer", "is_correct", "extracted_answers", "stop_reasons"]
-        response_columns = [f"response_{i}" for i in range(1, self.pass_k + 1)]
-
-        all_columns = base_columns + response_columns
-        placeholders = ", ".join(["?"] * len(all_columns))
-        columns_sql = ", ".join(all_columns)
-
-        rows = []
-        for entry in entries:
-            responses = entry.get("responses", [])
-            # Pad responses so every response_i column gets a value
-            response_values = [
-                responses[i] if i < len(responses) else ""
-                for i in range(self.pass_k)
-            ]
-            rows.append((
-                model_name,
-                task_name,
+        rows = [
+            (
+                benchmark_id,
                 entry.get("sample_id", ""),
-                entry.get("prompt_actual", ""),
+                entry.get("prompt", ""),
                 entry.get("prompt_full", ""),
-                entry.get("gold_answer", ""),
-                # bool for binary tasks; float score in [0,1] for partial-credit
-                # tasks (SQLite stores either in the is_correct column)
-                float(entry.get("is_correct") or 0.0),
-                json.dumps(entry.get("extracted_answers", [])),
-                json.dumps(entry.get("stop_reasons", [])),
-                *response_values,
-            ))
-
-        self.conn.executemany(
-            f"INSERT INTO results ({columns_sql}) VALUES ({placeholders})", rows
-        )
-        self.conn.commit()
-
-    def save_run_config(self, config_yaml: str):
-        """Record the resolved run configuration (as YAML text) in the database."""
-        self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS run_config (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                created_at TEXT NOT NULL,
-                config_yaml TEXT NOT NULL
+                entry.get("gold", ""),
+                json.dumps(entry.get("responses", [])),
+                float(entry.get("score") or 0.0),
             )
-        """)
-        self.conn.execute(
-            "INSERT INTO run_config (created_at, config_yaml) VALUES (?, ?)",
-            (datetime.now().isoformat(timespec="seconds"), config_yaml),
+            for entry in entries
+        ]
+        self.conn.executemany(
+            "INSERT INTO samples (benchmark_id, sample_id, prompt, prompt_full, "
+            "gold, responses, score) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            rows,
         )
-        self.conn.commit()
 
-    def close(self, remove_sidecars: bool = False):
-        """Close the database connection.
+    # ---------- lifecycle ----------
 
-        Args:
-            remove_sidecars: Also delete the -wal/-shm files. Only safe when no
-                other process still has the database open (e.g., the last close
-                of a run) - deleting a live WAL file can corrupt the database.
+    def close(self, remove_sidecars: bool = False) -> None:
+        """Close the connection.
+
+        remove_sidecars also deletes the -wal/-shm files; only safe when no
+        other process still has the ledger open.
         """
         try:
             self.conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         except sqlite3.OperationalError:
-            pass  # Another writer is active; SQLite will checkpoint later
+            pass  # another writer is active; SQLite will checkpoint later
         self.conn.close()
         if remove_sidecars:
             for suffix in ("-wal", "-shm"):
                 Path(str(self.db_path) + suffix).unlink(missing_ok=True)
-
