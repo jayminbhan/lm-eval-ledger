@@ -38,10 +38,20 @@ def run(cfg: RunConfig, **kwargs):
     return _run(cfg, **kwargs)
 
 
+def verify_run(db_path, verifier_model, **kwargs):
+    """LLM-verify a finished run's database (see lm_eval_ledger.verifier).
+
+    Lazy import: the verifier pulls in vLLM.
+    """
+    from .verifier import verify_run as _verify
+    return _verify(db_path, verifier_model, **kwargs)
+
+
 __all__ = [
     "__version__",
     "RunConfig",
     "run",
+    "verify_run",
     "BenchmarkDatabase",
     "load_yaml_config",
     "resolve_config",

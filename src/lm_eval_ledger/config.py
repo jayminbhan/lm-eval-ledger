@@ -62,6 +62,14 @@ class RunConfig:
     logs_dir: str = "logs"         # tee'd stdout/stderr logs
     data_dir: str = "data"         # optional local few-shot files
 
+    # LLM answer verification (post-run pass over the results DB).
+    # Set verifier_model (e.g. "opencompass/CompassVerifier-7B") to enable.
+    # Mode "fallback" re-judges only string-match failures (sample is correct
+    # if either pipeline accepts it); "all" lets the verifier verdict decide.
+    verifier_model: str | None = None
+    verifier_mode: str = "fallback"
+    verifier_max_model_len: int = 16384
+
     def quantization_for(self, model_tag: str) -> str | None:
         """Resolve the quantization method for one model."""
         if isinstance(self.quantization, dict):
@@ -259,6 +267,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="directory for run logs (default: ./logs)")
     p.add_argument("--data-dir", type=str, default=None, metavar="DIR",
                    help="directory with optional local few-shot files (default: ./data)")
+    p.add_argument("--verifier-model", type=str, default=None, metavar="MODEL",
+                   help="LLM verifier for a post-run verification pass "
+                        "(e.g. opencompass/CompassVerifier-7B)")
+    p.add_argument("--verifier-mode", type=str, default=None,
+                   choices=["fallback", "all"],
+                   help="fallback: re-judge only string-match failures; "
+                        "all: verifier verdict decides")
+    p.add_argument("--verifier-max-model-len", type=int, default=None, metavar="N",
+                   help="context length for the verifier model (default: 16384)")
     # Internal flags for multi-GPU worker processes (not user-facing)
     p.add_argument("--shard", type=str, default=None, help=argparse.SUPPRESS)
     p.add_argument("--run-name", type=str, default=None, help=argparse.SUPPRESS)
@@ -283,7 +300,8 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
     # ---------- CLI override layer (only flags the user actually passed) ----------
     for key in ("max_examples", "batch_size", "apply_chat_template", "temperature",
                 "top_p", "max_tokens", "pass_k", "seed", "gpu_memory_utilization",
-                "max_model_len", "enforce_eager", "results_dir", "logs_dir", "data_dir"):
+                "max_model_len", "enforce_eager", "results_dir", "logs_dir", "data_dir",
+                "verifier_model", "verifier_mode", "verifier_max_model_len"):
         value = getattr(args, key)
         if value is not None:
             data[key] = value
@@ -316,5 +334,9 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
         not isinstance(cfg.gpu_ids, list) or not all(isinstance(g, int) for g in cfg.gpu_ids)
     ):
         raise ValueError(f"gpu_ids must be a list of ints or null, got {cfg.gpu_ids!r}")
+    if cfg.verifier_mode not in ("fallback", "all"):
+        raise ValueError(
+            f"verifier_mode must be 'fallback' or 'all', got {cfg.verifier_mode!r}"
+        )
 
     return cfg

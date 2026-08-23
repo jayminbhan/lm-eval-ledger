@@ -713,6 +713,21 @@ def _resolve_tasks_to_run(cfg: RunConfig) -> list[tuple[str, int | None]]:
     return [(task, None) for task in get_available_tasks()]
 
 
+def _maybe_verify(cfg: RunConfig, db_path: Path | None) -> None:
+    """Run the post-run LLM verification pass if configured."""
+    if not cfg.verifier_model or db_path is None:
+        return
+    from .verifier import verify_run
+    verify_run(
+        db_path, cfg.verifier_model,
+        mode=cfg.verifier_mode,
+        max_model_len=cfg.verifier_max_model_len,
+        gpu_memory_utilization=cfg.gpu_memory_utilization,
+        enforce_eager=cfg.enforce_eager,
+        seed=cfg.seed,
+    )
+
+
 def _run_coordinator(cfg: RunConfig) -> Path:
     """Multi-GPU coordinator: spawn parallel workers and collect results."""
     total_start = time.time()
@@ -840,6 +855,11 @@ def _run_coordinator(cfg: RunConfig) -> Path:
     if failed:
         print(f"\n[WARN] {len(failed)} worker(s) failed: {failed}")
 
+    # Optional LLM verification pass (workers are done; pin to first GPU)
+    if cfg.verifier_model and cfg.gpu_ids:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(cfg.gpu_ids[0])
+    _maybe_verify(cfg, benchmark_db_path)
+
     print(f"\nResults saved to: {benchmark_db_path}")
     print(f"Logs saved to: {logs_dir}")
     print(f"{'#'*60}")
@@ -918,6 +938,11 @@ def run(cfg: RunConfig, *, shard: str | None = None, run_name: str | None = None
         # only the last close of a run may delete the WAL/SHM sidecars.
         benchmark_db.close(remove_sidecars=shard is None)
         output_logger.stop()
+
+    # Optional LLM verification pass (standalone mode only; the coordinator
+    # runs it once for multi-GPU runs)
+    if shard is None:
+        _maybe_verify(cfg, benchmark_db_path)
 
     print(f"\nResults saved to: {benchmark_db_path}")
     print(f"Logs saved to: {logs_dir / log_name}_stdout.log and _combined.log")
