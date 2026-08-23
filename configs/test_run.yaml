@@ -18,7 +18,7 @@ tasks:
   - livecodebench:0             # NEW - executes generated code locally
   - mrcr_2needle:0              # NEW - long context; over-budget prompts are skipped
 
-max_examples: 10                # per task; smoke-test size
+max_examples: 20                # per task; smoke-test size
 batch_size: null
 
 apply_chat_template: true       # all five are instruct models
@@ -28,6 +28,10 @@ top_p: 0.95
 max_tokens: 2048                # livecodebench wants >= 2048
 pass_k: 1
 seed: 42
+
+# Pin the ledger location so runs land in the same DB regardless of the
+# directory the command is run from (default would be ./results/ledger.sqlite3).
+db_path: /mnt/data8tb/Documents/project/lm-eval-ledger/results/ledger.sqlite3
 
 gpu_memory_utilization: 0.90
 max_model_len: 16384            # lets some MRCR examples fit; 8B fp16 + 16k fits 32GB
