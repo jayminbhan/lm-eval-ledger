@@ -96,14 +96,26 @@ class LedgerDatabase:
                 responses TEXT,
                 score REAL,
                 verifier_verdicts TEXT,
-                verified_score REAL
+                verified_score REAL,
+                extracted TEXT GENERATED ALWAYS AS
+                    (json_extract(responses, '$[0].extracted')) VIRTUAL,
+                stop_reason TEXT GENERATED ALWAYS AS
+                    (json_extract(responses, '$[0].stop_reason')) VIRTUAL
             )
         """)
-        # Ledgers created before gold/gold_data were split
-        try:
-            c.execute("ALTER TABLE samples ADD COLUMN gold_data TEXT")
-        except sqlite3.OperationalError:
-            pass
+        # Migrations for ledgers created under earlier schema revisions.
+        # VIRTUAL generated columns are metadata-only: instant on any size DB.
+        for ddl in (
+            "ALTER TABLE samples ADD COLUMN gold_data TEXT",
+            "ALTER TABLE samples ADD COLUMN extracted TEXT GENERATED ALWAYS AS "
+            "(json_extract(responses, '$[0].extracted')) VIRTUAL",
+            "ALTER TABLE samples ADD COLUMN stop_reason TEXT GENERATED ALWAYS AS "
+            "(json_extract(responses, '$[0].stop_reason')) VIRTUAL",
+        ):
+            try:
+                c.execute(ddl)
+            except sqlite3.OperationalError:
+                pass  # column already exists
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_run ON benchmarks(run_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_task ON benchmarks(task, model_tag)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_samples_benchmark ON samples(benchmark_id)")
@@ -119,8 +131,7 @@ class LedgerDatabase:
                    CASE WHEN length(s.gold) > 200
                         THEN substr(s.gold, 1, 200) || '...'
                         ELSE s.gold END AS gold,
-                   json_extract(s.responses, '$[0].extracted') AS extracted,
-                   json_extract(s.responses, '$[0].stop_reason') AS stop_reason,
+                   s.extracted, s.stop_reason,
                    json_extract(s.responses, '$[0].text') AS response,
                    s.score, s.verified_score, s.prompt
             FROM samples s JOIN benchmarks b USING (benchmark_id)
