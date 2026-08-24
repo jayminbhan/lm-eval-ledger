@@ -288,6 +288,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return p
 
 
+def config_from_resolved_yaml(text: str) -> RunConfig:
+    """Rebuild a RunConfig from a resolved config (the runs.config_yaml
+    column, or `lm-eval-ledger config` output)."""
+    data = yaml.safe_load(text) or {}
+    unknown = set(data) - _VALID_KEYS
+    if unknown:
+        raise ValueError(f"Unknown config keys in resolved YAML: {sorted(unknown)}")
+    data["models"] = expand_models(data.get("models") or [])
+    data["tasks"] = parse_tasks(data.get("tasks") or [])
+    return RunConfig(**data)
+
+
 def resolve_config(args: argparse.Namespace) -> RunConfig:
     """Merge defaults, YAML file, and CLI flags into a validated RunConfig."""
     # ---------- YAML layer ----------

@@ -131,8 +131,32 @@ def cmd_compare(db_path: Path, run_a: int, run_b: int,
     conn.close()
 
 
+def cmd_config(db_path: Path, run_id: int | None) -> None:
+    """Print a run's resolved config YAML (newest run when no id given).
+
+    Round-trips: `lm-eval-ledger config 3 > rerun.yaml` then
+    `lm-eval-ledger -c rerun.yaml` reproduces the run.
+    """
+    conn = _connect(db_path)
+    if run_id is None:
+        row = conn.execute(
+            "SELECT run_id, config_yaml FROM runs ORDER BY run_id DESC LIMIT 1"
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT run_id, config_yaml FROM runs WHERE run_id = ?", (run_id,)
+        ).fetchone()
+    conn.close()
+    if row is None:
+        print(f"[ERROR] Run {run_id if run_id is not None else '(latest)'} "
+              f"not found (see `lm-eval-ledger runs`)", file=sys.stderr)
+        sys.exit(1)
+    print(f"# resolved config of run {row['run_id']}")
+    print(row["config_yaml"], end="")
+
+
 def main_query(argv: list[str]) -> None:
-    """Dispatch the `runs` and `compare` subcommands."""
+    """Dispatch the `runs`, `compare`, and `config` subcommands."""
     p = argparse.ArgumentParser(prog="lm-eval-ledger")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -151,9 +175,19 @@ def main_query(argv: list[str]) -> None:
                        default="task,model",
                        help="how to pair benchmarks between the runs")
 
+    p_cfg = sub.add_parser("config",
+                           help="print a run's resolved config YAML "
+                                "(pipe to a file to re-run it)")
+    p_cfg.add_argument("run_id", type=int, nargs="?", default=None,
+                       help="run id (default: newest run)")
+    p_cfg.add_argument("--db", type=Path,
+                       default=Path("results") / DEFAULT_LEDGER_NAME)
+
     args = p.parse_args(argv)
     if args.cmd == "runs":
         cmd_runs(args.db)
+    elif args.cmd == "config":
+        cmd_config(args.db, args.run_id)
     else:
         cmd_compare(args.db, args.run_a, args.run_b,
                     samples=args.samples, match=args.match)

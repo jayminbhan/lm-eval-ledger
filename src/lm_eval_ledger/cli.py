@@ -46,17 +46,39 @@ from .config import build_arg_parser, resolve_config
 
 def main() -> None:
     # Ledger query subcommands (everything else is a benchmark run)
-    if len(sys.argv) > 1 and sys.argv[1] in ("runs", "compare"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("runs", "compare", "config"):
         from .queries import main_query
         main_query(sys.argv[1:])
         return
 
     args = build_arg_parser().parse_args()
-    try:
-        cfg = resolve_config(args)
-    except ValueError as e:
-        print(f"[ERROR] {e}", file=sys.stderr)
-        sys.exit(1)
+
+    if args.shard is not None:
+        # Multi-GPU worker: the coordinator registered the run; load its
+        # resolved config from the ledger's run row.
+        if not args.run_name or not args.db_path:
+            print("[ERROR] worker mode requires --db-path and --run-name",
+                  file=sys.stderr)
+            sys.exit(1)
+        from .config import config_from_resolved_yaml
+        from .db import LedgerDatabase
+        ledger = LedgerDatabase(args.db_path)
+        row = ledger.conn.execute(
+            "SELECT config_yaml FROM runs WHERE run_name = ? "
+            "ORDER BY run_id DESC LIMIT 1", (args.run_name,),
+        ).fetchone()
+        ledger.close()
+        if row is None:
+            print(f"[ERROR] run {args.run_name!r} not found in {args.db_path}",
+                  file=sys.stderr)
+            sys.exit(1)
+        cfg = config_from_resolved_yaml(row["config_yaml"])
+    else:
+        try:
+            cfg = resolve_config(args)
+        except ValueError as e:
+            print(f"[ERROR] {e}", file=sys.stderr)
+            sys.exit(1)
 
     from .runner import run  # deferred: pulls in vLLM
     run(cfg, shard=args.shard, run_name=args.run_name)

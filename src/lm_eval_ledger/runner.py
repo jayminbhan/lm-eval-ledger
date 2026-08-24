@@ -825,13 +825,9 @@ def _run_coordinator(cfg: RunConfig) -> Path:
     gpu_ids = [str(g) for g in cfg.gpu_ids]
     num_workers = min(len(gpu_ids), len(cfg.models))
 
-    # Write the RESOLVED config next to the ledger: it's the run's
-    # reproducibility artifact, and workers load it so they see exactly the
-    # coordinator's config (including any CLI overrides).
-    resolved_config_path = results_dir / f"{run_name}_config.yaml"
-    resolved_config_path.write_text(cfg.to_yaml(), encoding="utf-8")
-
-    # Pre-create the ledger and the run row before workers connect
+    # Pre-create the ledger and the run row before workers connect. The run
+    # row's resolved config is the reproducibility artifact; workers load
+    # their config from it (retrievable later via `lm-eval-ledger config`).
     ledger = LedgerDatabase(ledger_path)
     run_id = ledger.create_run(run_name, cfg.to_yaml(), _harness_version())
     ledger.close()
@@ -846,7 +842,6 @@ def _run_coordinator(cfg: RunConfig) -> Path:
         print(f"  GPU {gpu_ids[i % num_workers]}: {Path(m).name}")
     print(f"Tasks: {', '.join(task_strs)}")
     print(f"Ledger: {ledger_path} (run {run_name}, id {run_id})")
-    print(f"Config: {resolved_config_path}")
     print(f"{'='*60}")
 
     # Fail fast on an unavailable verifier before hours of benchmarking
@@ -860,7 +855,7 @@ def _run_coordinator(cfg: RunConfig) -> Path:
         env["CUDA_VISIBLE_DEVICES"] = gpu_id
         cmd = [
             sys.executable, "-m", "lm_eval_ledger.cli",
-            "--config", str(resolved_config_path),
+            "--db-path", str(ledger_path),
             "--shard", f"{worker_id}/{num_workers}",
             "--run-name", run_name,
         ]
@@ -974,9 +969,8 @@ def run(cfg: RunConfig, *, shard: str | None = None, run_name: str | None = None
     ledger = LedgerDatabase(ledger_path)
 
     if shard is None:
-        # Standalone mode: register the run and record the resolved config.
-        resolved_config_path = results_dir / f"{run_name}_config.yaml"
-        resolved_config_path.write_text(cfg.to_yaml(), encoding="utf-8")
+        # Standalone mode: register the run; the run row's resolved config
+        # is the reproducibility artifact (`lm-eval-ledger config <id>`).
         run_id = ledger.create_run(run_name, cfg.to_yaml(), _harness_version())
     else:
         # Worker mode: the coordinator already registered the run.
