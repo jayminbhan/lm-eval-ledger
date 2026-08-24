@@ -8,3 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Run artifacts (the ledger lives outside version control)
+results/
+logs/
+data/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm

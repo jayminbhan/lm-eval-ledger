@@ -763,20 +763,48 @@ def _harness_version() -> str:
     return __version__
 
 
+def _prefetch_verifier(cfg: RunConfig) -> None:
+    """Download the verifier model BEFORE benchmarking, so a typo'd name or
+    an undownloadable model surfaces immediately instead of after hours."""
+    if not cfg.verifier_model or Path(cfg.verifier_model).exists():
+        return
+    from huggingface_hub import snapshot_download
+    print(f"[INFO] Prefetching verifier model {cfg.verifier_model} ...")
+    try:
+        snapshot_download(cfg.verifier_model)
+        print(f"[INFO] Verifier model ready")
+    except Exception as e:
+        print(f"[WARN] Could not prefetch verifier model {cfg.verifier_model}: {e}")
+        print(f"[WARN] The post-run verification pass will likely fail; "
+              f"benchmark results are unaffected either way")
+
+
 def _maybe_verify(cfg: RunConfig, db_path: Path | None, run_id: int | None) -> None:
-    """Run the post-run LLM verification pass if configured."""
+    """Run the post-run LLM verification pass if configured.
+
+    Never raises: a verifier failure must not eat the benchmark run's
+    final output - results can always be re-verified with
+    `lm-eval-ledger-verify`.
+    """
     if not cfg.verifier_model or db_path is None or run_id is None:
         return
     from .verifier import verify_run
-    verify_run(
-        db_path, cfg.verifier_model,
-        run_id=run_id,
-        mode=cfg.verifier_mode,
-        max_model_len=cfg.verifier_max_model_len,
-        gpu_memory_utilization=cfg.gpu_memory_utilization,
-        enforce_eager=cfg.enforce_eager,
-        seed=cfg.seed,
-    )
+    try:
+        verify_run(
+            db_path, cfg.verifier_model,
+            run_id=run_id,
+            mode=cfg.verifier_mode,
+            max_model_len=cfg.verifier_max_model_len,
+            gpu_memory_utilization=cfg.gpu_memory_utilization,
+            enforce_eager=cfg.enforce_eager,
+            seed=cfg.seed,
+        )
+    except Exception as e:
+        print(f"\n[ERROR] Verifier pass failed: {e}")
+        traceback.print_exc()
+        print(f"[INFO] Benchmark results are unaffected. Re-run the pass with:\n"
+              f"       lm-eval-ledger-verify {db_path} --run {run_id} "
+              f"--model {cfg.verifier_model}")
 
 
 def _run_coordinator(cfg: RunConfig) -> Path:
@@ -820,6 +848,9 @@ def _run_coordinator(cfg: RunConfig) -> Path:
     print(f"Ledger: {ledger_path} (run {run_name}, id {run_id})")
     print(f"Config: {resolved_config_path}")
     print(f"{'='*60}")
+
+    # Fail fast on an unavailable verifier before hours of benchmarking
+    _prefetch_verifier(cfg)
 
     # ---------- spawn worker processes ----------
     processes = []
@@ -962,18 +993,20 @@ def run(cfg: RunConfig, *, shard: str | None = None, run_name: str | None = None
     output_logger.start()
 
     try:
+        if shard is None:
+            _prefetch_verifier(cfg)
         _run_models(cfg, models, tasks_to_run, data_dir, timestamp, ledger,
                     run_id, shard_idx, num_shards, total_start)
+        # Optional LLM verification pass, inside the logging scope so its
+        # output (and any failure) lands in the run's logs. Standalone mode
+        # only; the coordinator runs it once for multi-GPU runs.
+        if shard is None:
+            _maybe_verify(cfg, ledger_path, run_id)
     finally:
         # In multi-GPU mode other workers may still hold the ledger open;
         # only the last close of a run may delete the WAL/SHM sidecars.
         ledger.close(remove_sidecars=shard is None)
         output_logger.stop()
-
-    # Optional LLM verification pass (standalone mode only; the coordinator
-    # runs it once for multi-GPU runs)
-    if shard is None:
-        _maybe_verify(cfg, ledger_path, run_id)
 
     print(f"\nResults appended to ledger: {ledger_path} (run id {run_id})")
     print(f"Logs saved to: {logs_dir / log_name}_stdout.log and _combined.log")
