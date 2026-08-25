@@ -60,16 +60,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// In a pairwise view (?benchmark_id__in=A,B) shade improved/regressed
-// sample pairs and float changed pairs to the top of the page.
-function enhancePairwise() {
-  const inParam = new URLSearchParams(location.search).get("benchmark_id__in");
+// In a pairwise view (?benchmark_id__in=A,B): explain the A -> B
+// direction, shade improved/regressed pairs, and offer one-click
+// category filters (all / improved / regressed / answer-changed / same).
+async function enhancePairwise() {
+  const params = new URLSearchParams(location.search);
+  const inParam = params.get("benchmark_id__in");
   if (!inParam) return;
   const ids = inParam.split(",");
   if (ids.length !== 2) return;
   const [A, B] = ids;
+  const dbm = location.pathname.match(/^\\/([^/]+)\\/samples$/);
   const tbody = document.querySelector("table.rows-and-columns tbody");
-  if (!tbody) return;
+  if (!dbm || !tbody) return;
+  const db = dbm[1];
+
   const cell = (tr, name) => tr.querySelector("td.col-" + name);
   const val = (tr, name) => {
     const c = cell(tr, name);
@@ -77,10 +82,13 @@ function enhancePairwise() {
   };
   const scoreOf = tr => {
     const v = val(tr, "verified_score");
-    const s = (v !== "" && v !== "\\u00a0") ? v : val(tr, "score");
+    const s = (v !== "" && v !== "\u00a0") ? v : val(tr, "score");
     const f = parseFloat(s);
     return isNaN(f) ? 0 : f;
   };
+  // FK cells render as "<link> <id>" - take the number
+  const bid = tr => (val(tr, "benchmark_id").match(/\\d+/) || [""])[0];
+
   const rows = [...tbody.querySelectorAll("tr")];
   if (!rows.length || !cell(rows[0], "sample_id") || !cell(rows[0], "benchmark_id"))
     return;
@@ -90,30 +98,86 @@ function enhancePairwise() {
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push(tr);
   });
-  const ordered = [];
+
+  const cats = {improved: [], regressed: [], answers: [], same: []};
   for (const g of groups.values()) {
-    let rank = 2;
+    let cat = "same";
     if (g.length === 2) {
-      // FK cells render as "<link> <id>", e.g. "3\\u00a03" - take the number
-      const bid = tr => (val(tr, "benchmark_id").match(/\\d+/) || [""])[0];
       const ra = g.find(tr => bid(tr) === A);
       const rb = g.find(tr => bid(tr) === B);
       if (ra && rb) {
         const sa = scoreOf(ra), sb = scoreOf(rb);
-        if (sb > sa) {
-          rank = 0;  // B (candidate) beat A (baseline): pair improved
-          [ra, rb].forEach(tr => tr.classList.add("lel-improved"));
-        } else if (sb < sa) {
-          rank = 0;  // pair regressed
-          [ra, rb].forEach(tr => tr.classList.add("lel-regressed"));
-        }
-        else if (val(ra, "extracted") !== val(rb, "extracted")) rank = 1;
+        if (sb > sa) cat = "improved";
+        else if (sb < sa) cat = "regressed";
+        else if (val(ra, "extracted") !== val(rb, "extracted")) cat = "answers";
       }
     }
-    ordered.push({rank, g});
+    if (cat === "improved") g.forEach(tr => tr.classList.add("lel-improved"));
+    if (cat === "regressed") g.forEach(tr => tr.classList.add("lel-regressed"));
+    cats[cat].push(g);
   }
-  ordered.sort((x, y) => x.rank - y.rank);   // stable: keeps sample order in ties
-  ordered.forEach(({g}) => g.forEach(tr => tbody.appendChild(tr)));
+
+  // reorder: improved, regressed, answer-changed, unchanged
+  const order = ["improved", "regressed", "answers", "same"];
+  const catOf = new Map();
+  order.forEach(c => cats[c].forEach(g => g.forEach(tr => {
+    catOf.set(tr, c);
+    tbody.appendChild(tr);
+  })));
+
+  // ---- comparison header bar ----
+  let labelA = "benchmark " + A, labelB = "benchmark " + B;
+  try {
+    const res = await fetch(
+      `/${db}/benchmarks.json?benchmark_id__in=${A},${B}&_shape=array`);
+    const acc = b => {
+      const v = b.verified_accuracy ?? b.accuracy;
+      return v == null ? "" : ` \u00b7 acc ${Number(v).toFixed(3)}`;
+    };
+    const lab = b => `run ${b.run_id} \u00b7 ${b.model_tag} \u00b7 ${b.task}(${b.fewshot_k})${acc(b)}`;
+    for (const b of await res.json()) {
+      if (String(b.benchmark_id) === A) labelA = lab(b);
+      if (String(b.benchmark_id) === B) labelB = lab(b);
+    }
+  } catch (e) {}
+  const swapParams = new URLSearchParams(params);
+  swapParams.set("benchmark_id__in", `${B},${A}`);
+  const btn = (key, text, n) =>
+    `<button type="button" data-cat="${key}">${text} <span>${n}</span></button>`;
+  const bar = document.createElement("div");
+  bar.className = "lel-pairbar";
+  bar.innerHTML = `
+    <div class="lel-pairwho">
+      <span class="lel-a">A</span> ${labelA}
+      <span class="lel-arrow">\u2192</span>
+      <span class="lel-b">B</span> ${labelB}
+      <a class="lel-swap" href="${location.pathname}?${swapParams}">swap A/B</a>
+    </div>
+    <div class="lel-pairbtns">
+      ${btn("all", "All", groups.size)}
+      ${btn("improved", "Improved \u2013 B fixed", cats.improved.length)}
+      ${btn("regressed", "Regressed \u2013 B broke", cats.regressed.length)}
+      ${btn("answers", "Same score, answer changed", cats.answers.length)}
+      ${btn("same", "Unchanged", cats.same.length)}
+    </div>`;
+  const table = tbody.closest("table");
+  table.parentElement.insertBefore(bar, table);
+
+  const applyFilter = which => {
+    bar.querySelectorAll("button").forEach(b =>
+      b.classList.toggle("lel-active", b.dataset.cat === which));
+    rows.forEach(tr => {
+      tr.style.display =
+        (which === "all" || catOf.get(tr) === which) ? "" : "none";
+    });
+    try { localStorage.setItem("lel-pairfilter", which); } catch (e) {}
+  };
+  bar.querySelectorAll("button").forEach(b =>
+    b.addEventListener("click", () => applyFilter(b.dataset.cat)));
+  let initial = "all";
+  try { initial = localStorage.getItem("lel-pairfilter") || "all"; } catch (e) {}
+  if (!order.concat("all").includes(initial)) initial = "all";
+  applyFilter(initial);
 }
 
 async function buildInspectionPanel(db) {
@@ -125,8 +189,12 @@ async function buildInspectionPanel(db) {
   if (!benches.length) return;
   const tasks = [...new Set(benches.map(b => b.task))].sort();
 
+  const accOf = b => {
+    const v = b.verified_accuracy ?? b.accuracy;
+    return v == null ? "" : ` \\u00b7 acc ${Number(v).toFixed(3)}`;
+  };
   const label = b =>
-    `run ${b.run_id} \\u00b7 ${b.model_tag} \\u00b7 ${b.task}(${b.fewshot_k})`;
+    `run ${b.run_id} \\u00b7 ${b.model_tag} \\u00b7 ${b.task}(${b.fewshot_k})${accOf(b)}`;
   const benchOpts = benches.map(b =>
     `<option value="${b.benchmark_id}" data-task="${b.task}">${label(b)}</option>`
   ).join("");
@@ -323,6 +391,35 @@ tr.lel-improved td { background: #eaf7ef !important; }
 tr.lel-improved td:first-child { box-shadow: inset 4px 0 0 #1a7f37; }
 tr.lel-regressed td { background: #fdecec !important; }
 tr.lel-regressed td:first-child { box-shadow: inset 4px 0 0 #c0322f; }
+
+/* pairwise comparison header bar */
+.lel-pairbar {
+  display: flex; flex-direction: column; gap: 0.55rem;
+  background: #f0f3f8; border-radius: 6px; padding: 0.7rem 1rem;
+  margin: 0.8rem 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+}
+.lel-pairwho { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.lel-a, .lel-b {
+  font-weight: 700; padding: 0 0.45rem; border-radius: 3px; color: #ffffff;
+}
+.lel-a { background: #5a6270; }
+.lel-b { background: #4c8bf5; }
+.lel-arrow { color: #5a6270; }
+.lel-swap { margin-left: 0.6rem; }
+.lel-pairbtns { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.lel-pairbtns button {
+  border: 1px solid #c8d0dd; background: #ffffff; border-radius: 4px;
+  padding: 0.25rem 0.6rem; cursor: pointer; font: inherit;
+}
+.lel-pairbtns button span { color: #5a6270; }
+.lel-pairbtns button[data-cat="improved"] { border-left: 4px solid #1a7f37; }
+.lel-pairbtns button[data-cat="regressed"] { border-left: 4px solid #c0322f; }
+.lel-pairbtns button.lel-active {
+  background: #1f2430; color: #ffffff; border-color: #1f2430;
+}
+.lel-pairbtns button.lel-active span { color: #c9d4ea; }
 
 /* ---- benchmark-report table styling ---- */
 table.rows-and-columns {
