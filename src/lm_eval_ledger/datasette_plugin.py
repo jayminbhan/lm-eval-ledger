@@ -14,8 +14,13 @@ so it tracks Datasette upgrades:
 """
 from __future__ import annotations
 
+import re
+from urllib.parse import quote
+
 from datasette import hookimpl
 from datasette.utils.asgi import Response
+
+_BENCHMARKS_PATH_RE = re.compile(r"^/([^/]+)/benchmarks$")
 
 _LEDGER_CSS = """
 /* ---- lm-eval-ledger masthead ---- */
@@ -85,6 +90,44 @@ def register_routes():
 @hookimpl
 def extra_css_urls():
     return ["/-/ledger.css"]
+
+
+@hookimpl
+def asgi_wrapper(datasette):
+    """Default view for the benchmarks table: bare requests redirect to a
+    per-task leaderboard - faceted by task, first task (alphabetically)
+    selected, sorted by accuracy descending. Any explicit query string is
+    left untouched, so every other view remains reachable."""
+    def wrap(app):
+        async def wrapper(scope, receive, send):
+            if (scope.get("type") == "http"
+                    and scope.get("method") == "GET"
+                    and not scope.get("query_string")):
+                match = _BENCHMARKS_PATH_RE.match(scope.get("path", ""))
+                if match:
+                    first_task = None
+                    try:
+                        db = datasette.get_database(match.group(1))
+                        result = await db.execute("SELECT MIN(task) FROM benchmarks")
+                        first_task = result.first()[0]
+                    except Exception:
+                        pass  # not a ledger database; fall through
+                    if first_task:
+                        location = (
+                            f"{scope['path']}?_facet=task"
+                            f"&task__exact={quote(first_task)}"
+                            f"&_sort_desc=accuracy"
+                        )
+                        await send({
+                            "type": "http.response.start",
+                            "status": 302,
+                            "headers": [(b"location", location.encode("utf-8"))],
+                        })
+                        await send({"type": "http.response.body", "body": b""})
+                        return
+            await app(scope, receive, send)
+        return wrapper
+    return wrap
 
 
 @hookimpl
