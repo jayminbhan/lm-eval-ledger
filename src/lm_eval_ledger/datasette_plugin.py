@@ -54,8 +54,60 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---- Sample Inspection control panel ----
   const m = location.pathname.match(/^\\/([^/]+)\\/samples$/);
-  if (m) buildInspectionPanel(m[1]);
+  if (m) {
+    buildInspectionPanel(m[1]);
+    enhancePairwise();
+  }
 });
+
+// In a pairwise view (?benchmark_id__in=A,B) shade improved/regressed
+// sample pairs and float changed pairs to the top of the page.
+function enhancePairwise() {
+  const inParam = new URLSearchParams(location.search).get("benchmark_id__in");
+  if (!inParam) return;
+  const ids = inParam.split(",");
+  if (ids.length !== 2) return;
+  const [A, B] = ids;
+  const tbody = document.querySelector("table.rows-and-columns tbody");
+  if (!tbody) return;
+  const cell = (tr, name) => tr.querySelector("td.col-" + name);
+  const val = (tr, name) => {
+    const c = cell(tr, name);
+    return c ? c.textContent.trim() : "";
+  };
+  const scoreOf = tr => {
+    const v = val(tr, "verified_score");
+    const s = (v !== "" && v !== "\\u00a0") ? v : val(tr, "score");
+    const f = parseFloat(s);
+    return isNaN(f) ? 0 : f;
+  };
+  const rows = [...tbody.querySelectorAll("tr")];
+  if (!rows.length || !cell(rows[0], "sample_id") || !cell(rows[0], "benchmark_id"))
+    return;
+  const groups = new Map();
+  rows.forEach(tr => {
+    const k = val(tr, "sample_id");
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(tr);
+  });
+  const ordered = [];
+  for (const g of groups.values()) {
+    let rank = 2;
+    if (g.length === 2) {
+      const ra = g.find(tr => val(tr, "benchmark_id") === A);
+      const rb = g.find(tr => val(tr, "benchmark_id") === B);
+      if (ra && rb) {
+        const sa = scoreOf(ra), sb = scoreOf(rb);
+        if (sb > sa) { rank = 0; g.forEach(tr => tr.classList.add("lel-improved")); }
+        else if (sb < sa) { rank = 0; g.forEach(tr => tr.classList.add("lel-regressed")); }
+        else if (val(ra, "extracted") !== val(rb, "extracted")) rank = 1;
+      }
+    }
+    ordered.push({rank, g});
+  }
+  ordered.sort((x, y) => x.rank - y.rank);   // stable: keeps sample order in ties
+  ordered.forEach(({g}) => g.forEach(tr => tbody.appendChild(tr)));
+}
 
 async function buildInspectionPanel(db) {
   let benches;
@@ -134,7 +186,7 @@ async function buildInspectionPanel(db) {
       const a = panel.querySelector('select[name="a"]').value;
       const b = panel.querySelector('select[name="b"]').value;
       location.href =
-        `/${db}/samples?benchmark_id__in=${a},${b}&_sort=sample_id`;
+        `/${db}/samples?benchmark_id__in=${a},${b}&_sort=sample_id&_size=max`;
       return;
     }
     // consistency: fetch qualifying sample pks from the plugin endpoint
@@ -227,6 +279,12 @@ label.lel-benchbox { max-width: 100%; flex-basis: 100%; }
 }
 .lel-filters-row form.filters { margin: 0; }
 .lel-filters-row form.lel-panel { margin: 0; flex: 1 1 28rem; }
+
+/* pairwise view: improved / regressed sample pairs */
+tr.lel-improved td { background: #eaf7ef; }
+tr.lel-improved td:first-child { box-shadow: inset 4px 0 0 #1a7f37; }
+tr.lel-regressed td { background: #fdecec; }
+tr.lel-regressed td:first-child { box-shadow: inset 4px 0 0 #c0322f; }
 
 /* ---- benchmark-report table styling ---- */
 table.rows-and-columns {

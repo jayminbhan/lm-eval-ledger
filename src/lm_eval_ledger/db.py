@@ -88,6 +88,7 @@ class LedgerDatabase:
             CREATE TABLE IF NOT EXISTS samples (
                 sample_pk INTEGER PRIMARY KEY,
                 benchmark_id INTEGER NOT NULL REFERENCES benchmarks(benchmark_id),
+                model_tag TEXT,
                 sample_id TEXT,
                 prompt TEXT,
                 prompt_full TEXT,
@@ -116,6 +117,16 @@ class LedgerDatabase:
                 c.execute(ddl)
             except sqlite3.OperationalError:
                 pass  # column already exists
+        # model_tag denormalized onto samples (the table view cannot join);
+        # backfill runs once, only when the column was just added.
+        try:
+            c.execute("ALTER TABLE samples ADD COLUMN model_tag TEXT")
+            c.execute(
+                "UPDATE samples SET model_tag = (SELECT b.model_tag "
+                "FROM benchmarks b WHERE b.benchmark_id = samples.benchmark_id)"
+            )
+        except sqlite3.OperationalError:
+            pass  # column already exists (or fresh DB created with it)
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_run ON benchmarks(run_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_task ON benchmarks(task, model_tag)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_samples_benchmark ON samples(benchmark_id)")
@@ -189,9 +200,15 @@ class LedgerDatabase:
         optional gold_data (machine payload for re-scoring), score, and
         responses = [{"text", "extracted", "stop_reason", "correct"}, ...].
         """
+        tag_row = self.conn.execute(
+            "SELECT model_tag FROM benchmarks WHERE benchmark_id = ?",
+            (benchmark_id,),
+        ).fetchone()
+        model_tag = tag_row["model_tag"] if tag_row else ""
         rows = [
             (
                 benchmark_id,
+                model_tag,
                 entry.get("sample_id", ""),
                 entry.get("prompt", ""),
                 entry.get("prompt_full", ""),
@@ -203,8 +220,9 @@ class LedgerDatabase:
             for entry in entries
         ]
         self.conn.executemany(
-            "INSERT INTO samples (benchmark_id, sample_id, prompt, prompt_full, "
-            "gold, gold_data, responses, score) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO samples (benchmark_id, model_tag, sample_id, prompt, "
+            "prompt_full, gold, gold_data, responses, score) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
 
