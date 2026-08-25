@@ -241,11 +241,13 @@ async function enhancePairwise() {
   const bar = document.createElement("div");
   bar.className = "lel-pairbar";
   bar.innerHTML = `
+    <div class="lel-lbhead"><span class="lel-lbtitle">Pairwise comparison</span>
+      <a class="lel-swap" href="${location.pathname}?${swapParams}">\u21c4 swap A/B</a>
+    </div>
     <div class="lel-pairwho">
       <span class="lel-a">A</span> ${labelA}
       <span class="lel-arrow">\u2192</span>
       <span class="lel-b">B</span> ${labelB}
-      <a class="lel-swap" href="${location.pathname}?${swapParams}">swap A/B</a>
     </div>
     <div class="lel-pairbtns">
       ${btn("all", "All", groups.size)}
@@ -301,6 +303,8 @@ async function buildInspectionPanel(db) {
   const panel = document.createElement("form");
   panel.className = "lel-panel";
   panel.innerHTML = `
+    <div class="lel-lbhead"><span class="lel-lbtitle">Sample comparison</span></div>
+    <div class="lel-controls">
     <label>mode<select name="mode">
       <option value="pairwise">pairwise (vertical)</option>
       <option value="wrong">always wrong</option>
@@ -312,6 +316,7 @@ async function buildInspectionPanel(db) {
     <label>benchmark B<select name="b">${benchOpts}</select></label>
     <button type="submit">Apply</button>
     <span class="lel-note"></span>
+    </div>
     <label class="lel-benchbox">benchmarks (none checked = all)
       <div class="lel-benchlist">${benchChecks}</div></label>`;
   const filters = document.querySelector("form.filters");
@@ -445,18 +450,32 @@ a.ledger-masthead:hover { color: #ffffff; background: #262c3a; }
 
 /* ---- Sample Inspection control panel ---- */
 form.lel-panel {
-  display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: end;
-  background: #f0f3f8; padding: 0.8rem 1rem; border-radius: 6px;
+  display: flex; flex-direction: column; gap: 0.6rem;
+  background: #f0f3f8; padding: 0.8rem 1rem 1rem; border-radius: 6px;
   margin: 0.8rem 0;
+}
+form.lel-panel .lel-controls {
+  display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: end;
 }
 form.lel-panel label {
   display: flex; flex-direction: column; gap: 0.25rem;
-  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em;
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: #5a6270;
 }
 form.lel-panel select {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem; color: #1f2430;
   max-width: 24rem;
+  border: 1px solid #c8d0dd; border-radius: 4px; background: #ffffff;
+  padding: 0.3rem 0.45rem;
 }
+form.lel-panel button[type="submit"] {
+  font: inherit; font-size: 0.8rem; font-weight: 600;
+  background: #1f2430; color: #ffffff;
+  border: 1px solid #1f2430; border-radius: 4px;
+  padding: 0.38rem 1.1rem; cursor: pointer;
+}
+form.lel-panel button[type="submit"]:hover { background: #2c3444; }
 form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
 .lel-benchlist {
   display: flex; flex-direction: column; gap: 0.15rem;
@@ -470,7 +489,11 @@ form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
   align-items: baseline; gap: 0.4rem;
   font-size: 0.78rem; text-transform: none; letter-spacing: normal;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #1f2430;
+  padding: 0.1rem 0.3rem; border-radius: 3px;
 }
+.lel-check:hover { background: #f0f3f8; }
+.lel-check input { accent-color: #4c8bf5; }
 .lel-check span { white-space: nowrap; }
 label.lel-benchbox { max-width: 100%; flex-basis: 100%; }
 .lel-filters-row {
@@ -494,18 +517,26 @@ tr.lel-regressed td:first-child { box-shadow: inset 4px 0 0 #c0322f; }
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.82rem;
 }
-.lel-pairwho { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.lel-pairwho {
+  display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;
+  background: #ffffff; border: 1px solid #c8d0dd; border-radius: 5px;
+  padding: 0.45rem 0.7rem;
+}
 .lel-a, .lel-b {
   font-weight: 700; padding: 0 0.45rem; border-radius: 3px; color: #ffffff;
 }
 .lel-a { background: #5a6270; }
 .lel-b { background: #4c8bf5; }
 .lel-arrow { color: #5a6270; }
-.lel-swap { margin-left: 0.6rem; }
+.lel-swap { font-size: 0.78rem; }
 .lel-pairbtns { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .lel-pairbtns button {
   border: 1px solid #c8d0dd; background: #ffffff; border-radius: 4px;
-  padding: 0.25rem 0.6rem; cursor: pointer; font: inherit;
+  padding: 0.25rem 0.6rem; cursor: pointer; font: inherit; font-size: 0.78rem;
+  transition: border-color 0.1s, box-shadow 0.1s;
+}
+.lel-pairbtns button:hover {
+  border-color: #4c8bf5; box-shadow: 0 1px 4px rgba(76, 139, 245, 0.25);
 }
 .lel-pairbtns button span { color: #5a6270; }
 .lel-pairbtns button[data-cat="improved"] { border-left: 4px solid #1a7f37; }
