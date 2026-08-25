@@ -314,10 +314,12 @@ async function buildInspectionPanel(db) {
       ${tasks.map(t => `<option>${t}</option>`).join("")}</select></label>
     <label>benchmark A<select name="a">${benchOpts}</select></label>
     <label>benchmark B<select name="b">${benchOpts}</select></label>
-    <label class="lel-benchbox">benchmarks (none checked = all)
-      <div class="lel-benchlist">${benchChecks}</div></label>
-    <button type="submit">Apply</button>
-    <span class="lel-note"></span>
+    <div class="lel-applygrp">
+      <label class="lel-benchbox">benchmarks (none checked = all)
+        <div class="lel-benchlist">${benchChecks}</div></label>
+      <button type="submit">Apply</button>
+      <span class="lel-note"></span>
+    </div>
     </div>`;
   const filters = document.querySelector("form.filters");
   if (filters && filters.parentElement) {
@@ -457,12 +459,13 @@ form.lel-panel {
 form.lel-panel .lel-controls {
   display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: flex-start;
 }
-/* Apply and the note sit beside the tallest control, bottom-aligned -
-   next to the selects in pairwise mode, next to the box in consistency */
-form.lel-panel .lel-controls > button,
-form.lel-panel .lel-controls > .lel-note {
-  align-self: flex-end;
+/* Box, Apply, and note form one non-wrapping group: Apply is glued to
+   the box's right edge (bottom-aligned); with the box hidden (pairwise
+   mode) the button simply follows the selects */
+form.lel-panel .lel-applygrp {
+  display: flex; flex-wrap: nowrap; align-items: flex-end; gap: 0.6rem;
 }
+form.lel-panel .lel-applygrp button { flex-shrink: 0; }
 form.lel-panel label {
   display: flex; flex-direction: column; gap: 0.25rem;
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
