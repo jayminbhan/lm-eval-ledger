@@ -100,11 +100,12 @@ function enhancePairwise() {
       const rb = g.find(tr => bid(tr) === B);
       if (ra && rb) {
         const sa = scoreOf(ra), sb = scoreOf(rb);
-        if (sa !== sb) {
-          rank = 0;
-          // color by correctness: better-scoring row green, worse red
-          (sa > sb ? ra : rb).classList.add("lel-right");
-          (sa > sb ? rb : ra).classList.add("lel-wrong");
+        if (sb > sa) {
+          rank = 0;  // B (candidate) beat A (baseline): pair improved
+          [ra, rb].forEach(tr => tr.classList.add("lel-improved"));
+        } else if (sb < sa) {
+          rank = 0;  // pair regressed
+          [ra, rb].forEach(tr => tr.classList.add("lel-regressed"));
         }
         else if (val(ra, "extracted") !== val(rb, "extracted")) rank = 1;
       }
@@ -316,11 +317,12 @@ label.lel-benchbox { max-width: 100%; flex-basis: 100%; }
 .lel-filters-row form.filters { margin: 0; }
 .lel-filters-row form.lel-panel { margin: 0; flex: 1 1 28rem; }
 
-/* pairwise view: within a changed pair, correct row green, wrong row red */
-tr.lel-right td { background: #eaf7ef; }
-tr.lel-right td:first-child { box-shadow: inset 4px 0 0 #1a7f37; }
-tr.lel-wrong td { background: #fdecec; }
-tr.lel-wrong td:first-child { box-shadow: inset 4px 0 0 #c0322f; }
+/* pairwise view: both rows of an improved pair green, regressed pair red.
+   !important so zebra striping can never override one of the two rows. */
+tr.lel-improved td { background: #eaf7ef !important; }
+tr.lel-improved td:first-child { box-shadow: inset 4px 0 0 #1a7f37; }
+tr.lel-regressed td { background: #fdecec !important; }
+tr.lel-regressed td:first-child { box-shadow: inset 4px 0 0 #c0322f; }
 
 /* ---- benchmark-report table styling ---- */
 table.rows-and-columns {
