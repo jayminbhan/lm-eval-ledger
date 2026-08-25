@@ -58,7 +58,50 @@ document.addEventListener("DOMContentLoaded", () => {
     buildInspectionPanel(m[1]);
     enhancePairwise();
   }
+  // ---- Benchmark Results leaderboard bar ----
+  const mb = location.pathname.match(/^\\/([^/]+)\\/benchmarks$/);
+  if (mb) buildLeaderboardBar(mb[1]);
 });
+
+// Task chips above the Benchmark Results table: click one to see that
+// task's benchmarks below, sorted by accuracy descending.
+async function buildLeaderboardBar(db) {
+  let benches;
+  try {
+    const res = await fetch(`/${db}/benchmarks.json?_shape=array&_size=max`);
+    benches = (await res.json()).filter(b => !b.error);
+  } catch (e) { return; }
+  if (!benches.length) return;
+
+  const byTask = new Map();
+  benches.forEach(b => {
+    const acc = b.verified_accuracy ?? b.accuracy ?? 0;
+    const t = byTask.get(b.task) || {count: 0, best: 0};
+    t.count += 1;
+    t.best = Math.max(t.best, acc);
+    byTask.set(b.task, t);
+  });
+
+  const current = new URLSearchParams(location.search).get("task__exact");
+  const chips = [...byTask.keys()].sort().map(task => {
+    const t = byTask.get(task);
+    const href = `/${db}/benchmarks?task__exact=${encodeURIComponent(task)}` +
+      `&_sort_desc=accuracy&_size=max`;
+    const active = task === current ? " lel-active" : "";
+    return `<a class="lel-chip${active}" href="${href}">${task}` +
+      ` <span>best ${Number(t.best).toFixed(3)} (${t.count})</span></a>`;
+  });
+  const allActive = current ? "" : " lel-active";
+  chips.unshift(
+    `<a class="lel-chip${allActive}" href="/${db}/benchmarks">all</a>`);
+
+  const bar = document.createElement("div");
+  bar.className = "lel-lbbar";
+  bar.innerHTML = `<span class="lel-lbtitle">Leaderboard</span>${chips.join("")}`;
+  const anchor = document.querySelector("form.filters")
+    || document.querySelector("table.rows-and-columns");
+  if (anchor) anchor.parentElement.insertBefore(bar, anchor);
+}
 
 // In a pairwise view (?benchmark_id__in=A,B): explain the A -> B
 // direction, shade improved/regressed pairs, and offer one-click
@@ -420,6 +463,29 @@ tr.lel-regressed td:first-child { box-shadow: inset 4px 0 0 #c0322f; }
   background: #1f2430; color: #ffffff; border-color: #1f2430;
 }
 .lel-pairbtns button.lel-active span { color: #c9d4ea; }
+
+/* leaderboard bar on Benchmark Results */
+.lel-lbbar {
+  display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;
+  background: #f0f3f8; border-radius: 6px; padding: 0.7rem 1rem;
+  margin: 0.8rem 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+}
+.lel-lbtitle {
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: 0.72rem; color: #5a6270; margin-right: 0.4rem;
+}
+a.lel-chip, a.lel-chip:visited {
+  border: 1px solid #c8d0dd; background: #ffffff; border-radius: 4px;
+  padding: 0.25rem 0.6rem; color: inherit; text-decoration: none;
+}
+a.lel-chip span { color: #5a6270; font-size: 0.75rem; }
+a.lel-chip:hover { border-color: #4c8bf5; }
+a.lel-chip.lel-active {
+  background: #1f2430; color: #ffffff; border-color: #1f2430;
+}
+a.lel-chip.lel-active span { color: #c9d4ea; }
 
 /* ---- benchmark-report table styling ---- */
 table.rows-and-columns {
