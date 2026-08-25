@@ -94,8 +94,10 @@ function enhancePairwise() {
   for (const g of groups.values()) {
     let rank = 2;
     if (g.length === 2) {
-      const ra = g.find(tr => val(tr, "benchmark_id") === A);
-      const rb = g.find(tr => val(tr, "benchmark_id") === B);
+      // FK cells render as "<link> <id>", e.g. "3\\u00a03" - take the number
+      const bid = tr => (val(tr, "benchmark_id").match(/\\d+/) || [""])[0];
+      const ra = g.find(tr => bid(tr) === A);
+      const rb = g.find(tr => bid(tr) === B);
       if (ra && rb) {
         const sa = scoreOf(ra), sb = scoreOf(rb);
         if (sb > sa) { rank = 0; g.forEach(tr => tr.classList.add("lel-improved")); }
