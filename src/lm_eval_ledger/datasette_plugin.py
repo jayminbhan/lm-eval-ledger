@@ -314,11 +314,11 @@ async function buildInspectionPanel(db) {
       ${tasks.map(t => `<option>${t}</option>`).join("")}</select></label>
     <label>benchmark A<select name="a">${benchOpts}</select></label>
     <label>benchmark B<select name="b">${benchOpts}</select></label>
+    <label class="lel-benchbox">benchmarks (none checked = all)
+      <div class="lel-benchlist">${benchChecks}</div></label>
     <button type="submit">Apply</button>
     <span class="lel-note"></span>
-    </div>
-    <label class="lel-benchbox">benchmarks (none checked = all)
-      <div class="lel-benchlist">${benchChecks}</div></label>`;
+    </div>`;
   const filters = document.querySelector("form.filters");
   if (filters && filters.parentElement) {
     // sit to the right of Datasette's own filter/query controls
@@ -479,8 +479,8 @@ form.lel-panel button[type="submit"]:hover { background: #2c3444; }
 form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
 .lel-benchlist {
   display: flex; flex-direction: column; gap: 0.15rem;
-  width: 100%; box-sizing: border-box;
-  max-height: 8.5rem; overflow-y: auto; overflow-x: auto;
+  width: max-content; max-width: 100%; box-sizing: border-box;
+  max-height: 8.5rem; overflow: auto;
   background: #ffffff;
   border: 1px solid #d7dde8; border-radius: 4px; padding: 0.4rem 0.6rem;
 }
@@ -495,7 +495,7 @@ form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
 .lel-check:hover { background: #f0f3f8; }
 .lel-check input { accent-color: #4c8bf5; }
 .lel-check span { white-space: nowrap; }
-label.lel-benchbox { max-width: 100%; flex-basis: 100%; }
+label.lel-benchbox { max-width: 100%; min-width: 0; }
 .lel-filters-row {
   display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap;
 }
