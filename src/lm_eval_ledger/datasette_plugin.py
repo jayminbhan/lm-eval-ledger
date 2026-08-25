@@ -32,6 +32,11 @@ _DISPLAY_NAMES = {
 
 _LEDGER_JS = """
 document.addEventListener("DOMContentLoaded", () => {
+  if (!document.querySelector("a.ledger-masthead")) {
+    document.body.insertAdjacentHTML(
+      "afterbegin", '<a class="ledger-masthead" href="/">lm-eval-ledger</a>');
+    document.body.classList.add("lel-masthead");
+  }
   const names = {
     "runs": "Run History",
     "benchmarks": "Benchmark Results",
@@ -51,6 +56,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 _LEDGER_CSS = """
 /* ---- lm-eval-ledger masthead ---- */
+/* Fallback (non-clickable) when JS is unavailable; hidden once the
+   clickable anchor is in place (body.lel-masthead). */
 body::before {
   content: "lm-eval-ledger";
   display: block;
@@ -63,6 +70,20 @@ body::before {
   letter-spacing: 0.04em;
   border-bottom: 3px solid #4c8bf5;
 }
+body.lel-masthead::before { display: none; }
+a.ledger-masthead, a.ledger-masthead:visited {
+  display: block;
+  padding: 0.55rem 1rem;
+  background: #1f2430;
+  color: #e8ecf4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-bottom: 3px solid #4c8bf5;
+  text-decoration: none;
+}
+a.ledger-masthead:hover { color: #ffffff; background: #262c3a; }
 
 /* ---- benchmark-report table styling ---- */
 table.rows-and-columns {
@@ -225,7 +246,9 @@ tr.regressed td {{ background: #fdecec; }}
 .badge {{ font-weight: 700; }}
 .imp {{ color: #1a7f37; }} .reg {{ color: #c0322f; }}
 .summary {{ margin: 1rem 0 0; }}
-</style></head><body><main>
+</style></head><body class="lel-masthead">
+<a class="ledger-masthead" href="/">lm-eval-ledger</a>
+<main>
 <h1>Pairwise comparison</h1>
 <form method="get">
   <label>task<select name="task" id="task-sel">{"".join(task_opts)}</select></label>
@@ -345,7 +368,9 @@ th, td {{ border: 1px solid #d7dde8; padding: 0.3rem 0.55rem; text-align: left;
           vertical-align: top; }}
 th {{ background: #f0f3f8; font-size: 0.72rem; text-transform: uppercase; }}
 .summary {{ margin: 1rem 0 0; }}
-</style></head><body><main>
+</style></head><body class="lel-masthead">
+<a class="ledger-masthead" href="/">lm-eval-ledger</a>
+<main>
 <h1>Sample consistency</h1>
 <form method="get">
   <label>show<select name="mode">
