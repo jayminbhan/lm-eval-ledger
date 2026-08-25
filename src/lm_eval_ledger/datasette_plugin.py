@@ -315,10 +315,13 @@ async function buildInspectionPanel(db) {
     <label>benchmark A<select name="a">${benchOpts}</select></label>
     <label>benchmark B<select name="b">${benchOpts}</select></label>
     <div class="lel-applygrp">
-      <label class="lel-benchbox">benchmarks (none checked = all)
+      <label class="lel-benchbox">
+        <span class="lel-benchcap">benchmarks (none checked = all)</span>
         <div class="lel-benchlist">${benchChecks}</div></label>
-      <button type="submit">Apply</button>
-      <span class="lel-note"></span>
+      <div class="lel-applyrow">
+        <button type="submit">Apply</button>
+        <span class="lel-note"></span>
+      </div>
     </div>
     </div>`;
   const filters = document.querySelector("form.filters");
@@ -459,13 +462,17 @@ form.lel-panel {
 form.lel-panel .lel-controls {
   display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: flex-start;
 }
-/* Box, Apply, and note form one non-wrapping group: Apply is glued to
-   the box's right edge (bottom-aligned); with the box hidden (pairwise
-   mode) the button simply follows the selects */
+/* Box on top, Apply on its own row beneath it; with the box hidden
+   (pairwise mode) the group is just the button, bottom-aligned with
+   the selects */
 form.lel-panel .lel-applygrp {
-  display: flex; flex-wrap: nowrap; align-items: flex-end; gap: 0.6rem;
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 0.45rem; align-self: flex-end;
 }
-form.lel-panel .lel-applygrp button { flex-shrink: 0; }
+form.lel-panel .lel-applyrow {
+  display: flex; align-items: center; gap: 0.6rem;
+}
+.lel-benchcap { white-space: nowrap; }
 form.lel-panel label {
   display: flex; flex-direction: column; gap: 0.25rem;
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
