@@ -457,10 +457,11 @@ form.lel-panel {
 form.lel-panel .lel-controls {
   display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: flex-start;
 }
-/* align the button/note with the input line (below the field labels) */
+/* Apply and the note sit beside the tallest control, bottom-aligned -
+   next to the selects in pairwise mode, next to the box in consistency */
 form.lel-panel .lel-controls > button,
 form.lel-panel .lel-controls > .lel-note {
-  margin-top: 1.15rem;
+  align-self: flex-end;
 }
 form.lel-panel label {
   display: flex; flex-direction: column; gap: 0.25rem;
