@@ -8,14 +8,44 @@ automatically - no flags needed.
 Uses only documented plugin hooks (no template forks, no private APIs),
 so it tracks Datasette upgrades:
 - permission_allowed: hides the custom-SQL box
-- register_routes + extra_css_urls: serves /-/ledger.css with the
-  lm-eval-ledger masthead and benchmark-report styling
+- register_routes + extra_css_urls/extra_js_urls: serves /-/ledger.css
+  (masthead + benchmark-report styling) and /-/ledger.js (feature-style
+  display names for the ledger tables)
 - menu_links: ledger navigation in the top-right menu
+
+The SQL table names (runs/benchmarks/samples) are untouched - queries,
+the CLI, and the JSON API keep working; only the UI labels change.
 """
 from __future__ import annotations
 
 from datasette import hookimpl
 from datasette.utils.asgi import Response
+
+# UI display names for the ledger tables (SQL names stay unchanged)
+_DISPLAY_NAMES = {
+    "runs": "Run History",
+    "benchmarks": "Benchmark Results",
+    "samples": "Sample Inspection",
+}
+
+_LEDGER_JS = """
+document.addEventListener("DOMContentLoaded", () => {
+  const names = {
+    "runs": "Run History",
+    "benchmarks": "Benchmark Results",
+    "samples": "Sample Inspection",
+  };
+  const relabel = (el) => {
+    const t = el.textContent.trim();
+    if (names[t]) el.textContent = names[t];
+  };
+  document.querySelectorAll("h1, h2 a, .db-table a, li a").forEach(relabel);
+  for (const [raw, nice] of Object.entries(names)) {
+    document.title = document.title.replace(
+      new RegExp("(^|[^\\w])" + raw + "([^\\w]|$)"), "$1" + nice + "$2");
+  }
+});
+"""
 
 _LEDGER_CSS = """
 /* ---- lm-eval-ledger masthead ---- */
@@ -79,12 +109,25 @@ def register_routes():
             _LEDGER_CSS, content_type="text/css; charset=utf-8",
             headers={"Cache-Control": "max-age=60"},
         )
-    return [(r"^/-/ledger\.css$", ledger_css)]
+    async def ledger_js(request):
+        return Response(
+            _LEDGER_JS, content_type="text/javascript; charset=utf-8",
+            headers={"Cache-Control": "max-age=60"},
+        )
+    return [
+        (r"^/-/ledger\.css$", ledger_css),
+        (r"^/-/ledger\.js$", ledger_js),
+    ]
 
 
 @hookimpl
 def extra_css_urls():
     return ["/-/ledger.css"]
+
+
+@hookimpl
+def extra_js_urls():
+    return ["/-/ledger.js"]
 
 
 @hookimpl
@@ -100,9 +143,8 @@ def menu_links(datasette, actor):
                 continue  # not a ledger database
             base = datasette.urls.database(db_name)
             links += [
-                {"href": f"{base}/runs", "label": "Runs"},
-                {"href": f"{base}/benchmarks", "label": "Benchmarks"},
-                {"href": f"{base}/samples", "label": "Samples"},
+                {"href": f"{base}/{table}", "label": label}
+                for table, label in _DISPLAY_NAMES.items()
             ]
         return links or None
     return inner
