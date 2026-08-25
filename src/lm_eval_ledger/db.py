@@ -50,7 +50,7 @@ class LedgerDatabase:
         c = self.conn
         c.execute("""
             CREATE TABLE IF NOT EXISTS runs (
-                run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id INTEGER PRIMARY KEY,
                 run_name TEXT NOT NULL,
                 started_at TEXT NOT NULL,
                 harness_version TEXT,
@@ -59,7 +59,7 @@ class LedgerDatabase:
         """)
         c.execute("""
             CREATE TABLE IF NOT EXISTS benchmarks (
-                benchmark_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                benchmark_id INTEGER PRIMARY KEY,
                 run_id INTEGER NOT NULL REFERENCES runs(run_id),
                 model_tag TEXT NOT NULL,
                 model TEXT NOT NULL,
@@ -86,7 +86,7 @@ class LedgerDatabase:
         """)
         c.execute("""
             CREATE TABLE IF NOT EXISTS samples (
-                sample_pk INTEGER PRIMARY KEY AUTOINCREMENT,
+                sample_pk INTEGER PRIMARY KEY,
                 benchmark_id INTEGER NOT NULL REFERENCES benchmarks(benchmark_id),
                 sample_id TEXT,
                 prompt TEXT,
