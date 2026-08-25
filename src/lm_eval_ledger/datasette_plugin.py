@@ -18,6 +18,8 @@ the CLI, and the JSON API keep working; only the UI labels change.
 """
 from __future__ import annotations
 
+from html import escape as html_escape
+
 from datasette import hookimpl
 from datasette.utils.asgi import Response
 
@@ -102,6 +104,155 @@ def permission_allowed(datasette, actor, action):
     return None  # no opinion on other permissions
 
 
+async def _first_ledger_db(datasette, requested: str | None):
+    """The database to compare in: ?db=... or the first ledger found."""
+    if requested:
+        return requested, datasette.get_database(requested)
+    for db_name, db in datasette.databases.items():
+        if db_name in ("_internal", "_memory"):
+            continue
+        try:
+            await db.execute("SELECT 1 FROM runs LIMIT 1")
+            return db_name, db
+        except Exception:
+            continue
+    return None, None
+
+
+def _esc(value, limit: int = 120) -> str:
+    text = "" if value is None else str(value)
+    if len(text) > limit:
+        text = text[:limit] + "..."
+    return html_escape(text, quote=True)
+
+
+async def _compare_page(datasette, request):
+    """Pairwise sample comparison: pick a task and two (run, model)
+    benchmarks, Apply, and see per-sample regressions/improvements
+    aligned by sample_id."""
+    db_name, db = await _first_ledger_db(datasette, request.args.get("db"))
+    if db is None:
+        return Response.text("No ledger database attached", status=404)
+
+    benches = (await db.execute(
+        "SELECT benchmark_id, run_id, model_tag, task, fewshot_k, "
+        "ROUND(COALESCE(verified_accuracy, accuracy), 4) AS acc "
+        "FROM benchmarks WHERE (error IS NULL OR error = '') "
+        "ORDER BY task, run_id, model_tag"
+    )).rows
+    tasks = sorted({b["task"] for b in benches})
+
+    sel_task = request.args.get("task", "")
+    sel_a = request.args.get("a", "")
+    sel_b = request.args.get("b", "")
+    only_diff = request.args.get("diff", "")
+
+    task_opts = ['<option value="">(all tasks)</option>'] + [
+        f'<option value="{_esc(t)}"{" selected" if t == sel_task else ""}>{_esc(t)}</option>'
+        for t in tasks
+    ]
+    def bench_opts(selected: str) -> str:
+        out = ['<option value="">-- select --</option>']
+        for b in benches:
+            bid = str(b["benchmark_id"])
+            label = (f'run {b["run_id"]} · {b["model_tag"]} · '
+                     f'{b["task"]}({b["fewshot_k"]}) · acc {b["acc"]}')
+            out.append(
+                f'<option value="{bid}" data-task="{_esc(b["task"])}"'
+                f'{" selected" if bid == selected else ""}>{_esc(label, 200)}</option>')
+        return "\n".join(out)
+
+    result_html = ""
+    if sel_a and sel_b:
+        diff_clause = (
+            "AND COALESCE(sa.verified_score, sa.score) "
+            "!= COALESCE(sb.verified_score, sb.score)" if only_diff else "")
+        rows = (await db.execute(f"""
+            SELECT sa.sample_pk AS pk_a, sb.sample_pk AS pk_b,
+                   sa.sample_id, sa.gold,
+                   sa.extracted AS ans_a, sb.extracted AS ans_b,
+                   COALESCE(sa.verified_score, sa.score) AS score_a,
+                   COALESCE(sb.verified_score, sb.score) AS score_b
+            FROM samples sa JOIN samples sb ON sa.sample_id = sb.sample_id
+            WHERE sa.benchmark_id = ? AND sb.benchmark_id = ? {diff_clause}
+            ORDER BY CAST(sa.sample_id AS INTEGER), sa.sample_id
+        """, [sel_a, sel_b])).rows
+        improved = sum(1 for r in rows if r["score_b"] > r["score_a"])
+        regressed = sum(1 for r in rows if r["score_b"] < r["score_a"])
+        body = []
+        for r in rows:
+            if r["score_b"] > r["score_a"]:
+                cls, badge = "improved", "IMPROVED"
+            elif r["score_b"] < r["score_a"]:
+                cls, badge = "regressed", "REGRESSED"
+            else:
+                cls, badge = "same", "="
+            body.append(
+                f'<tr class="{cls}">'
+                f'<td><a href="{datasette.urls.database(db_name)}/samples/{r["pk_a"]}">'
+                f'{_esc(r["sample_id"], 40)}</a></td>'
+                f'<td>{_esc(r["gold"])}</td>'
+                f'<td>{_esc(r["ans_a"])}</td><td>{_esc(r["ans_b"])}</td>'
+                f'<td>{r["score_a"]:g}</td><td>{r["score_b"]:g}</td>'
+                f'<td class="badge">{badge}</td></tr>')
+        result_html = f"""
+        <p class="summary"><strong>{len(rows)}</strong> aligned samples ·
+        <span class="imp">{improved} improved</span> ·
+        <span class="reg">{regressed} regressed</span> ·
+        {len(rows) - improved - regressed} unchanged</p>
+        <table><thead><tr><th>sample</th><th>gold</th><th>A answered</th>
+        <th>B answered</th><th>A</th><th>B</th><th>&Delta;</th></tr></thead>
+        <tbody>{"".join(body)}</tbody></table>"""
+
+    page = f"""<!doctype html><html><head><meta charset="utf-8">
+<title>Compare - lm-eval-ledger</title>
+<link rel="stylesheet" href="/-/ledger.css">
+<style>
+body {{ margin: 0; font-family: system-ui, sans-serif; }}
+main {{ padding: 1rem; }}
+form {{ display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: end;
+       background: #f0f3f8; padding: 0.8rem 1rem; border-radius: 6px; }}
+label {{ display: flex; flex-direction: column; font-size: 0.75rem;
+         text-transform: uppercase; letter-spacing: 0.03em; gap: 0.25rem; }}
+select {{ font-family: ui-monospace, monospace; max-width: 26rem; }}
+table {{ border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem;
+         font-family: ui-monospace, monospace; }}
+th, td {{ border: 1px solid #d7dde8; padding: 0.3rem 0.55rem; text-align: left;
+          vertical-align: top; }}
+th {{ background: #f0f3f8; font-size: 0.72rem; text-transform: uppercase; }}
+tr.improved td {{ background: #e9f7ee; }}
+tr.regressed td {{ background: #fdecec; }}
+.badge {{ font-weight: 700; }}
+.imp {{ color: #1a7f37; }} .reg {{ color: #c0322f; }}
+.summary {{ margin: 1rem 0 0; }}
+</style></head><body><main>
+<h1>Pairwise comparison</h1>
+<form method="get">
+  <label>task<select name="task" id="task-sel">{"".join(task_opts)}</select></label>
+  <label>benchmark A (baseline)<select name="a">{bench_opts(sel_a)}</select></label>
+  <label>benchmark B (candidate)<select name="b">{bench_opts(sel_b)}</select></label>
+  <label><span>&nbsp;</span><span><input type="checkbox" name="diff" value="1"
+    {"checked" if only_diff else ""}> only changes</span></label>
+  <button type="submit">Apply</button>
+</form>
+{result_html}
+<script>
+const taskSel = document.getElementById("task-sel");
+const filterOpts = () => {{
+  const t = taskSel.value;
+  document.querySelectorAll('select[name="a"] option, select[name="b"] option')
+    .forEach(o => {{
+      if (!o.dataset.task) return;
+      o.hidden = t !== "" && o.dataset.task !== t;
+    }});
+}};
+taskSel.addEventListener("change", filterOpts);
+filterOpts();
+</script>
+</main></body></html>"""
+    return Response.html(page)
+
+
 @hookimpl
 def register_routes():
     async def ledger_css(request):
@@ -114,9 +265,12 @@ def register_routes():
             _LEDGER_JS, content_type="text/javascript; charset=utf-8",
             headers={"Cache-Control": "max-age=60"},
         )
+    async def compare(datasette, request):
+        return await _compare_page(datasette, request)
     return [
         (r"^/-/ledger\.css$", ledger_css),
         (r"^/-/ledger\.js$", ledger_js),
+        (r"^/-/compare$", compare),
     ]
 
 
@@ -146,5 +300,6 @@ def menu_links(datasette, actor):
                 {"href": f"{base}/{table}", "label": label}
                 for table, label in _DISPLAY_NAMES.items()
             ]
+            links.append({"href": "/-/compare", "label": "Pairwise Compare"})
         return links or None
     return inner
