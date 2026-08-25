@@ -101,6 +101,51 @@ async function buildLeaderboardBar(db) {
   const anchor = document.querySelector("form.filters")
     || document.querySelector("table.rows-and-columns");
   if (anchor) anchor.parentElement.insertBefore(bar, anchor);
+
+  // "best per model": collapse repeated models (multiple runs) to their
+  // top row. Only meaningful inside a single task's leaderboard.
+  const tbody = document.querySelector("table.rows-and-columns tbody");
+  if (!current || !tbody) return;
+  const rows = [...tbody.querySelectorAll("tr")];
+  if (!rows.length || !rows[0].querySelector("td.col-model_tag")) return;
+  const tagOf = tr => tr.querySelector("td.col-model_tag").textContent.trim();
+  const seen = new Map();  // model_tag -> {first: tr, extra: [tr]}
+  rows.forEach(tr => {
+    const t = tagOf(tr);
+    if (seen.has(t)) seen.get(t).extra.push(tr);
+    else seen.set(t, {first: tr, extra: []});
+  });
+  const nHidden = rows.length - seen.size;
+  if (nHidden === 0) return;  // no duplicates, no toggle
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "lel-chip lel-dedupe";
+  bar.appendChild(toggle);
+  const setCollapsed = on => {
+    toggle.classList.toggle("lel-active", on);
+    toggle.innerHTML = on
+      ? `expand all <span>(${nHidden} hidden)</span>`
+      : `best per model <span>(\\u2212${nHidden} rows)</span>`;
+    for (const {first, extra} of seen.values()) {
+      extra.forEach(tr => { tr.style.display = on ? "none" : ""; });
+      let badge = first.querySelector(".lel-morebadge");
+      if (on && extra.length && !badge) {
+        badge = document.createElement("span");
+        badge.className = "lel-morebadge";
+        badge.textContent = ` +${extra.length}`;
+        badge.title = `${extra.length} more entr${extra.length > 1 ? "ies" : "y"} from other runs (click "expand all" to show)`;
+        first.querySelector("td.col-model_tag").appendChild(badge);
+      }
+      if (badge) badge.style.display = on ? "" : "none";
+    }
+    try { localStorage.setItem("lel-lb-dedupe", on ? "1" : "0"); } catch (e) {}
+  };
+  let initial = false;
+  try { initial = localStorage.getItem("lel-lb-dedupe") === "1"; } catch (e) {}
+  setCollapsed(initial);
+  toggle.addEventListener("click", () =>
+    setCollapsed(!toggle.classList.contains("lel-active")));
 }
 
 // In a pairwise view (?benchmark_id__in=A,B): explain the A -> B
@@ -486,6 +531,10 @@ a.lel-chip.lel-active {
   background: #1f2430; color: #ffffff; border-color: #1f2430;
 }
 a.lel-chip.lel-active span { color: #c9d4ea; }
+button.lel-dedupe { cursor: pointer; font: inherit; margin-left: auto; }
+button.lel-dedupe.lel-active { background: #1f2430; color: #fff; border-color: #1f2430; }
+button.lel-dedupe.lel-active span { color: #c9d4ea; }
+.lel-morebadge { color: #4c8bf5; font-weight: 700; cursor: default; }
 
 /* ---- benchmark-report table styling ---- */
 table.rows-and-columns {
