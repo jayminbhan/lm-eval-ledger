@@ -52,6 +52,22 @@ async def _ledger_links(datasette, database: str) -> list[dict] | None:
 
 
 @hookimpl
+def permission_allowed(datasette, actor, action):
+    """Hide the custom-SQL box (and block ?sql= URLs): the ledger UI is
+    canned queries + tables. Re-enable free-form SQL via metadata:
+
+        plugins:
+          lm-eval-ledger:
+            allow_sql: true
+    """
+    if action == "execute-sql":
+        config = datasette.plugin_config("lm-eval-ledger") or {}
+        if not config.get("allow_sql"):
+            return False
+    return None  # no opinion on other permissions
+
+
+@hookimpl
 def database_actions(datasette, database):
     async def inner():
         return await _ledger_links(datasette, database)
