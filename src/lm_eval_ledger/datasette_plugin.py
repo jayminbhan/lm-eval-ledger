@@ -51,7 +51,88 @@ document.addEventListener("DOMContentLoaded", () => {
     document.title = document.title.replace(
       new RegExp("(^|[^\\w])" + raw + "([^\\w]|$)"), "$1" + nice + "$2");
   }
+
+  // ---- Sample Inspection control panel ----
+  const m = location.pathname.match(/^\\/([^/]+)\\/samples$/);
+  if (m) buildInspectionPanel(m[1]);
 });
+
+async function buildInspectionPanel(db) {
+  let benches;
+  try {
+    const res = await fetch(`/${db}/benchmarks.json?_shape=array&_size=max`);
+    benches = (await res.json()).filter(b => !b.error);
+  } catch (e) { return; }
+  if (!benches.length) return;
+  const tasks = [...new Set(benches.map(b => b.task))].sort();
+
+  const label = b =>
+    `run ${b.run_id} \\u00b7 ${b.model_tag} \\u00b7 ${b.task}(${b.fewshot_k})`;
+  const benchOpts = benches.map(b =>
+    `<option value="${b.benchmark_id}" data-task="${b.task}">${label(b)}</option>`
+  ).join("");
+
+  const panel = document.createElement("form");
+  panel.className = "lel-panel";
+  panel.innerHTML = `
+    <label>mode<select name="mode">
+      <option value="pairwise">pairwise (vertical)</option>
+      <option value="wrong">always wrong</option>
+      <option value="right">always right</option>
+    </select></label>
+    <label>task<select name="task"><option value="">(all tasks)</option>
+      ${tasks.map(t => `<option>${t}</option>`).join("")}</select></label>
+    <label>benchmark A<select name="a">${benchOpts}</select></label>
+    <label>benchmark B<select name="b">${benchOpts}</select></label>
+    <button type="submit">Apply</button>
+    <span class="lel-note"></span>`;
+  const h1 = document.querySelector("h1");
+  if (h1) h1.after(panel); else document.body.prepend(panel);
+
+  const taskSel = panel.querySelector('select[name="task"]');
+  const modeSel = panel.querySelector('select[name="mode"]');
+  const note = panel.querySelector(".lel-note");
+  const syncUi = () => {
+    const t = taskSel.value;
+    panel.querySelectorAll('select[name="a"] option, select[name="b"] option')
+      .forEach(o => { o.hidden = t !== "" && o.dataset.task !== t; });
+    const pairwise = modeSel.value === "pairwise";
+    panel.querySelector('select[name="a"]').parentElement.style.display =
+      pairwise ? "" : "none";
+    panel.querySelector('select[name="b"]').parentElement.style.display =
+      pairwise ? "" : "none";
+  };
+  taskSel.addEventListener("change", syncUi);
+  modeSel.addEventListener("change", syncUi);
+  syncUi();
+
+  panel.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const mode = modeSel.value;
+    if (mode === "pairwise") {
+      const a = panel.querySelector('select[name="a"]').value;
+      const b = panel.querySelector('select[name="b"]').value;
+      location.href =
+        `/${db}/samples?benchmark_id__in=${a},${b}&_sort=sample_id`;
+      return;
+    }
+    // consistency: fetch qualifying sample pks from the plugin endpoint
+    note.textContent = "computing\\u2026";
+    const params = new URLSearchParams({db, mode, format: "pks"});
+    if (taskSel.value) params.set("task", taskSel.value);
+    const res = await fetch(`/-/consistency?${params}`);
+    const pks = await res.json();
+    if (!pks.length) { note.textContent = "no matching samples"; return; }
+    if (pks.length > 300) {
+      // too many ids for a URL filter; use the dedicated page
+      location.href = `/-/consistency?db=${db}&mode=${mode}` +
+        (taskSel.value ? `&task=${encodeURIComponent(taskSel.value)}` : "");
+      return;
+    }
+    location.href =
+      `/${db}/samples?sample_pk__in=${pks.join(",")}&_sort=sample_id`;
+  });
+}
 """
 
 _LEDGER_CSS = """
@@ -84,6 +165,22 @@ a.ledger-masthead, a.ledger-masthead:visited {
   text-decoration: none;
 }
 a.ledger-masthead:hover { color: #ffffff; background: #262c3a; }
+
+/* ---- Sample Inspection control panel ---- */
+form.lel-panel {
+  display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: end;
+  background: #f0f3f8; padding: 0.8rem 1rem; border-radius: 6px;
+  margin: 0.8rem 0;
+}
+form.lel-panel label {
+  display: flex; flex-direction: column; gap: 0.25rem;
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em;
+}
+form.lel-panel select {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  max-width: 24rem;
+}
+form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
 
 /* ---- benchmark-report table styling ---- */
 table.rows-and-columns {
@@ -328,6 +425,20 @@ async def _consistency_page(datasette, request):
            )
         ORDER BY b.task, CAST(s.sample_id AS INTEGER), s.sample_id
     """, params)).rows
+
+    if request.args.get("format") == "pks":
+        # Machine-readable: pks of every evaluation row of each qualifying
+        # sample, so the table view can show them via ?sample_pk__in=...
+        pks: list[int] = []
+        for r in rows:
+            ev = (await db.execute(
+                "SELECT s.sample_pk FROM samples s "
+                "JOIN benchmarks b USING (benchmark_id) "
+                "WHERE b.task = ? AND s.sample_id = ? "
+                "AND (b.error IS NULL OR b.error = '')",
+                [r["task"], r["sample_id"]])).rows
+            pks.extend(row[0] for row in ev)
+        return Response.json(pks)
 
     task_opts = ['<option value="">(all tasks)</option>'] + [
         f'<option value="{_esc(t)}"{" selected" if t == sel_task else ""}>{_esc(t)}</option>'
