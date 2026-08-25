@@ -27,6 +27,9 @@ classifiers = [
 lm-eval-ledger = "lm_eval_ledger.cli:main"
 lm-eval-ledger-verify = "lm_eval_ledger.verifier:main"
 
+[project.entry-points.datasette]
+lm_eval_ledger = "lm_eval_ledger.datasette_plugin"
+
 [build-system]
 requires = ["uv_build>=0.9.18,<0.10.0"]
 build-backend = "uv_build"
