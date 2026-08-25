@@ -485,7 +485,7 @@ form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
 .lel-benchlist {
   display: flex; flex-direction: column; gap: 0.15rem;
   width: max-content; max-width: 100%; box-sizing: border-box;
-  max-height: 8.5rem; overflow: auto;
+  max-height: 8.5rem; overflow-y: auto; overflow-x: hidden;
   background: #ffffff;
   border: 1px solid #d7dde8; border-radius: 4px; padding: 0.4rem 0.6rem;
 }
@@ -499,7 +499,9 @@ form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
 }
 .lel-check:hover { background: #f0f3f8; }
 .lel-check input { accent-color: #4c8bf5; }
-.lel-check span { white-space: nowrap; }
+/* one line while the box has room (width: max-content), wrapping instead
+   of sideways scrolling once the container clamps it */
+.lel-check span { white-space: normal; }
 label.lel-benchbox { max-width: 100%; min-width: 0; }
 .lel-filters-row {
   display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap;
