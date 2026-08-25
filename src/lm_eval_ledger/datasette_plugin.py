@@ -253,6 +253,90 @@ filterOpts();
     return Response.html(page)
 
 
+async def _consistency_page(datasette, request):
+    """Samples that are always wrong / always right across every benchmark
+    (run x model) that evaluated them, grouped by (task, sample_id)."""
+    db_name, db = await _first_ledger_db(datasette, request.args.get("db"))
+    if db is None:
+        return Response.text("No ledger database attached", status=404)
+
+    tasks = [r[0] for r in (await db.execute(
+        "SELECT DISTINCT task FROM benchmarks ORDER BY task")).rows]
+    mode = request.args.get("mode", "wrong")
+    sel_task = request.args.get("task", "")
+    try:
+        min_evals = max(1, int(request.args.get("min_evals", "2")))
+    except ValueError:
+        min_evals = 2
+
+    having = ("MAX(COALESCE(s.verified_score, s.score)) <= 0" if mode == "wrong"
+              else "MIN(COALESCE(s.verified_score, s.score)) >= 1")
+    task_clause = "AND b.task = ?" if sel_task else ""
+    params = ([sel_task] if sel_task else []) + [min_evals]
+    rows = (await db.execute(f"""
+        SELECT b.task, s.sample_id,
+               COUNT(*) AS n_evals,
+               COUNT(DISTINCT b.model_tag) AS n_models,
+               MIN(s.sample_pk) AS example_pk,
+               MIN(s.gold) AS gold
+        FROM samples s JOIN benchmarks b USING (benchmark_id)
+        WHERE (b.error IS NULL OR b.error = '') {task_clause}
+        GROUP BY b.task, s.sample_id
+        HAVING {having} AND COUNT(*) >= ?
+        ORDER BY b.task, CAST(s.sample_id AS INTEGER), s.sample_id
+    """, params)).rows
+
+    task_opts = ['<option value="">(all tasks)</option>'] + [
+        f'<option value="{_esc(t)}"{" selected" if t == sel_task else ""}>{_esc(t)}</option>'
+        for t in tasks
+    ]
+    body = []
+    for r in rows:
+        body.append(
+            f'<tr><td>{_esc(r["task"], 40)}</td>'
+            f'<td><a href="{datasette.urls.database(db_name)}/samples/{r["example_pk"]}">'
+            f'{_esc(r["sample_id"], 40)}</a></td>'
+            f'<td>{r["n_evals"]}</td><td>{r["n_models"]}</td>'
+            f'<td>{_esc(r["gold"])}</td></tr>')
+    label = "always wrong" if mode == "wrong" else "always right"
+
+    page = f"""<!doctype html><html><head><meta charset="utf-8">
+<title>Consistency - lm-eval-ledger</title>
+<link rel="stylesheet" href="/-/ledger.css">
+<style>
+body {{ margin: 0; font-family: system-ui, sans-serif; }}
+main {{ padding: 1rem; }}
+form {{ display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: end;
+       background: #f0f3f8; padding: 0.8rem 1rem; border-radius: 6px; }}
+label {{ display: flex; flex-direction: column; font-size: 0.75rem;
+         text-transform: uppercase; letter-spacing: 0.03em; gap: 0.25rem; }}
+select, input[type=number] {{ font-family: ui-monospace, monospace; }}
+table {{ border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem;
+         font-family: ui-monospace, monospace; }}
+th, td {{ border: 1px solid #d7dde8; padding: 0.3rem 0.55rem; text-align: left;
+          vertical-align: top; }}
+th {{ background: #f0f3f8; font-size: 0.72rem; text-transform: uppercase; }}
+.summary {{ margin: 1rem 0 0; }}
+</style></head><body><main>
+<h1>Sample consistency</h1>
+<form method="get">
+  <label>show<select name="mode">
+    <option value="wrong"{" selected" if mode == "wrong" else ""}>always wrong</option>
+    <option value="right"{" selected" if mode == "right" else ""}>always right</option>
+  </select></label>
+  <label>task<select name="task">{"".join(task_opts)}</select></label>
+  <label>min evaluations<input type="number" name="min_evals"
+    value="{min_evals}" min="1" style="width:5rem"></label>
+  <button type="submit">Apply</button>
+</form>
+<p class="summary"><strong>{len(rows)}</strong> samples {label} across every
+evaluation (each evaluated at least {min_evals} times).</p>
+<table><thead><tr><th>task</th><th>sample</th><th>evals</th><th>models</th>
+<th>gold</th></tr></thead><tbody>{"".join(body)}</tbody></table>
+</main></body></html>"""
+    return Response.html(page)
+
+
 @hookimpl
 def register_routes():
     async def ledger_css(request):
@@ -267,10 +351,13 @@ def register_routes():
         )
     async def compare(datasette, request):
         return await _compare_page(datasette, request)
+    async def consistency(datasette, request):
+        return await _consistency_page(datasette, request)
     return [
         (r"^/-/ledger\.css$", ledger_css),
         (r"^/-/ledger\.js$", ledger_js),
         (r"^/-/compare$", compare),
+        (r"^/-/consistency$", consistency),
     ]
 
 
@@ -301,5 +388,6 @@ def menu_links(datasette, actor):
                 for table, label in _DISPLAY_NAMES.items()
             ]
             links.append({"href": "/-/compare", "label": "Pairwise Compare"})
+            links.append({"href": "/-/consistency", "label": "Consistency"})
         return links or None
     return inner
