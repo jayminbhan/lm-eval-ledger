@@ -455,7 +455,12 @@ form.lel-panel {
   margin: 0.8rem 0;
 }
 form.lel-panel .lel-controls {
-  display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: end;
+  display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: flex-start;
+}
+/* align the button/note with the input line (below the field labels) */
+form.lel-panel .lel-controls > button,
+form.lel-panel .lel-controls > .lel-note {
+  margin-top: 1.15rem;
 }
 form.lel-panel label {
   display: flex; flex-direction: column; gap: 0.25rem;
