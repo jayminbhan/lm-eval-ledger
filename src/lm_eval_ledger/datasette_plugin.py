@@ -71,6 +71,11 @@ async function buildInspectionPanel(db) {
   const benchOpts = benches.map(b =>
     `<option value="${b.benchmark_id}" data-task="${b.task}">${label(b)}</option>`
   ).join("");
+  const benchChecks = benches.map(b =>
+    `<label class="lel-check" data-task="${b.task}">
+       <input type="checkbox" name="bs" value="${b.benchmark_id}">
+       <span>${label(b)}</span></label>`
+  ).join("");
 
   const panel = document.createElement("form");
   panel.className = "lel-panel";
@@ -84,8 +89,8 @@ async function buildInspectionPanel(db) {
       ${tasks.map(t => `<option>${t}</option>`).join("")}</select></label>
     <label>benchmark A<select name="a">${benchOpts}</select></label>
     <label>benchmark B<select name="b">${benchOpts}</select></label>
-    <label>benchmarks (none = all)
-      <select name="bs" multiple size="5">${benchOpts}</select></label>
+    <label class="lel-benchbox">benchmarks (none checked = all)
+      <div class="lel-benchlist">${benchChecks}</div></label>
     <button type="submit">Apply</button>
     <span class="lel-note"></span>`;
   const h1 = document.querySelector("h1");
@@ -96,15 +101,17 @@ async function buildInspectionPanel(db) {
   const note = panel.querySelector(".lel-note");
   const syncUi = () => {
     const t = taskSel.value;
-    panel.querySelectorAll(
-      'select[name="a"] option, select[name="b"] option, select[name="bs"] option'
-    ).forEach(o => { o.hidden = t !== "" && o.dataset.task !== t; });
+    panel.querySelectorAll('select[name="a"] option, select[name="b"] option')
+      .forEach(o => { o.hidden = t !== "" && o.dataset.task !== t; });
+    panel.querySelectorAll(".lel-check").forEach(l => {
+      l.hidden = t !== "" && l.dataset.task !== t;
+    });
     const pairwise = modeSel.value === "pairwise";
     panel.querySelector('select[name="a"]').parentElement.style.display =
       pairwise ? "" : "none";
     panel.querySelector('select[name="b"]').parentElement.style.display =
       pairwise ? "" : "none";
-    panel.querySelector('select[name="bs"]').parentElement.style.display =
+    panel.querySelector(".lel-benchbox").style.display =
       pairwise ? "none" : "";
   };
   taskSel.addEventListener("change", syncUi);
@@ -125,8 +132,8 @@ async function buildInspectionPanel(db) {
     note.textContent = "computing\\u2026";
     const params = new URLSearchParams({db, mode, format: "pks"});
     if (taskSel.value) params.set("task", taskSel.value);
-    const chosen = [...panel.querySelectorAll('select[name="bs"] option')]
-      .filter(o => o.selected && !o.hidden).map(o => o.value);
+    const chosen = [...panel.querySelectorAll('.lel-check input')]
+      .filter(c => c.checked && !c.closest("label").hidden).map(c => c.value);
     chosen.forEach(v => params.append("b", v));
     const res = await fetch(`/-/consistency?${params}`);
     const pks = await res.json();
@@ -191,6 +198,18 @@ form.lel-panel select {
   max-width: 24rem;
 }
 form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
+.lel-benchlist {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  max-height: 8.5rem; overflow-y: auto; background: #ffffff;
+  border: 1px solid #d7dde8; border-radius: 4px; padding: 0.4rem 0.6rem;
+}
+.lel-check {
+  display: flex !important; flex-direction: row !important;
+  align-items: center; gap: 0.4rem;
+  font-size: 0.78rem; text-transform: none; letter-spacing: normal;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: nowrap;
+}
 
 /* ---- benchmark-report table styling ---- */
 table.rows-and-columns {
@@ -457,14 +476,16 @@ async def _consistency_page(datasette, request):
         f'<option value="{_esc(t)}"{" selected" if t == sel_task else ""}>{_esc(t)}</option>'
         for t in tasks
     ]
-    bench_opts = []
+    bench_checks = []
     for b in benches:
         bid = str(b["benchmark_id"])
         label = (f'run {b["run_id"]} · {b["model_tag"]} · '
                  f'{b["task"]}({b["fewshot_k"]}) · acc {b["acc"]}')
-        bench_opts.append(
-            f'<option value="{bid}" data-task="{_esc(b["task"])}"'
-            f'{" selected" if bid in sel_ids else ""}>{_esc(label, 200)}</option>')
+        bench_checks.append(
+            f'<label class="lel-check" data-task="{_esc(b["task"])}">'
+            f'<input type="checkbox" name="b" value="{bid}"'
+            f'{" checked" if bid in sel_ids else ""}>'
+            f'<span>{_esc(label, 200)}</span></label>')
     body = []
     for r in rows:
         body.append(
@@ -502,8 +523,8 @@ th {{ background: #f0f3f8; font-size: 0.72rem; text-transform: uppercase; }}
     <option value="right"{" selected" if mode == "right" else ""}>always right</option>
   </select></label>
   <label>task<select name="task" id="task-sel">{"".join(task_opts)}</select></label>
-  <label>benchmarks (none selected = all)
-    <select name="b" multiple size="6">{"".join(bench_opts)}</select></label>
+  <label>benchmarks (none checked = all)
+    <div class="lel-benchlist">{"".join(bench_checks)}</div></label>
   <button type="submit">Apply</button>
 </form>
 <p class="summary"><strong>{len(rows)}</strong> samples {label} in every
@@ -515,8 +536,8 @@ th {{ background: #f0f3f8; font-size: 0.72rem; text-transform: uppercase; }}
 const taskSel = document.getElementById("task-sel");
 const filterOpts = () => {{
   const t = taskSel.value;
-  document.querySelectorAll('select[name="b"] option').forEach(o => {{
-    o.hidden = t !== "" && o.dataset.task !== t;
+  document.querySelectorAll('.lel-check').forEach(l => {{
+    l.hidden = t !== "" && l.dataset.task !== t;
   }});
 }};
 taskSel.addEventListener("change", filterOpts);
