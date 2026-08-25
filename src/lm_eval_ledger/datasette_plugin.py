@@ -100,8 +100,12 @@ function enhancePairwise() {
       const rb = g.find(tr => bid(tr) === B);
       if (ra && rb) {
         const sa = scoreOf(ra), sb = scoreOf(rb);
-        if (sb > sa) { rank = 0; g.forEach(tr => tr.classList.add("lel-improved")); }
-        else if (sb < sa) { rank = 0; g.forEach(tr => tr.classList.add("lel-regressed")); }
+        if (sa !== sb) {
+          rank = 0;
+          // color by correctness: better-scoring row green, worse red
+          (sa > sb ? ra : rb).classList.add("lel-right");
+          (sa > sb ? rb : ra).classList.add("lel-wrong");
+        }
         else if (val(ra, "extracted") !== val(rb, "extracted")) rank = 1;
       }
     }
@@ -179,11 +183,41 @@ async function buildInspectionPanel(db) {
   };
   taskSel.addEventListener("change", syncUi);
   modeSel.addEventListener("change", syncUi);
+
+  // restore last-applied settings (per database)
+  const storeKey = "lel-panel:" + db;
+  try {
+    const saved = JSON.parse(localStorage.getItem(storeKey) || "null");
+    if (saved) {
+      const setSel = (name, v) => {
+        const sel = panel.querySelector(`select[name="${name}"]`);
+        if (v != null && [...sel.options].some(o => o.value === v)) sel.value = v;
+      };
+      setSel("mode", saved.mode);
+      setSel("task", saved.task);
+      setSel("a", saved.a);
+      setSel("b", saved.b);
+      (saved.bs || []).forEach(v => {
+        const cb = panel.querySelector(`.lel-check input[value="${v}"]`);
+        if (cb) cb.checked = true;
+      });
+    }
+  } catch (e) {}
   syncUi();
 
   panel.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const mode = modeSel.value;
+    try {
+      localStorage.setItem(storeKey, JSON.stringify({
+        mode,
+        task: taskSel.value,
+        a: panel.querySelector('select[name="a"]').value,
+        b: panel.querySelector('select[name="b"]').value,
+        bs: [...panel.querySelectorAll(".lel-check input")]
+          .filter(c => c.checked).map(c => c.value),
+      }));
+    } catch (e) {}
     if (mode === "pairwise") {
       const a = panel.querySelector('select[name="a"]').value;
       const b = panel.querySelector('select[name="b"]').value;
@@ -282,11 +316,11 @@ label.lel-benchbox { max-width: 100%; flex-basis: 100%; }
 .lel-filters-row form.filters { margin: 0; }
 .lel-filters-row form.lel-panel { margin: 0; flex: 1 1 28rem; }
 
-/* pairwise view: improved / regressed sample pairs */
-tr.lel-improved td { background: #eaf7ef; }
-tr.lel-improved td:first-child { box-shadow: inset 4px 0 0 #1a7f37; }
-tr.lel-regressed td { background: #fdecec; }
-tr.lel-regressed td:first-child { box-shadow: inset 4px 0 0 #c0322f; }
+/* pairwise view: within a changed pair, correct row green, wrong row red */
+tr.lel-right td { background: #eaf7ef; }
+tr.lel-right td:first-child { box-shadow: inset 4px 0 0 #1a7f37; }
+tr.lel-wrong td { background: #fdecec; }
+tr.lel-wrong td:first-child { box-shadow: inset 4px 0 0 #c0322f; }
 
 /* ---- benchmark-report table styling ---- */
 table.rows-and-columns {
