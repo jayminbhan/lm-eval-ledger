@@ -84,6 +84,8 @@ async function buildInspectionPanel(db) {
       ${tasks.map(t => `<option>${t}</option>`).join("")}</select></label>
     <label>benchmark A<select name="a">${benchOpts}</select></label>
     <label>benchmark B<select name="b">${benchOpts}</select></label>
+    <label>benchmarks (none = all)
+      <select name="bs" multiple size="5">${benchOpts}</select></label>
     <button type="submit">Apply</button>
     <span class="lel-note"></span>`;
   const h1 = document.querySelector("h1");
@@ -94,13 +96,16 @@ async function buildInspectionPanel(db) {
   const note = panel.querySelector(".lel-note");
   const syncUi = () => {
     const t = taskSel.value;
-    panel.querySelectorAll('select[name="a"] option, select[name="b"] option')
-      .forEach(o => { o.hidden = t !== "" && o.dataset.task !== t; });
+    panel.querySelectorAll(
+      'select[name="a"] option, select[name="b"] option, select[name="bs"] option'
+    ).forEach(o => { o.hidden = t !== "" && o.dataset.task !== t; });
     const pairwise = modeSel.value === "pairwise";
     panel.querySelector('select[name="a"]').parentElement.style.display =
       pairwise ? "" : "none";
     panel.querySelector('select[name="b"]').parentElement.style.display =
       pairwise ? "" : "none";
+    panel.querySelector('select[name="bs"]').parentElement.style.display =
+      pairwise ? "none" : "";
   };
   taskSel.addEventListener("change", syncUi);
   modeSel.addEventListener("change", syncUi);
@@ -120,13 +125,18 @@ async function buildInspectionPanel(db) {
     note.textContent = "computing\\u2026";
     const params = new URLSearchParams({db, mode, format: "pks"});
     if (taskSel.value) params.set("task", taskSel.value);
+    const chosen = [...panel.querySelectorAll('select[name="bs"] option')]
+      .filter(o => o.selected && !o.hidden).map(o => o.value);
+    chosen.forEach(v => params.append("b", v));
     const res = await fetch(`/-/consistency?${params}`);
     const pks = await res.json();
     if (!pks.length) { note.textContent = "no matching samples"; return; }
     if (pks.length > 300) {
       // too many ids for a URL filter; use the dedicated page
-      location.href = `/-/consistency?db=${db}&mode=${mode}` +
-        (taskSel.value ? `&task=${encodeURIComponent(taskSel.value)}` : "");
+      const q = new URLSearchParams({db, mode});
+      if (taskSel.value) q.set("task", taskSel.value);
+      chosen.forEach(v => q.append("b", v));
+      location.href = `/-/consistency?${q}`;
       return;
     }
     location.href =
@@ -427,16 +437,19 @@ async def _consistency_page(datasette, request):
     """, params)).rows
 
     if request.args.get("format") == "pks":
-        # Machine-readable: pks of every evaluation row of each qualifying
-        # sample, so the table view can show them via ?sample_pk__in=...
+        # Machine-readable: pks of the evaluation rows of each qualifying
+        # sample (scoped to the selected benchmarks when given), so the
+        # table view can show them via ?sample_pk__in=...
+        marks = ",".join("?" * len(sel_ids))
+        bench_scope = f"AND b.benchmark_id IN ({marks})" if sel_ids else ""
         pks: list[int] = []
         for r in rows:
             ev = (await db.execute(
-                "SELECT s.sample_pk FROM samples s "
-                "JOIN benchmarks b USING (benchmark_id) "
-                "WHERE b.task = ? AND s.sample_id = ? "
-                "AND (b.error IS NULL OR b.error = '')",
-                [r["task"], r["sample_id"]])).rows
+                f"SELECT s.sample_pk FROM samples s "
+                f"JOIN benchmarks b USING (benchmark_id) "
+                f"WHERE b.task = ? AND s.sample_id = ? "
+                f"AND (b.error IS NULL OR b.error = '') {bench_scope}",
+                [r["task"], r["sample_id"]] + sel_ids)).rows
             pks.extend(row[0] for row in ev)
         return Response.json(pks)
 
