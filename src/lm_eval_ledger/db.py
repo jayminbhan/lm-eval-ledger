@@ -120,22 +120,8 @@ class LedgerDatabase:
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_task ON benchmarks(task, model_tag)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_samples_benchmark ON samples(benchmark_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_samples_sample_id ON samples(sample_id)")
-        # Recreated (not IF NOT EXISTS) so view improvements reach existing
-        # ledgers; views are cheap. Oversized golds (e.g. LiveCodeBench's
-        # packed test suites) are truncated here - full values stay in samples.
+        # Dropped from the schema; also cleans it out of existing ledgers.
         c.execute("DROP VIEW IF EXISTS samples_flat")
-        c.execute("""
-            CREATE VIEW samples_flat AS
-            SELECT s.sample_pk, b.run_id, b.model_tag, b.task, b.fewshot_k,
-                   s.sample_id,
-                   CASE WHEN length(s.gold) > 200
-                        THEN substr(s.gold, 1, 200) || '...'
-                        ELSE s.gold END AS gold,
-                   s.extracted, s.stop_reason,
-                   json_extract(s.responses, '$[0].text') AS response,
-                   s.score, s.verified_score, s.prompt
-            FROM samples s JOIN benchmarks b USING (benchmark_id)
-        """)
         c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     # ---------- runs ----------
