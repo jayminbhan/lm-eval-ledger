@@ -200,16 +200,18 @@ form.lel-panel select {
 form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
 .lel-benchlist {
   display: flex; flex-direction: column; gap: 0.15rem;
+  width: max-content; min-width: 24rem; max-width: 100%;
   max-height: 8.5rem; overflow-y: auto; background: #ffffff;
   border: 1px solid #d7dde8; border-radius: 4px; padding: 0.4rem 0.6rem;
 }
 .lel-check {
   display: flex !important; flex-direction: row !important;
-  align-items: center; gap: 0.4rem;
+  align-items: baseline; gap: 0.4rem;
   font-size: 0.78rem; text-transform: none; letter-spacing: normal;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  white-space: nowrap;
 }
+.lel-check span { white-space: normal; }
+label.lel-benchbox { max-width: 100%; }
 
 /* ---- benchmark-report table styling ---- */
 table.rows-and-columns {
