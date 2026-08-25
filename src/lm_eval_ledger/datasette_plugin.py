@@ -88,16 +88,22 @@ async function buildLeaderboardBar(db) {
     const href = `/${db}/benchmarks?task__exact=${encodeURIComponent(task)}` +
       `&_sort_desc=accuracy&_size=max`;
     const active = task === current ? " lel-active" : "";
-    return `<a class="lel-chip${active}" href="${href}">${task}` +
-      ` <span>best ${Number(t.best).toFixed(3)} (${t.count})</span></a>`;
+    return `<a class="lel-chip${active}" href="${href}">
+      <strong>${task}</strong>
+      <span>best ${Number(t.best).toFixed(3)} \\u00b7 ${t.count} entr${t.count > 1 ? "ies" : "y"}</span>
+    </a>`;
   });
   const allActive = current ? "" : " lel-active";
-  chips.unshift(
-    `<a class="lel-chip${allActive}" href="/${db}/benchmarks">all</a>`);
+  chips.unshift(`<a class="lel-chip${allActive}" href="/${db}/benchmarks">
+    <strong>all tasks</strong>
+    <span>${benches.length} results \\u00b7 ${byTask.size} tasks</span>
+  </a>`);
 
   const bar = document.createElement("div");
   bar.className = "lel-lbbar";
-  bar.innerHTML = `<span class="lel-lbtitle">Leaderboard</span>${chips.join("")}`;
+  bar.innerHTML = `
+    <div class="lel-lbhead"><span class="lel-lbtitle">Leaderboard</span></div>
+    <div class="lel-chipgrid">${chips.join("")}</div>`;
   const anchor = document.querySelector("form.filters")
     || document.querySelector("table.rows-and-columns");
   if (anchor) anchor.parentElement.insertBefore(bar, anchor);
@@ -120,8 +126,8 @@ async function buildLeaderboardBar(db) {
 
   const toggle = document.createElement("button");
   toggle.type = "button";
-  toggle.className = "lel-chip lel-dedupe";
-  bar.appendChild(toggle);
+  toggle.className = "lel-dedupe";
+  bar.querySelector(".lel-lbhead").appendChild(toggle);
   const setCollapsed = on => {
     toggle.classList.toggle("lel-active", on);
     toggle.innerHTML = on
@@ -511,27 +517,44 @@ tr.lel-regressed td:first-child { box-shadow: inset 4px 0 0 #c0322f; }
 
 /* leaderboard bar on Benchmark Results */
 .lel-lbbar {
-  display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;
-  background: #f0f3f8; border-radius: 6px; padding: 0.7rem 1rem;
+  background: #f0f3f8; border-radius: 6px; padding: 0.8rem 1rem 1rem;
   margin: 0.8rem 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.82rem;
 }
+.lel-lbhead {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
 .lel-lbtitle {
-  font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-  font-size: 0.72rem; color: #5a6270; margin-right: 0.4rem;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: 0.72rem; color: #5a6270;
+}
+.lel-chipgrid {
+  display: grid; gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
 }
 a.lel-chip, a.lel-chip:visited {
-  border: 1px solid #c8d0dd; background: #ffffff; border-radius: 4px;
-  padding: 0.25rem 0.6rem; color: inherit; text-decoration: none;
+  display: flex; flex-direction: column; gap: 0.15rem;
+  border: 1px solid #c8d0dd; background: #ffffff; border-radius: 5px;
+  padding: 0.45rem 0.7rem; color: inherit; text-decoration: none;
+  transition: border-color 0.1s, box-shadow 0.1s;
 }
-a.lel-chip span { color: #5a6270; font-size: 0.75rem; }
-a.lel-chip:hover { border-color: #4c8bf5; }
+a.lel-chip strong { font-size: 0.82rem; }
+a.lel-chip span { color: #5a6270; font-size: 0.72rem; }
+a.lel-chip:hover {
+  border-color: #4c8bf5; box-shadow: 0 1px 4px rgba(76, 139, 245, 0.25);
+}
 a.lel-chip.lel-active {
   background: #1f2430; color: #ffffff; border-color: #1f2430;
 }
 a.lel-chip.lel-active span { color: #c9d4ea; }
-button.lel-dedupe { cursor: pointer; font: inherit; margin-left: auto; }
+button.lel-dedupe {
+  cursor: pointer; font: inherit; font-size: 0.75rem;
+  border: 1px solid #c8d0dd; background: #ffffff; border-radius: 4px;
+  padding: 0.25rem 0.6rem;
+}
+button.lel-dedupe span { color: #5a6270; }
 button.lel-dedupe.lel-active { background: #1f2430; color: #fff; border-color: #1f2430; }
 button.lel-dedupe.lel-active span { color: #c9d4ea; }
 .lel-morebadge { color: #4c8bf5; font-weight: 700; cursor: default; }
