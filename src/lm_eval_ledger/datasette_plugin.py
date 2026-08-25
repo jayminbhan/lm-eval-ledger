@@ -484,8 +484,8 @@ form.lel-panel button[type="submit"]:hover { background: #2c3444; }
 form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
 .lel-benchlist {
   display: flex; flex-direction: column; gap: 0.15rem;
-  width: max-content; max-width: 100%; box-sizing: border-box;
-  max-height: 8.5rem; overflow-y: auto; overflow-x: hidden;
+  width: max-content; box-sizing: border-box;
+  max-height: 8.5rem; overflow-y: auto;
   background: #ffffff;
   border: 1px solid #d7dde8; border-radius: 4px; padding: 0.4rem 0.6rem;
 }
@@ -499,10 +499,11 @@ form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
 }
 .lel-check:hover { background: #f0f3f8; }
 .lel-check input { accent-color: #4c8bf5; }
-/* one line while the box has room (width: max-content), wrapping instead
-   of sideways scrolling once the container clamps it */
-.lel-check span { white-space: normal; }
-label.lel-benchbox { max-width: 100%; min-width: 0; }
+/* one line per benchmark, always */
+.lel-check span { white-space: nowrap; }
+/* the box dictates its width; if the shared row can't fit it, the whole
+   panel wraps below the filter form and uses the full page width */
+label.lel-benchbox { max-width: none; }
 .lel-filters-row {
   display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap;
 }
