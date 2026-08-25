@@ -262,17 +262,32 @@ async def _consistency_page(datasette, request):
 
     tasks = [r[0] for r in (await db.execute(
         "SELECT DISTINCT task FROM benchmarks ORDER BY task")).rows]
+    benches = (await db.execute(
+        "SELECT benchmark_id, run_id, model_tag, task, fewshot_k, "
+        "ROUND(COALESCE(verified_accuracy, accuracy), 4) AS acc "
+        "FROM benchmarks WHERE (error IS NULL OR error = '') "
+        "ORDER BY task, run_id, model_tag"
+    )).rows
     mode = request.args.get("mode", "wrong")
     sel_task = request.args.get("task", "")
-    try:
-        min_evals = max(1, int(request.args.get("min_evals", "2")))
-    except ValueError:
-        min_evals = 2
+    sel_ids = [v for v in request.args.getlist("b") if v.isdigit()]
 
     having = ("MAX(COALESCE(s.verified_score, s.score)) <= 0" if mode == "wrong"
               else "MIN(COALESCE(s.verified_score, s.score)) >= 1")
     task_clause = "AND b.task = ?" if sel_task else ""
-    params = ([sel_task] if sel_task else []) + [min_evals]
+    bench_clause = ""
+    bench_clause2 = ""
+    params: list = []
+    if sel_ids:
+        marks = ",".join("?" * len(sel_ids))
+        bench_clause = f"AND b.benchmark_id IN ({marks})"
+        bench_clause2 = f"AND b2.benchmark_id IN ({marks})"
+        params += sel_ids
+    if sel_task:
+        params.append(sel_task)
+    params += sel_ids  # for the coverage subquery
+    # "always" = the verdict holds in EVERY selected benchmark of the
+    # sample's task, and the sample was evaluated by all of them.
     rows = (await db.execute(f"""
         SELECT b.task, s.sample_id,
                COUNT(*) AS n_evals,
@@ -280,9 +295,14 @@ async def _consistency_page(datasette, request):
                MIN(s.sample_pk) AS example_pk,
                MIN(s.gold) AS gold
         FROM samples s JOIN benchmarks b USING (benchmark_id)
-        WHERE (b.error IS NULL OR b.error = '') {task_clause}
+        WHERE (b.error IS NULL OR b.error = '') {bench_clause} {task_clause}
         GROUP BY b.task, s.sample_id
-        HAVING {having} AND COUNT(*) >= ?
+        HAVING {having}
+           AND COUNT(*) = (
+               SELECT COUNT(*) FROM benchmarks b2
+               WHERE (b2.error IS NULL OR b2.error = '')
+                 AND b2.task = b.task {bench_clause2}
+           )
         ORDER BY b.task, CAST(s.sample_id AS INTEGER), s.sample_id
     """, params)).rows
 
@@ -290,6 +310,14 @@ async def _consistency_page(datasette, request):
         f'<option value="{_esc(t)}"{" selected" if t == sel_task else ""}>{_esc(t)}</option>'
         for t in tasks
     ]
+    bench_opts = []
+    for b in benches:
+        bid = str(b["benchmark_id"])
+        label = (f'run {b["run_id"]} · {b["model_tag"]} · '
+                 f'{b["task"]}({b["fewshot_k"]}) · acc {b["acc"]}')
+        bench_opts.append(
+            f'<option value="{bid}" data-task="{_esc(b["task"])}"'
+            f'{" selected" if bid in sel_ids else ""}>{_esc(label, 200)}</option>')
     body = []
     for r in rows:
         body.append(
@@ -324,15 +352,27 @@ th {{ background: #f0f3f8; font-size: 0.72rem; text-transform: uppercase; }}
     <option value="wrong"{" selected" if mode == "wrong" else ""}>always wrong</option>
     <option value="right"{" selected" if mode == "right" else ""}>always right</option>
   </select></label>
-  <label>task<select name="task">{"".join(task_opts)}</select></label>
-  <label>min evaluations<input type="number" name="min_evals"
-    value="{min_evals}" min="1" style="width:5rem"></label>
+  <label>task<select name="task" id="task-sel">{"".join(task_opts)}</select></label>
+  <label>benchmarks (none selected = all)
+    <select name="b" multiple size="6">{"".join(bench_opts)}</select></label>
   <button type="submit">Apply</button>
 </form>
-<p class="summary"><strong>{len(rows)}</strong> samples {label} across every
-evaluation (each evaluated at least {min_evals} times).</p>
+<p class="summary"><strong>{len(rows)}</strong> samples {label} in every
+{"selected benchmark" if sel_ids else "benchmark in the ledger"} covering them
+{f"({len(sel_ids)} selected)" if sel_ids else ""}.</p>
 <table><thead><tr><th>task</th><th>sample</th><th>evals</th><th>models</th>
 <th>gold</th></tr></thead><tbody>{"".join(body)}</tbody></table>
+<script>
+const taskSel = document.getElementById("task-sel");
+const filterOpts = () => {{
+  const t = taskSel.value;
+  document.querySelectorAll('select[name="b"] option').forEach(o => {{
+    o.hidden = t !== "" && o.dataset.task !== t;
+  }});
+}};
+taskSel.addEventListener("change", filterOpts);
+filterOpts();
+</script>
 </main></body></html>"""
     return Response.html(page)
 
