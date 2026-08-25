@@ -576,7 +576,5 @@ def menu_links(datasette, actor):
                 {"href": f"{base}/{table}", "label": label}
                 for table, label in _DISPLAY_NAMES.items()
             ]
-            links.append({"href": "/-/compare", "label": "Pairwise Compare"})
-            links.append({"href": "/-/consistency", "label": "Consistency"})
         return links or None
     return inner
