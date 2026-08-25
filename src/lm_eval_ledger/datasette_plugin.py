@@ -209,8 +209,9 @@ form.lel-panel select {
 form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
 .lel-benchlist {
   display: flex; flex-direction: column; gap: 0.15rem;
-  width: max-content; min-width: 24rem; max-width: 100%;
-  max-height: 8.5rem; overflow-y: auto; background: #ffffff;
+  width: 100%; box-sizing: border-box;
+  max-height: 8.5rem; overflow-y: auto; overflow-x: auto;
+  background: #ffffff;
   border: 1px solid #d7dde8; border-radius: 4px; padding: 0.4rem 0.6rem;
 }
 .lel-check {
@@ -219,7 +220,7 @@ form.lel-panel .lel-note { font-size: 0.8rem; color: #5a6270; }
   font-size: 0.78rem; text-transform: none; letter-spacing: normal;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-.lel-check span { white-space: normal; }
+.lel-check span { white-space: nowrap; }
 label.lel-benchbox { max-width: 100%; flex-basis: 100%; }
 .lel-filters-row {
   display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap;
