@@ -11,12 +11,11 @@ request_timeout: 900           # 27B quant + 3k tokens can be slow per request
 models:
   - unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL
 
-# The five requested benchmarks, cheapest first so results land early;
-# MMLU-Pro (~12k examples, the long pole) runs last.
+# Cheapest first so results land early; MMLU-Pro (~12k examples, the
+# long pole) runs last. MRCR excluded: the server's 8192-token slots
+# can't fit its prompts (long-context needs the vllm backend).
 tasks:
   - gpqa_diamond_generate:0    # 198
-  - mrcr_2needle:0             # 800; server slot ctx is 8192, so most
-                               # examples will overflow and record errors
   - hle:0                      # 2158
   - livecodebench:0            # 1055; executes generated code locally
   - mmlu_pro_generate:0        # 12032
