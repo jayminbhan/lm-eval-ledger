@@ -72,10 +72,11 @@ class ServerBackend(Backend):
         for attempt in range(_RETRIES):
             try:
                 r = self.client.post(path, json=payload)
-                if r.status_code >= 500:
+                if r.status_code >= 400:
+                    # carry the server's own error message for diagnosis
                     raise httpx.HTTPStatusError(
-                        f"server {r.status_code}", request=r.request, response=r)
-                r.raise_for_status()
+                        f"server {r.status_code}: {r.text[:200]}",
+                        request=r.request, response=r)
                 return r.json()
             except (httpx.TransportError, httpx.HTTPStatusError) as e:
                 last = e
@@ -132,8 +133,17 @@ class ServerBackend(Backend):
 
         def parse(data):
             choice = data["choices"][0]
+            msg = choice.get("message") or {}
+            content = msg.get("content") or ""
+            # Reasoning models via llama-server (and others) return chain-of-
+            # thought in a separate reasoning_content field; keep it so the
+            # ledger records the full output and \boxed{} extraction can see
+            # everything the model produced.
+            reasoning = msg.get("reasoning_content") or ""
+            text = (f"<think>\n{reasoning}\n</think>\n{content}"
+                    if reasoning else content)
             return GenResult(
-                text=(choice.get("message") or {}).get("content") or "",
+                text=text,
                 finish_reason=choice.get("finish_reason") or "",
                 stop_reason=None)
         return self._completion_results(payload_for, messages_list, n, parse)
