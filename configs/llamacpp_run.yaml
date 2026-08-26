@@ -35,7 +35,7 @@ max_tokens: 2048
 pass_k: 1
 seed: 42
 
-db_path: /mnt/data8tb/Documents/project/lm-eval-ledger/results/ledger.sqlite3
+db_path: /mnt/data8tb/Documents/project/lm-eval-ledger/results/ledger-2.sqlite3
 
 # Not used by the server backend (the server manages its own hardware);
 # harmless to leave at defaults.

@@ -327,13 +327,15 @@ def run_task(
                                 fewshot_chat_prefix, cfg.apply_chat_template)
             for ex in eval_examples
         ]
-        # Server-side templating: pass structured messages instead
+        # Server-side templating: pass structured messages instead. The
+        # user message must be the FULL prompt (format instruction and
+        # few-shot block included) - prompts[i] is exactly that here, since
+        # a prefers_messages backend's apply_chat_template returned None.
         use_messages = cfg.apply_chat_template and backend.prefers_messages
         messages_list: list[list[dict]] | None = None
         if use_messages:
             messages_list = [
-                build_messages(task, ex, prompts_without_fewshot[i],
-                               fewshot_chat_prefix)
+                build_messages(task, ex, prompts[i], fewshot_chat_prefix)
                 for i, ex in enumerate(eval_examples)
             ]
 
