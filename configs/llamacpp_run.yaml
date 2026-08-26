@@ -1,0 +1,43 @@
+# llamacpp_run.yaml - benchmark a llama.cpp server over the OpenAI API.
+#
+#   .venv/bin/lm-eval-ledger -c configs/llamacpp_run.yaml
+#
+# The server owns the model, quantization, context length, and chat
+# template; this config just points at it. The model entry must match
+# the id the server reports at /v1/models.
+
+backend: server
+server_url: http://localhost:8080/v1
+server_concurrency: 4          # match your llama-server -np parallel slots
+request_timeout: 600           # seconds; 27B quant generations can be slow
+
+models:
+  - unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL   # as reported by /v1/models
+
+# generate-mode tasks (logprob_seq is not available over the server API)
+tasks:
+  - gsm8k_main:0
+  - gpqa_diamond_generate:0
+  - hle:0
+  # - livecodebench:0          # executes generated code locally
+  # - aime_2024:0
+  # - aime_2025:0
+  # - mmlu_pro_generate:0      # ~12k examples - the long pole
+
+max_examples: 20               # smoke-test size; null = full runs
+batch_size: null
+
+apply_chat_template: true      # served via /chat/completions (server-side template)
+
+temperature: 0.0
+top_p: 0.95
+max_tokens: 2048
+pass_k: 1
+seed: 42
+
+db_path: /mnt/data8tb/Documents/project/lm-eval-ledger/results/ledger.sqlite3
+
+# Not used by the server backend (the server manages its own hardware);
+# harmless to leave at defaults.
+gpu_ids: null
+quantization: null
