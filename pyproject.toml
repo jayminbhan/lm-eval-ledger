@@ -27,11 +27,11 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-vllm = ["vllm>=0.27.1", "bitsandbytes>=0.45"]
+vllm = ["vllm>=0.28", "bitsandbytes>=0.45"]
 hf = ["torch>=2.4", "transformers>=4.48", "accelerate>=1.2"]
 sglang = ["sglang>=0.4"]
 all = [
-    "vllm>=0.27.1", "bitsandbytes>=0.45",
+    "vllm>=0.28", "bitsandbytes>=0.45",
     "torch>=2.4", "transformers>=4.48", "accelerate>=1.2",
     "sglang>=0.4",
 ]

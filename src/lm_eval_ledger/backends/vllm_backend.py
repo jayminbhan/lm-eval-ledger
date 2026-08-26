@@ -26,12 +26,13 @@ class VllmBackend(Backend):
 
     def load(self, model: str, cfg, quantization: str | None = None) -> None:
         import sys
-        if sys.version_info < (3, 13):
-            # flashinfer (pulled in by vLLM, imported by its engine warmup)
-            # has used 3.13-only syntax; engine init may crash below 3.13.
-            print("[WARN] The vllm backend stack (flashinfer) may require "
-                  "Python >= 3.13; if engine initialization fails, use a "
-                  "3.13 environment or another backend (hf/server/sglang)")
+        import vllm as _vllm
+        if sys.version_info < (3, 13) and _vllm.__version__ < "0.28":
+            # vLLM <= 0.27 imports flashinfer (which used 3.13-only syntax)
+            # unconditionally during engine warmup; fixed in 0.28.
+            print(f"[WARN] vLLM {_vllm.__version__} on Python < 3.13 may crash "
+                  f"at engine init (flashinfer); upgrade to vllm>=0.28 or use "
+                  f"a 3.13 environment")
         kwargs = {
             "model": model,
             "trust_remote_code": True,
