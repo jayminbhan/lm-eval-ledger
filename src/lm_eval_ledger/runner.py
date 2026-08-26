@@ -1,8 +1,8 @@
 # runner.py
-"""Benchmark execution: vLLM inference, task/model loops, multi-GPU coordinator."""
+"""Benchmark execution: backend-agnostic task/model loops and the
+multi-GPU coordinator. Engine specifics live in lm_eval_ledger.backends."""
 from __future__ import annotations
 
-import gc
 import json
 import os
 import subprocess
@@ -13,9 +13,7 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-from vllm import LLM, SamplingParams
-from vllm.distributed.parallel_state import destroy_model_parallel
-
+from .backends import get_backend
 from .config import RunConfig
 from .db import DEFAULT_LEDGER_NAME, LedgerDatabase
 from .fewshot import (
@@ -29,8 +27,6 @@ from .fewshot import (
 from .runlog import OutputLogger
 from .tasks import get_task, get_available_tasks
 from .tasks.base import load_from_hf
-
-os.environ["VLLM_USE_FLASHINFER_SAMPLER"] = "0"
 
 
 def format_time(seconds: float) -> str:
@@ -64,63 +60,62 @@ def load_examples(task) -> list[dict]:
 # RUN SINGLE TASK
 # ======================================================
 
-def apply_chat_template(tokenizer, task, example: dict, prompt_raw: str,
+def build_messages(task, example: dict, prompt_raw: str,
+                   fewshot_chat_prefix: list[dict] | None) -> list[dict]:
+    """The chat messages for one example: the task's own multi-turn
+    messages, or few-shot user/assistant turns plus the test question,
+    or a single user message wrapping the raw prompt."""
+    if task.build_messages is not None:
+        return task.build_messages(example)
+    if fewshot_chat_prefix:
+        test_question = task.build_prompt(example, "")
+        return fewshot_chat_prefix + [{"role": "user", "content": test_question}]
+    return [{"role": "user", "content": prompt_raw}]
+
+
+def apply_chat_template(backend, task, example: dict, prompt_raw: str,
                         fewshot_chat_prefix: list[dict] | None,
                         enabled: bool) -> str:
-    """Wrap a raw prompt in the model's chat template (if enabled and available).
+    """Render one example through the model's chat template (if enabled).
 
-    With a few-shot chat prefix, the few-shot examples become user/assistant
-    turns and only the test question goes in the final user message.
-    Falls back to the raw prompt if the tokenizer has no template or it fails.
-
-    Multi-turn tasks (task.build_messages set) supply their own full message
-    list; prompt_raw serves as the plain-text fallback for base models.
-    """
-    if not enabled or not hasattr(tokenizer, "apply_chat_template"):
+    Falls back to the raw prompt when the backend cannot template
+    client-side (server backends template server-side instead)."""
+    if not enabled:
         return prompt_raw
-    if task.build_messages is not None:
-        try:
-            return tokenizer.apply_chat_template(
-                task.build_messages(example), tokenize=False,
-                add_generation_prompt=True,
-            )
-        except Exception:
-            return prompt_raw
-    try:
-        if fewshot_chat_prefix:
-            test_question = task.build_prompt(example, "")
-            messages = fewshot_chat_prefix + [{"role": "user", "content": test_question}]
-        else:
-            messages = [{"role": "user", "content": prompt_raw}]
-        return tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True,
-        )
-    except Exception:
-        return prompt_raw
+    rendered = backend.apply_chat_template(
+        build_messages(task, example, prompt_raw, fewshot_chat_prefix))
+    return rendered if rendered is not None else prompt_raw
 
 
-def generate_batched(llm: LLM, prompts: list[str], sampling_params: SamplingParams,
-                     batch_size: int | None) -> list:
-    """Run llm.generate, optionally splitting prompts into batch_size chunks."""
-    if not batch_size or batch_size <= 0:
-        return llm.generate(prompts, sampling_params=sampling_params, use_tqdm=True)
-
-    outputs = []
-    num_batches = (len(prompts) + batch_size - 1) // batch_size
-    print(f"[INFO] Processing in {num_batches} batches of size {batch_size}")
-    for batch_idx in range(0, len(prompts), batch_size):
-        batch = prompts[batch_idx:batch_idx + batch_size]
-        batch_num = batch_idx // batch_size + 1
-        print(f"[INFO] Batch {batch_num}/{num_batches} ({len(batch)} prompts)...")
-        outputs.extend(llm.generate(batch, sampling_params=sampling_params, use_tqdm=True))
-    return outputs
+def _error_summary(cfg, task, fewshot_k, model_name, model_tag, timestamp,
+                   error_msg: str) -> dict:
+    return {
+        "task": task.name,
+        "fewshot_k": fewshot_k,
+        "eval_mode": task.eval_mode,
+        "model": model_name,
+        "model_tag": model_tag,
+        "error": error_msg,
+        "pass_k": cfg.pass_k,
+        "total_examples": 0,
+        "correct": 0,
+        "accuracy": 0.0,
+        "no_answer_count": 0,
+        "stop_reason_counts": {},
+        "timestamp": timestamp,
+        "settings": {
+            "temperature": cfg.temperature,
+            "top_p": cfg.top_p,
+            "max_tokens": cfg.max_tokens,
+        },
+    }
 
 
 def run_task(
     cfg: RunConfig,
     task_name: str,
     fewshot_k: int | None,
-    llm: LLM,
+    backend,
     model_name: str,
     data_dir: Path,
     model_tag: str,
@@ -139,6 +134,15 @@ def run_task(
     print(f"\n{'='*60}")
     print(f"[TASK] {task.name} - {task.description}")
     print(f"{'='*60}")
+
+    # ---------- backend capability gate ----------
+    if task.eval_mode not in backend.capabilities:
+        fewshot_k = fewshot_k if fewshot_k is not None else task.default_fewshot_k
+        error_msg = (f"eval mode '{task.eval_mode}' is not supported by "
+                     f"backend '{backend.name}'; use one of: vllm, hf")
+        print(f"[WARN] {error_msg}")
+        return _error_summary(cfg, task, fewshot_k, model_name, model_tag,
+                              timestamp, error_msg), []
 
     # ---------- load examples ----------
     eval_examples = load_examples(task)
@@ -180,9 +184,6 @@ def run_task(
             n_pairs = sum(1 for m in fewshot_chat_prefix if m["role"] == "assistant")
             print(f"[INFO] Using multi-turn chat format for {n_pairs} few-shot examples")
 
-    # Get tokenizer (needed for chat template and logprob token ID lookup)
-    tokenizer = llm.get_tokenizer()
-
     # Common: build sample IDs and gold answers.
     # gold_answers feeds match_fn; when the task defines extract_gold_display,
     # the short display form goes in samples.gold and the full payload in
@@ -204,62 +205,29 @@ def run_task(
     # ========================================
     if task.eval_mode == "logprob_token" and task.choice_labels:
         choice_labels = task.choice_labels
-        num_choices = len(choice_labels)
-        print(f"[INFO] Logprob MCQ mode: {num_choices} choices {choice_labels}")
-
-        # Pre-tokenize choice labels (with space prefix, as they follow "Answer:")
-        # e.g., " A" -> token_id, " B" -> token_id, etc.
-        choice_token_ids: dict[str, int] = {}
-        for label in choice_labels:
-            token_ids = tokenizer.encode(f" {label}", add_special_tokens=False)
-            choice_token_ids[label] = token_ids[-1]
-        print(f"[INFO] Choice token IDs: {choice_token_ids}")
+        print(f"[INFO] Logprob MCQ mode: {len(choice_labels)} choices {choice_labels}")
 
         # Build one prompt per example (ending with "Answer:")
         prompts: list[str] = [
-            apply_chat_template(tokenizer, task, ex, task.build_prompt(ex, fewshot_block),
+            apply_chat_template(backend, task, ex, task.build_prompt(ex, fewshot_block),
                                 fewshot_chat_prefix, cfg.apply_chat_template)
             for ex in eval_examples
         ]
 
         print(f"[INFO] Built {len(prompts)} prompts (1 per example)")
-
-        # Single-prompt logprob: generate 1 token, get top-100 logprobs
-        sampling_params = SamplingParams(
-            max_tokens=1,
-            temperature=0,
-            logprobs=100,
-            seed=cfg.seed,
-        )
-
         print(f"[INFO] Running logprob inference...")
         inference_start = time.time()
-        outputs = generate_batched(llm, prompts, sampling_params, cfg.batch_size)
+        all_logprobs = backend.first_token_logprobs(prompts, choice_labels,
+                                                    seed=cfg.seed)
         inference_time = time.time() - inference_start
         print(f"[INFO] Logprob inference completed in {format_time(inference_time)}")
 
-        # Process outputs: extract logprobs for each choice label from generated token logprobs
         log_entries: list[dict] = []
         correct_count = 0
         all_stop_reasons: list[str] = []
 
-        for ex_idx, output in enumerate(outputs):
+        for ex_idx, logprobs_dict in enumerate(all_logprobs):
             gold = gold_answers[ex_idx]
-
-            # output.outputs[0].logprobs[0] = logprobs dict for the 1st generated token
-            # Maps token_id -> Logprob(logprob, rank, decoded_token)
-            gen_logprobs = output.outputs[0].logprobs[0]
-
-            # Extract logprob for each choice label
-            logprobs_dict = {}
-            for label, token_id in choice_token_ids.items():
-                if token_id in gen_logprobs:
-                    lp = gen_logprobs[token_id]
-                    logprobs_dict[label] = float(getattr(lp, "logprob", lp))
-                else:
-                    # Not in top-100 → negligible probability
-                    logprobs_dict[label] = float("-inf")
-
             # Pick the choice with highest logprob
             pred = max(logprobs_dict, key=logprobs_dict.get)
             is_correct = task.match_fn(gold, pred)
@@ -289,82 +257,24 @@ def run_task(
         choice_labels = task.choice_labels
         print(f"[INFO] Logprob-seq (completion log-likelihood) mode: {len(choice_labels)} choices {choice_labels}")
 
-        # Build base prompts and full prompts (base + each choice text) for all examples
-        all_prompts: list[str] = []       # Flat list: N_examples * N_choices
-        prompt_map: list[tuple[int, int]] = []  # (example_idx, choice_idx)
-        base_prompts: list[str] = []      # One per example (after chat template)
-
-        for ex_idx, ex in enumerate(eval_examples):
-            base_prompt = apply_chat_template(
-                tokenizer, task, ex, task.build_prompt(ex, fewshot_block),
+        # Build base prompts and per-example choice texts
+        base_prompts: list[str] = []
+        choices_per_example: list[list[str]] = []
+        for ex in eval_examples:
+            base_prompts.append(apply_chat_template(
+                backend, task, ex, task.build_prompt(ex, fewshot_block),
                 fewshot_chat_prefix, cfg.apply_chat_template,
-            )
-            base_prompts.append(base_prompt)
-            choice_texts = task.get_choice_texts(ex)
+            ))
+            choices_per_example.append(
+                task.get_choice_texts(ex)[:len(choice_labels)])
 
-            for c_idx, choice_text in enumerate(choice_texts):
-                if c_idx >= len(choice_labels):
-                    break
-                full_prompt = base_prompt + " " + choice_text
-                all_prompts.append(full_prompt)
-                prompt_map.append((ex_idx, c_idx))
-
-        print(f"[INFO] Built {len(all_prompts)} prompts ({len(eval_examples)} examples x {len(choice_labels)} choices)")
-
-        # Run inference with prompt_logprobs to score each continuation
-        sampling_params = SamplingParams(
-            max_tokens=1,
-            temperature=0,
-            prompt_logprobs=1,
-            seed=cfg.seed,
-        )
-
-        print(f"[INFO] Running logprob-seq inference...")
+        n_pairs = sum(len(c) for c in choices_per_example)
+        print(f"[INFO] Scoring {n_pairs} (example, choice) pairs...")
         inference_start = time.time()
-        outputs = generate_batched(llm, all_prompts, sampling_params, cfg.batch_size)
+        all_scores = backend.score_completions(base_prompts, choices_per_example,
+                                               seed=cfg.seed)
         inference_time = time.time() - inference_start
         print(f"[INFO] Logprob-seq inference completed in {format_time(inference_time)}")
-
-        # Score each (example, choice) pair:
-        # Tokenize base_prompt to find boundary, sum logprobs for answer tokens, normalize
-        scores: dict[int, list[tuple[str, float]]] = {}  # ex_idx -> [(label, norm_score), ...]
-
-        for out_idx, output in enumerate(outputs):
-            ex_idx, c_idx = prompt_map[out_idx]
-            label = choice_labels[c_idx]
-
-            # Get prompt token IDs and per-token logprobs from vLLM output
-            prompt_token_ids = output.prompt_token_ids
-            prompt_logprobs = output.prompt_logprobs  # list[dict | None], one per token
-
-            # Find the context/answer boundary: the answer starts where the full
-            # prompt's tokens diverge from the base prompt's tokens (tokenizing
-            # base+answer can merge tokens at the seam, so len(base) alone is off)
-            base_token_ids = tokenizer.encode(base_prompts[ex_idx])
-            n_ctx = 0
-            for base_tok, full_tok in zip(base_token_ids, prompt_token_ids):
-                if base_tok != full_tok:
-                    break
-                n_ctx += 1
-
-            # Sum logprobs for answer tokens (positions n_ctx onward)
-            n_answer = len(prompt_token_ids) - n_ctx
-            if n_answer <= 0:
-                n_answer = 1  # Safety: avoid division by zero
-
-            total_logprob = 0.0
-            for i in range(n_ctx, len(prompt_token_ids)):
-                if prompt_logprobs[i] is not None:
-                    token_id = prompt_token_ids[i]
-                    if token_id in prompt_logprobs[i]:
-                        lp = prompt_logprobs[i][token_id]
-                        total_logprob += float(getattr(lp, "logprob", lp))
-
-            normalized_score = total_logprob / n_answer
-
-            if ex_idx not in scores:
-                scores[ex_idx] = []
-            scores[ex_idx].append((label, normalized_score))
 
         # Pick best choice per example and compare with gold
         log_entries: list[dict] = []
@@ -373,7 +283,7 @@ def run_task(
 
         for ex_idx in range(len(eval_examples)):
             gold = gold_answers[ex_idx]
-            ex_scores = scores.get(ex_idx, [])
+            ex_scores = list(zip(choice_labels, all_scores[ex_idx]))
 
             if ex_scores:
                 pred = max(ex_scores, key=lambda x: x[1])[0]
@@ -406,34 +316,34 @@ def run_task(
     # GENERATE EVALUATION PATH (default)
     # ========================================
     else:
-        # ---------- sampling params ----------
-        sampling_params = SamplingParams(
-            temperature=cfg.temperature,
-            top_p=cfg.top_p,
-            max_tokens=cfg.max_tokens,
-            stop=task.stop_strings if task.stop_strings else None,
-            n=cfg.pass_k,
-            skip_special_tokens=False,
-            seed=cfg.seed,
-        )
         if cfg.pass_k > 1:
             print(f"[INFO] Pass@{cfg.pass_k} mode: generating {cfg.pass_k} responses per sample")
 
-        # ---------- run batch inference ----------
+        # ---------- build prompts ----------
         print(f"[INFO] Building prompts...")
 
         prompts: list[str] = [
-            apply_chat_template(tokenizer, task, ex, task.build_prompt(ex, fewshot_block),
+            apply_chat_template(backend, task, ex, task.build_prompt(ex, fewshot_block),
                                 fewshot_chat_prefix, cfg.apply_chat_template)
             for ex in eval_examples
         ]
+        # Server-side templating: pass structured messages instead
+        use_messages = cfg.apply_chat_template and backend.prefers_messages
+        messages_list: list[list[dict]] | None = None
+        if use_messages:
+            messages_list = [
+                build_messages(task, ex, prompts_without_fewshot[i],
+                               fewshot_chat_prefix)
+                for i, ex in enumerate(eval_examples)
+            ]
 
-        # Drop prompts that don't fit the context window (vLLM would abort the
-        # whole task otherwise). Mainly relevant for long-context tasks (MRCR).
-        if cfg.max_model_len is not None:
+        # Drop prompts that don't fit the context window (the engine would
+        # abort the whole task otherwise). Needs a backend tokenizer; server
+        # backends skip this and rely on the server's own handling.
+        if cfg.max_model_len is not None and backend.count_tokens(" ") is not None:
             budget = cfg.max_model_len - cfg.max_tokens
             keep = [i for i, p in enumerate(prompts)
-                    if len(tokenizer.encode(p)) <= budget]
+                    if backend.count_tokens(p) <= budget]
             if len(keep) < len(prompts):
                 print(f"[WARN] Skipping {len(prompts) - len(keep)} examples whose "
                       f"prompts exceed max_model_len - max_tokens = {budget} tokens")
@@ -443,6 +353,8 @@ def run_task(
                 gold_answers = [gold_answers[i] for i in keep]
                 gold_displays = [gold_displays[i] for i in keep]
                 prompts_without_fewshot = [prompts_without_fewshot[i] for i in keep]
+                if messages_list is not None:
+                    messages_list = [messages_list[i] for i in keep]
 
             if not prompts:
                 # Record an error rather than a misleading 0.0 accuracy over
@@ -475,7 +387,16 @@ def run_task(
 
         print(f"[INFO] Running batch inference on {len(prompts)} examples...")
         inference_start = time.time()
-        outputs = generate_batched(llm, prompts, sampling_params, cfg.batch_size)
+        gen_kwargs = dict(
+            temperature=cfg.temperature, top_p=cfg.top_p,
+            max_tokens=cfg.max_tokens,
+            stop=task.stop_strings if task.stop_strings else None,
+            n=cfg.pass_k, seed=cfg.seed, batch_size=cfg.batch_size,
+        )
+        if use_messages:
+            outputs = backend.chat_generate(messages_list, **gen_kwargs)
+        else:
+            outputs = backend.generate(prompts, **gen_kwargs)
         inference_time = time.time() - inference_start
         print(f"[INFO] Batch inference completed in {format_time(inference_time)}")
 
@@ -484,15 +405,14 @@ def run_task(
         correct_count = 0
         all_stop_reasons: list[str] = []
 
-        for idx, (output, ex) in enumerate(zip(outputs, eval_examples)):
+        for idx, (all_responses, ex) in enumerate(zip(outputs, eval_examples)):
             gold = gold_answers[idx]
-            all_responses = output.outputs
             # match_fn may return bool (binary tasks) or a float score in [0, 1]
             # (partial-credit tasks like MRCR); pass@k keeps the best score.
             best_score = 0.0
             responses_list = []
 
-            for resp_idx, result in enumerate(all_responses):
+            for result in all_responses:  # GenResult
                 pred_raw = result.text
                 finish_reason = result.finish_reason or ""
                 stop_reason = result.stop_reason
@@ -590,6 +510,7 @@ def run_model(
     timestamp: str,
     ledger: LedgerDatabase,
     run_id: int,
+    backend,
 ) -> dict:
     """Run all tasks for a single model and return combined summary."""
     model_start = time.time()
@@ -617,7 +538,7 @@ def run_model(
     print(f"{'#'*60}")
 
     # ---------- load model ----------
-    print(f"\n[INFO] Loading model: {model_name}")
+    print(f"\n[INFO] Loading model: {model_name} (backend: {backend.name})")
 
     # Determine quantization for this model
     quantization = cfg.quantization_for(model_tag)
@@ -627,18 +548,7 @@ def run_model(
     else:
         print(f"[INFO] Using model default precision (no quantization override)")
 
-    llm_kwargs = {
-        "model": model_name,
-        "trust_remote_code": True,
-        "gpu_memory_utilization": cfg.gpu_memory_utilization,
-        "enforce_eager": cfg.enforce_eager,
-        "max_logprobs": 100,  # Default is 20; need 100 for logprob MCQ evaluation
-    }
-    if cfg.max_model_len is not None:
-        llm_kwargs["max_model_len"] = cfg.max_model_len
-    if quantization:
-        llm_kwargs["quantization"] = quantization
-    llm = LLM(**llm_kwargs)
+    backend.load(model_name, cfg, quantization=quantization)
 
     # ---------- run all tasks and collect results ----------
     task_summaries: list[dict] = []
@@ -652,7 +562,7 @@ def run_model(
                 cfg=cfg,
                 task_name=task_name,
                 fewshot_k=fewshot_k,
-                llm=llm,
+                backend=backend,
                 model_name=model_name,
                 data_dir=data_dir,
                 model_tag=model_tag,
@@ -690,18 +600,9 @@ def run_model(
         if log_entries:
             ledger.add_samples(benchmark_id, log_entries)
 
-    # ---------- unload model to free GPU memory ----------
+    # ---------- unload model to free resources ----------
     print(f"\n[INFO] Unloading model: {model_tag}")
-    del llm
-    destroy_model_parallel()
-    gc.collect()
-
-    # Try to clear CUDA cache if available
-    try:
-        import torch
-        torch.cuda.empty_cache()
-    except Exception:
-        pass
+    backend.unload()
 
     # ---------- compute model summary ----------
     model_duration = time.time() - model_start
@@ -1036,6 +937,7 @@ def _run_models(
     print(f"{'='*60}")
 
     # ---------- run all models ----------
+    backend = get_backend(cfg.backend)
     all_model_summaries: list[dict] = []
 
     for i, model_name in enumerate(models, 1):
@@ -1049,6 +951,7 @@ def _run_models(
                 timestamp=timestamp,
                 ledger=ledger,
                 run_id=run_id,
+                backend=backend,
             )
             all_model_summaries.append(model_summary)
         except Exception as e:

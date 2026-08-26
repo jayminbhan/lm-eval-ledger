@@ -46,6 +46,17 @@ class RunConfig:
     pass_k: int = 1                   # >1 = pass@k (needs temperature > 0)
     seed: int = 42
 
+    # Inference backend: "vllm" (reference; pip install lm-eval-ledger[vllm]),
+    # "hf" (transformers+accelerate; [hf]), "sglang" ([sglang]), or
+    # "server" (any OpenAI-compatible endpoint: llama.cpp, ollama, ...).
+    backend: str = "vllm"
+
+    # Server backend settings (backend: server only)
+    server_url: str = "http://localhost:8080/v1"
+    api_key: str | None = None
+    server_concurrency: int = 8       # in-flight requests (match server slots)
+    request_timeout: float = 600.0    # seconds per request (long generations)
+
     # vLLM / hardware
     gpu_memory_utilization: float = 0.95
     max_model_len: int | None = 4096  # None = model default
@@ -273,6 +284,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="directory with optional local few-shot files (default: ./data)")
     p.add_argument("--db-path", type=str, default=None, metavar="FILE",
                    help="ledger database file (default: <results-dir>/ledger.sqlite3)")
+    p.add_argument("--backend", type=str, default=None,
+                   choices=["vllm", "hf", "server", "sglang"],
+                   help="inference backend (default: vllm)")
+    p.add_argument("--server-url", type=str, default=None, metavar="URL",
+                   help="OpenAI-compatible endpoint for --backend server "
+                        "(default: http://localhost:8080/v1)")
+    p.add_argument("--api-key", type=str, default=None,
+                   help="bearer token for --backend server, if the endpoint needs one")
+    p.add_argument("--server-concurrency", type=int, default=None, metavar="N",
+                   help="concurrent requests for --backend server (default: 8)")
     p.add_argument("--verifier-model", type=str, default=None, metavar="MODEL",
                    help="LLM verifier for a post-run verification pass "
                         "(e.g. opencompass/CompassVerifier-7B)")
@@ -319,7 +340,8 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
     for key in ("max_examples", "batch_size", "apply_chat_template", "temperature",
                 "top_p", "max_tokens", "pass_k", "seed", "gpu_memory_utilization",
                 "max_model_len", "enforce_eager", "results_dir", "logs_dir", "data_dir",
-                "db_path", "verifier_model", "verifier_mode", "verifier_max_model_len"):
+                "db_path", "verifier_model", "verifier_mode", "verifier_max_model_len",
+                "backend", "server_url", "api_key", "server_concurrency"):
         value = getattr(args, key)
         if value is not None:
             data[key] = value
@@ -355,6 +377,15 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
     if cfg.verifier_mode not in ("fallback", "all"):
         raise ValueError(
             f"verifier_mode must be 'fallback' or 'all', got {cfg.verifier_mode!r}"
+        )
+    if cfg.backend not in ("vllm", "hf", "server", "sglang"):
+        raise ValueError(
+            f"backend must be one of vllm/hf/server/sglang, got {cfg.backend!r}"
+        )
+    if cfg.backend == "server" and cfg.gpu_ids and len(cfg.gpu_ids) > 1:
+        raise ValueError(
+            "backend 'server' does not use local GPUs; multi-GPU worker mode "
+            "(gpu_ids with 2+ entries) is not applicable"
         )
 
     return cfg

@@ -1,0 +1,161 @@
+# backends/vllm_backend.py
+"""vLLM backend: in-process batched inference. The reference backend -
+fastest, fully deterministic, supports every eval mode."""
+from __future__ import annotations
+
+import os
+
+os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
+
+from vllm import LLM, SamplingParams  # noqa: E402
+from vllm.distributed.parallel_state import destroy_model_parallel  # noqa: E402
+
+from .base import Backend, GenResult
+
+
+class VllmBackend(Backend):
+    name = "vllm"
+    capabilities = frozenset({"generate", "logprob_token", "logprob_seq"})
+
+    def __init__(self):
+        self.llm: LLM | None = None
+        self.tokenizer = None
+        self._batch_size: int | None = None
+
+    # ---- lifecycle ----
+
+    def load(self, model: str, cfg, quantization: str | None = None) -> None:
+        kwargs = {
+            "model": model,
+            "trust_remote_code": True,
+            "gpu_memory_utilization": cfg.gpu_memory_utilization,
+            "enforce_eager": cfg.enforce_eager,
+            "max_logprobs": 100,  # logprob_token needs top-100
+        }
+        if cfg.max_model_len is not None:
+            kwargs["max_model_len"] = cfg.max_model_len
+        if quantization:
+            kwargs["quantization"] = quantization
+        self.llm = LLM(**kwargs)
+        self.tokenizer = self.llm.get_tokenizer()
+
+    def unload(self) -> None:
+        import gc
+        del self.llm
+        self.llm = None
+        self.tokenizer = None
+        destroy_model_parallel()
+        gc.collect()
+        try:
+            import torch
+            torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+    # ---- generation ----
+
+    def _generate_batched(self, prompts, sampling_params, batch_size):
+        if not batch_size or batch_size <= 0:
+            return self.llm.generate(prompts, sampling_params=sampling_params,
+                                     use_tqdm=True)
+        outputs = []
+        num_batches = (len(prompts) + batch_size - 1) // batch_size
+        print(f"[INFO] Processing in {num_batches} batches of size {batch_size}")
+        for i in range(0, len(prompts), batch_size):
+            print(f"[INFO] Batch {i // batch_size + 1}/{num_batches}...")
+            outputs.extend(self.llm.generate(
+                prompts[i:i + batch_size], sampling_params=sampling_params,
+                use_tqdm=True))
+        return outputs
+
+    def generate(self, prompts, *, temperature, top_p, max_tokens, stop, n,
+                 seed, batch_size):
+        sampling_params = SamplingParams(
+            temperature=temperature, top_p=top_p, max_tokens=max_tokens,
+            stop=stop or None, n=n, skip_special_tokens=False, seed=seed,
+        )
+        outputs = self._generate_batched(prompts, sampling_params, batch_size)
+        return [
+            [GenResult(text=r.text, finish_reason=r.finish_reason or "",
+                       stop_reason=r.stop_reason)
+             for r in out.outputs]
+            for out in outputs
+        ]
+
+    # ---- logprob primitives ----
+
+    def first_token_logprobs(self, prompts, labels, *, seed=0):
+        # Labels follow "Answer:", so tokenize with a leading space
+        choice_token_ids = {}
+        for label in labels:
+            token_ids = self.tokenizer.encode(f" {label}", add_special_tokens=False)
+            choice_token_ids[label] = token_ids[-1]
+        print(f"[INFO] Choice token IDs: {choice_token_ids}")
+
+        sampling_params = SamplingParams(
+            max_tokens=1, temperature=0, logprobs=100, seed=seed)
+        outputs = self.llm.generate(prompts, sampling_params=sampling_params,
+                                    use_tqdm=True)
+        results = []
+        for output in outputs:
+            gen_logprobs = output.outputs[0].logprobs[0]
+            logprobs_dict = {}
+            for label, token_id in choice_token_ids.items():
+                if token_id in gen_logprobs:
+                    lp = gen_logprobs[token_id]
+                    logprobs_dict[label] = float(getattr(lp, "logprob", lp))
+                else:
+                    logprobs_dict[label] = float("-inf")  # not in top-100
+            results.append(logprobs_dict)
+        return results
+
+    def score_completions(self, base_prompts, choice_texts, *, seed=0):
+        all_prompts: list[str] = []
+        prompt_map: list[tuple[int, int]] = []
+        for ex_idx, (base, choices) in enumerate(zip(base_prompts, choice_texts)):
+            for c_idx, choice in enumerate(choices):
+                all_prompts.append(base + " " + choice)
+                prompt_map.append((ex_idx, c_idx))
+
+        sampling_params = SamplingParams(
+            max_tokens=1, temperature=0, prompt_logprobs=1, seed=seed)
+        outputs = self.llm.generate(all_prompts, sampling_params=sampling_params,
+                                    use_tqdm=True)
+
+        scores = [[0.0] * len(choices) for choices in choice_texts]
+        for out_idx, output in enumerate(outputs):
+            ex_idx, c_idx = prompt_map[out_idx]
+            prompt_token_ids = output.prompt_token_ids
+            prompt_logprobs = output.prompt_logprobs
+            # The answer starts where the full prompt's tokens diverge from
+            # the base prompt's (the seam can merge tokens, so len() is off)
+            base_token_ids = self.tokenizer.encode(base_prompts[ex_idx])
+            n_ctx = 0
+            for base_tok, full_tok in zip(base_token_ids, prompt_token_ids):
+                if base_tok != full_tok:
+                    break
+                n_ctx += 1
+            n_answer = max(len(prompt_token_ids) - n_ctx, 1)
+            total = 0.0
+            for i in range(n_ctx, len(prompt_token_ids)):
+                if prompt_logprobs[i] is not None:
+                    token_id = prompt_token_ids[i]
+                    if token_id in prompt_logprobs[i]:
+                        lp = prompt_logprobs[i][token_id]
+                        total += float(getattr(lp, "logprob", lp))
+            scores[ex_idx][c_idx] = total / n_answer
+        return scores
+
+    # ---- text utilities ----
+
+    def apply_chat_template(self, messages):
+        if not hasattr(self.tokenizer, "apply_chat_template"):
+            return None
+        try:
+            return self.tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True)
+        except Exception:
+            return None
+
+    def count_tokens(self, text):
+        return len(self.tokenizer.encode(text))

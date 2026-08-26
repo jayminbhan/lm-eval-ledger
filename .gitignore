@@ -7,7 +7,7 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+.venv*
 
 # Run artifacts (the ledger lives outside version control)
 results/

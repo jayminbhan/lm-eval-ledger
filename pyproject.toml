@@ -8,12 +8,21 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "vllm>=0.27.1",
     "datasets>=2.19",
     "pyyaml>=6.0",
     "huggingface-hub>=0.23",
     "datasette>=0.65.3",
-    "bitsandbytes>=0.45",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+vllm = ["vllm>=0.27.1", "bitsandbytes>=0.45"]
+hf = ["torch>=2.4", "transformers>=4.48", "accelerate>=1.2"]
+sglang = ["sglang>=0.4"]
+all = [
+    "vllm>=0.27.1", "bitsandbytes>=0.45",
+    "torch>=2.4", "transformers>=4.48", "accelerate>=1.2",
+    "sglang>=0.4",
 ]
 keywords = ["llm", "evaluation", "benchmark", "vllm", "eval-harness"]
 classifiers = [
