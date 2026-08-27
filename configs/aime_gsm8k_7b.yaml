@@ -22,8 +22,8 @@
 # With backend: server, the entry is the model NAME THE SERVER REPORTS
 # at <server_url>/models (e.g. "unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL").
 models:
-  # - Qwen/Qwen3.5-9B
-  - google/gemma-4-12B-it-qat-w4a16-ct   # gated: needs `hf auth login`
+  - Qwen/Qwen3.5-9B
+  # - google/gemma-4-12B-it-qat-w4a16-ct   # gated: needs `hf auth login`
   # - verl:/path/to/verl-run
 
 # ── Tasks ───────────────────────────────────────────────────

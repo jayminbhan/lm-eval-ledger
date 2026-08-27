@@ -291,13 +291,44 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
         model = request.args.get("model", "")
         bid = request.args.get("benchmark_id", "")
         outcome = request.args.get("outcome", "")
+        run = request.args.get("run", "")
+
+        # Faceted filter options: each dropdown offers only values that
+        # exist in the benchmarks table under the OTHER active filters,
+        # so no selectable combination returns an empty page. Computing a
+        # dimension's options without its own constraint keeps switching
+        # within a dimension possible. benchmarks is small - four cheap
+        # queries, no samples scan.
+        def facet(exclude: str, select: str, order: str):
+            fw, fp = ["1=1"], []
+            if task and exclude != "task":
+                fw.append("task = ?"); fp.append(task)
+            if model and exclude != "model":
+                fw.append("model_tag = ?"); fp.append(model)
+            if run.isdigit() and exclude != "run":
+                fw.append("run_id = ?"); fp.append(int(run))
+            if bid.isdigit() and exclude != "benchmark_id":
+                fw.append("benchmark_id = ?"); fp.append(int(bid))
+            return q(f"SELECT DISTINCT {select} FROM benchmarks "
+                     f"WHERE {' AND '.join(fw)} ORDER BY {order}", fp)
+
+        ctx["tasks"] = [r["task"] for r in facet("task", "task", "task")]
+        facet_models = [r["model_tag"] for r in
+                        facet("model", "model_tag", "model_tag")]
+        run_ids = {r["run_id"] for r in facet("run", "run_id", "run_id")}
+        ctx["run_list"] = [r for r in ctx["run_list"] if r["run_id"] in run_ids]
+        # keep an already-selected value visible even when the other
+        # filters exclude it, so it can be seen and un-selected
+        if task and task not in ctx["tasks"]:
+            ctx["tasks"].append(task)
+        if model and model not in facet_models:
+            facet_models.append(model)
         if task:
             where.append("b.task = ?"); params.append(task)
         if model:
             where.append("s.model_tag = ?"); params.append(model)
         if bid.isdigit():
             where.append("s.benchmark_id = ?"); params.append(int(bid))
-        run = request.args.get("run", "")
         if run.isdigit():
             where.append("b.run_id = ?"); params.append(int(run))
         if outcome == "wrong":
@@ -320,10 +351,8 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
             WHERE {' AND '.join(where)}
             ORDER BY s.benchmark_id, CAST(s.sample_id AS INTEGER), s.sample_id
             LIMIT ? OFFSET ?""", params + [PAGE_SIZE, (page - 1) * PAGE_SIZE])
-        models = [r["model_tag"] for r in q(
-            "SELECT DISTINCT model_tag FROM samples ORDER BY 1")]
         ctx.update(rows=rows, total=total, page=page, page_size=PAGE_SIZE,
-                   models=models)
+                   models=facet_models)
         return render_template("samples.html", **ctx)
 
     def _samples_pairwise(ctx):
