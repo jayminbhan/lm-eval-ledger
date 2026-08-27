@@ -25,11 +25,16 @@ batch_size: null
 
 apply_chat_template: true
 
-# Qwen3-family thinking models degenerate under greedy decoding (short
-# aborted <think> + immediate EOS); Qwen's recommended sampling:
-temperature: 0.6
+# Thinking disabled: this quant aborts reasoning on hard questions and
+# overruns the 8k slot budget when it does engage; non-thinking mode
+# gives complete direct answers. Greedy is fine without thinking.
+server_extra_body:
+  chat_template_kwargs:
+    enable_thinking: false
+
+temperature: 0.0
 top_p: 0.95
-max_tokens: 4096               # slot ctx is 8192; leave room for prompts
+max_tokens: 3072               # slot ctx is 8192; leave room for prompts
 pass_k: 1
 seed: 42
 

@@ -46,6 +46,9 @@ class ServerBackend(Backend):
         self.model = model
         self.base_url = cfg.server_url.rstrip("/")
         self.concurrency = cfg.server_concurrency
+        self.extra_body = dict(cfg.server_extra_body or {})
+        if self.extra_body:
+            print(f"[INFO] server extra body: {self.extra_body}")
         headers = {}
         if cfg.api_key:
             headers["Authorization"] = f"Bearer {cfg.api_key}"
@@ -111,7 +114,7 @@ class ServerBackend(Backend):
                 "model": self.model, "prompt": prompt,
                 "temperature": temperature, "top_p": top_p,
                 "max_tokens": max_tokens, "stop": stop or None,
-                "seed": seed + k,
+                "seed": seed + k, **self.extra_body,
             }
 
         def parse(data):
@@ -128,7 +131,7 @@ class ServerBackend(Backend):
                 "model": self.model, "messages": messages,
                 "temperature": temperature, "top_p": top_p,
                 "max_tokens": max_tokens, "stop": stop or None,
-                "seed": seed + k,
+                "seed": seed + k, **self.extra_body,
             }
 
         def parse(data):

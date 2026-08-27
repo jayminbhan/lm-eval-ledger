@@ -56,6 +56,9 @@ class RunConfig:
     api_key: str | None = None
     server_concurrency: int = 8       # in-flight requests (match server slots)
     request_timeout: float = 600.0    # seconds per request (long generations)
+    # Extra JSON merged into every request body (server-specific knobs,
+    # e.g. {chat_template_kwargs: {enable_thinking: false}} or top_k)
+    server_extra_body: dict | None = None
 
     # vLLM / hardware
     gpu_memory_utilization: float = 0.95
