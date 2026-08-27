@@ -20,6 +20,14 @@
         <option {{ "selected" if args.get("task") == t }}>{{ t }}</option>
         {% endfor %}
       </select></label>
+    <label class="browse-only">run
+      <select name="run">
+        <option value="">(all runs)</option>
+        {% for r in run_list %}
+        <option value="{{ r.run_id }}" {{ "selected" if args.get("run") == r.run_id|string }}>
+          run {{ r.run_id }} · {{ r.run_name }}</option>
+        {% endfor %}
+      </select></label>
     <label class="browse-only">model
       <select name="model">
         <option value="">(all models)</option>

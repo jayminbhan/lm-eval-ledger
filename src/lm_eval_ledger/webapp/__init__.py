@@ -138,6 +138,7 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
             "benches": _bench_options(),
             "tasks": [r["task"] for r in q(
                 "SELECT DISTINCT task FROM benchmarks ORDER BY task")],
+            "run_list": q("SELECT run_id, run_name FROM runs ORDER BY run_id DESC"),
             "args": request.args,
         }
         if mode == "pairwise":
@@ -158,6 +159,9 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
             where.append("s.model_tag = ?"); params.append(model)
         if bid.isdigit():
             where.append("s.benchmark_id = ?"); params.append(int(bid))
+        run = request.args.get("run", "")
+        if run.isdigit():
+            where.append("b.run_id = ?"); params.append(int(run))
         if outcome == "wrong":
             where.append("COALESCE(s.verified_score, s.score) < 1")
         elif outcome == "right":
