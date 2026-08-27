@@ -2,16 +2,20 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}lm-eval-ledger{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='ledger.css') }}">
 </head>
 <body>
-  <a class="masthead" href="{{ url_for('runs') }}">lm-eval-ledger</a>
-  <nav class="topnav">
-    <a href="{{ url_for('runs') }}">Run History</a>
-    <a href="{{ url_for('benchmarks') }}">Benchmark Results</a>
-    <a href="{{ url_for('samples') }}">Sample Inspection</a>
-  </nav>
+  <header class="site">
+    <a class="brand" href="{{ url_for('runs') }}">
+      <span class="brand-dot"></span>lm-eval-ledger</a>
+    <nav>
+      <a href="{{ url_for('runs') }}">Run History</a>
+      <a href="{{ url_for('benchmarks') }}">Benchmark Results</a>
+      <a href="{{ url_for('samples') }}">Sample Inspection</a>
+    </nav>
+  </header>
   <main>
     {% block content %}{% endblock %}
   </main>

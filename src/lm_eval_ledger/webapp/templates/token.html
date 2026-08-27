@@ -3,12 +3,14 @@
 <head><meta charset="utf-8"><title>lm-eval-ledger</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='ledger.css') }}"></head>
 <body>
-  <a class="masthead" href="/">lm-eval-ledger</a>
+  <header class="site">
+    <a class="brand" href="/"><span class="brand-dot"></span>lm-eval-ledger</a>
+  </header>
   <main>
-    <section class="panel" style="max-width: 24rem; margin: 3rem auto;">
+    <section class="panel" style="max-width: 22rem; margin: 4rem auto;">
       <div class="lbhead"><span class="lbtitle">Access token required</span></div>
-      <form method="get">
-        <input type="password" name="token" placeholder="token" autofocus>
+      <form method="get" style="display: flex; gap: 0.5rem;">
+        <input type="password" name="token" placeholder="token" autofocus style="flex: 1;">
         <button type="submit">Enter</button>
       </form>
     </section>
