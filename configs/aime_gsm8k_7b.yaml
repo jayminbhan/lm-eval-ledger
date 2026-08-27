@@ -22,8 +22,8 @@
 # With backend: server, the entry is the model NAME THE SERVER REPORTS
 # at <server_url>/models (e.g. "unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL").
 models:
-  - Qwen/Qwen2.5-7B-Instruct
-  - meta-llama/Llama-3.1-8B-Instruct   # gated: needs `hf auth login`
+  # - Qwen/Qwen3.5-9B
+  - google/gemma-4-12B-it-qat-w4a16-ct   # gated: needs `hf auth login`
   # - verl:/path/to/verl-run
 
 # ── Tasks ───────────────────────────────────────────────────
@@ -38,14 +38,15 @@ models:
 # \boxed{} extraction), _logprob_token (first-token log-probability),
 # _logprob_seq (completion log-likelihood; vllm/hf backends only).
 tasks:
-  - aime_2024:0
-  - aime_2025:0
-  - gsm8k_main:0
+  # - aime_2025:0
+  # - gpqa_diamond_generate
+  # - gsm8k_main:0
+  - livecodebench:0
   # - {name: mmlu_pro_generate, fewshot: [0, 4]}
 
 # ── Evaluation size ─────────────────────────────────────────
 # max_examples: cap per task - small number for smoke tests, null = all.
-max_examples: null
+max_examples: 50
 
 # batch_size: split generation into chunks of this many prompts.
 #   null (default) = one engine call per task - best vllm/sglang
@@ -79,7 +80,7 @@ chat_template_kwargs: {}
 temperature: 0.6    # 0 = greedy/deterministic. Thinking models often
                     # NEED sampling (Qwen3: 0.6) - check the model card.
 top_p: 0.95
-max_tokens: 2048    # generation budget per response. Reasoning models
+max_tokens: 8192    # generation budget per response. Reasoning models
                     # and LiveCodeBench want >= 2048; truncations show
                     # up as "length" in stop_reason_counts.
 pass_k: 1           # responses per sample; a sample scores its BEST
@@ -112,7 +113,7 @@ server_extra_body: null
 
 # ── vLLM / hardware (in-process backends) ───────────────────
 gpu_memory_utilization: 0.90 # fraction of VRAM the engine may claim
-max_model_len: 4096          # context window. null = model default.
+max_model_len: 16384          # context window. null = model default.
                              # Prompts exceeding (max_model_len -
                              # max_tokens) are skipped with a warning;
                              # long-context tasks (mrcr_*) need 32k+.

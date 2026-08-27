@@ -14,7 +14,7 @@
   <div class="lbhead">
     <span class="lbtitle">run {{ r.run_id }} · {{ r.run_name }}</span>
     <span class="rowactions">
-      <span class="muted">{{ r.started_at }}{% if r.harness_version %} · v{{ r.harness_version }}{% endif %}
+      <span class="muted">{{ r.started_at|fmtdate }}
         · {{ run_bytes.get(r.run_id, 0)|fmtbytes }} of samples</span>
       <form method="post" action="{{ url_for('delete_run', run_id=r.run_id) }}" class="inlineform"
             onsubmit="return confirm('Delete run {{ r.run_id }} ({{ r.run_name }}) and ALL its benchmarks and samples? This cannot be undone.')">
