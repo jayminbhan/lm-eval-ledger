@@ -39,8 +39,11 @@ a.brand, a.brand:visited {
   font-family: var(--mono); font-weight: 700; font-size: 1rem;
   letter-spacing: -0.01em;
 }
-.brand-name { letter-spacing: -0.02em; }
-.brand-pre { color: var(--muted); font-weight: 500; }
+.brand-dot {
+  width: 0.62rem; height: 0.62rem; border-radius: 3px;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
 header.site nav { display: flex; gap: 0.3rem; }
 header.site nav a {
   color: var(--muted); text-decoration: none; font-weight: 500;
