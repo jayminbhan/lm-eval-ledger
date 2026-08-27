@@ -65,6 +65,19 @@ tr.improved td:first-child { box-shadow: inset 4px 0 0 #1a7f37; }
 tr.regressed td { background: #fdecec !important; }
 tr.regressed td:first-child { box-shadow: inset 4px 0 0 #c0322f; }
 .badge { font-weight: 700; }
+.small { font-size: 0.7rem; }
+
+/* browse view: inline prompt/response excerpts, clamped not clicked */
+table.browse td { vertical-align: top; }
+table.browse .cell-text { min-width: 16rem; }
+.clamp {
+  display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6; overflow: hidden;
+  white-space: pre-wrap; word-break: break-word;
+  font-size: 0.76rem; line-height: 1.35; color: #3a4150;
+  max-width: 34rem;
+}
+.clamp.tall { -webkit-line-clamp: 10; }
 
 /* chips */
 .chipgrid {

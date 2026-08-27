@@ -169,7 +169,10 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
         rows = q(f"""
             SELECT s.sample_pk, s.sample_id, s.benchmark_id, s.model_tag,
                    b.task, s.gold, s.extracted, s.stop_reason, s.score,
-                   s.verified_score
+                   s.verified_score,
+                   substr(s.prompt, 1, 500) AS prompt_snip,
+                   substr(json_extract(s.responses, '$[0].text'), 1, 1200)
+                       AS response_snip
             FROM samples s JOIN benchmarks b USING (benchmark_id)
             WHERE {' AND '.join(where)}
             ORDER BY s.benchmark_id, CAST(s.sample_id AS INTEGER), s.sample_id

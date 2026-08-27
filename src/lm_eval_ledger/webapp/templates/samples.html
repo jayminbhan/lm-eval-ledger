@@ -124,21 +124,24 @@
   {% if page > 1 %}<a href="{{ url_for('samples', **dict(args, page=page-1)) }}">← prev</a>{% endif %}
   {% if page * page_size < total %}<a href="{{ url_for('samples', **dict(args, page=page+1)) }}">next →</a>{% endif %}
 </p>
-<table>
-  <thead><tr><th>sample</th><th>bench</th><th>model</th><th>task</th>
-    <th>gold</th><th>extracted</th><th>stop</th><th>score</th><th>verified</th></tr></thead>
+<table class="browse">
+  <thead><tr><th>sample</th><th>model / task</th>
+    <th>prompt</th><th>response</th>
+    <th>gold</th><th>extracted</th><th>stop</th><th>score</th></tr></thead>
   <tbody>
   {% for r in rows %}
-    <tr class="{{ 'improved' if (r.verified_score if r.verified_score is not none else r.score) >= 1 else '' }}">
-      <td><a href="{{ url_for('sample', pk=r.sample_pk) }}">{{ r.sample_id|trunc(24) }}</a></td>
-      <td>{{ r.benchmark_id }}</td>
-      <td>{{ r.model_tag }}</td>
-      <td>{{ r.task }}</td>
-      <td>{{ r.gold|trunc(80) }}</td>
-      <td>{{ r.extracted|trunc(60) }}</td>
+    {% set eff = r.verified_score if r.verified_score is not none else r.score %}
+    <tr class="{{ 'improved' if eff >= 1 else 'regressed' }}">
+      <td><a href="{{ url_for('sample', pk=r.sample_pk) }}">{{ r.sample_id|trunc(24) }}</a>
+        <div class="muted small">bench {{ r.benchmark_id }}</div></td>
+      <td>{{ r.model_tag }}<div class="muted small">{{ r.task }}</div></td>
+      <td class="cell-text"><div class="clamp">{{ r.prompt_snip }}</div></td>
+      <td class="cell-text"><div class="clamp tall">{{ r.response_snip }}</div></td>
+      <td class="cell-text"><div class="clamp">{{ r.gold|trunc(200) }}</div></td>
+      <td>{{ r.extracted|trunc(40) }}</td>
       <td>{{ r.stop_reason|trunc(30) }}</td>
-      <td>{{ "%g"|format(r.score) }}</td>
-      <td>{{ "%g"|format(r.verified_score) if r.verified_score is not none else "-" }}</td>
+      <td>{{ "%g"|format(r.score) }}{% if r.verified_score is not none %}
+        <div class="muted small">v {{ "%g"|format(r.verified_score) }}</div>{% endif %}</td>
     </tr>
   {% endfor %}
   </tbody>
