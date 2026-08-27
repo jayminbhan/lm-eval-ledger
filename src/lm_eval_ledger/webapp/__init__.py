@@ -317,6 +317,14 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
                         facet("model", "model_tag", "model_tag")]
         run_ids = {r["run_id"] for r in facet("run", "run_id", "run_id")}
         ctx["run_list"] = [r for r in ctx["run_list"] if r["run_id"] in run_ids]
+        # the benchmark filter (how Leaderboard rows link here) gets a
+        # visible, faceted select of its own - never an invisible lock
+        bench_ids = {r["benchmark_id"] for r in
+                     facet("benchmark_id", "benchmark_id", "benchmark_id")}
+        if bid.isdigit():
+            bench_ids.add(int(bid))  # keep an excluded selection visible
+        ctx["browse_benches"] = [b for b in ctx["benches"]
+                                 if b["benchmark_id"] in bench_ids]
         # keep an already-selected value visible even when the other
         # filters exclude it, so it can be seen and un-selected
         if task and task not in ctx["tasks"]:

@@ -28,6 +28,15 @@
           run {{ r.run_id }} · {{ r.run_name }}</option>
         {% endfor %}
       </select></label>
+    <label class="browse-only">benchmark
+      <select name="benchmark_id">
+        <option value="">(all benchmarks)</option>
+        {% for o in browse_benches or [] %}
+        <option value="{{ o.benchmark_id }}"
+          {{ "selected" if args.get("benchmark_id") == o.benchmark_id|string }}>
+          run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</option>
+        {% endfor %}
+      </select></label>
     <label class="browse-only">model
       <select name="model">
         <option value="">(all models)</option>
