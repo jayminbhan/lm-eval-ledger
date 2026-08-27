@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Benchmark Results - lm-eval-ledger{% endblock %}
 {% block content %}
-<h1>Benchmark Results</h1>
+<h1>Leaderboard</h1>
 
 <section class="panel">
   <div class="lbhead">
-    <span class="lbtitle">Leaderboard</span>
+    <span class="lbtitle">Tasks</span>
     <a class="chip {{ 'active' if dedupe }}"
        href="{{ url_for('benchmarks', task=task or None, dedupe=None if dedupe else 1) }}">
        best per model</a>
@@ -23,6 +23,7 @@
   </div>
 </section>
 
+<p class="lbtitle" style="margin: 1.4rem 0 0.55rem;">Benchmark results</p>
 <table>
   <thead><tr>
     <th>run</th><th>model</th><th>task</th>
