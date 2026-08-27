@@ -80,6 +80,12 @@ def main() -> None:
             print(f"[ERROR] {e}", file=sys.stderr)
             sys.exit(1)
 
+    # Interactive thinking-mode selection when the config left it unset
+    # (TTY only; workers inherit the coordinator's resolved choice)
+    if args.shard is None and cfg.models:
+        from .thinking import maybe_prompt_thinking_mode
+        maybe_prompt_thinking_mode(cfg, cfg.models[0])
+
     from .runner import run  # deferred: pulls in vLLM
     run(cfg, shard=args.shard, run_name=args.run_name)
 
