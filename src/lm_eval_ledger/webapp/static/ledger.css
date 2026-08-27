@@ -35,17 +35,15 @@ header.site {
 }
 a.brand, a.brand:visited {
   display: flex; align-items: center; gap: 0.55rem;
-  text-decoration: none;
-  font-weight: 800; font-size: 1.08rem;
+  color: var(--text); text-decoration: none;
+  font-weight: 800; font-size: 1.05rem;
   letter-spacing: -0.035em;
-  background: linear-gradient(90deg, #0f172a 0%, #1e40af 60%, #2563eb 100%);
-  -webkit-background-clip: text; background-clip: text;
-  color: transparent;
 }
-.brand-dot {
-  width: 0.62rem; height: 0.62rem; border-radius: 3px;
+.brand-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.45rem; height: 1.45rem; border-radius: 7px;
   background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.35);
 }
 header.site nav { display: flex; gap: 0.3rem; }
 header.site nav a {
