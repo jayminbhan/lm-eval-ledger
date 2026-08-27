@@ -39,11 +39,9 @@ a.brand, a.brand:visited {
   font-weight: 800; font-size: 1.05rem;
   letter-spacing: -0.035em;
 }
-.brand-mark {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 1.45rem; height: 1.45rem; border-radius: 7px;
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.35);
+.brand-bar {
+  width: 0.28rem; height: 1.15rem; border-radius: 2px;
+  background: linear-gradient(180deg, #3b82f6, #1d4ed8);
 }
 header.site nav { display: flex; gap: 0.3rem; }
 header.site nav a {
