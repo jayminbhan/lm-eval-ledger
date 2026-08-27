@@ -40,7 +40,10 @@ class LedgerDatabase:
         self.db_path = Path(db_path)
         # Autocommit (isolation_level=None) for immediate writes; busy_timeout
         # lets concurrent writers retry instead of failing immediately.
-        self.conn = sqlite3.connect(self.db_path, isolation_level=None, timeout=60)
+        # check_same_thread=False: incremental sample writes arrive from
+        # backend worker threads; callers serialize access with a lock.
+        self.conn = sqlite3.connect(self.db_path, isolation_level=None,
+                                    timeout=60, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         # WAL mode allows concurrent reads + writes from multiple processes
         self.conn.execute("PRAGMA journal_mode=WAL")
@@ -190,6 +193,46 @@ class LedgerDatabase:
             ),
         )
         return cur.lastrowid
+
+    def start_benchmark(self, run_id: int, *, model_tag: str, model: str,
+                        task: str, fewshot_k, eval_mode: str, pass_k: int,
+                        timestamp: str) -> int:
+        """Register an in-progress benchmark so samples can attach to it as
+        they complete; accuracy stays NULL until finalize_benchmark."""
+        cur = self.conn.execute(
+            """INSERT INTO benchmarks (
+                run_id, model_tag, model, task, fewshot_k, eval_mode,
+                pass_k, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (run_id, model_tag, model, task, fewshot_k, eval_mode,
+             pass_k, timestamp),
+        )
+        return cur.lastrowid
+
+    def finalize_benchmark(self, benchmark_id: int, summary: dict) -> None:
+        """Fill in the final stats (or error) of an in-progress benchmark."""
+        settings = summary.get("settings", {})
+        self.conn.execute(
+            """UPDATE benchmarks SET
+                total_examples = ?, correct = ?, accuracy = ?,
+                no_answer_count = ?, stop_reason_counts = ?,
+                duration_seconds = ?, temperature = ?, top_p = ?,
+                max_tokens = ?, error = ?
+               WHERE benchmark_id = ?""",
+            (
+                summary.get("total_examples", 0),
+                float(summary.get("correct") or 0.0),
+                summary.get("accuracy", 0.0),
+                summary.get("no_answer_count", 0),
+                json.dumps(summary.get("stop_reason_counts") or {}),
+                summary.get("duration_seconds"),
+                settings.get("temperature"),
+                settings.get("top_p"),
+                settings.get("max_tokens"),
+                summary.get("error"),
+                benchmark_id,
+            ),
+        )
 
     # ---------- samples ----------
 

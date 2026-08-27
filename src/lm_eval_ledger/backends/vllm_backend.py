@@ -78,7 +78,7 @@ class VllmBackend(Backend):
         return outputs
 
     def generate(self, prompts, *, temperature, top_p, max_tokens, stop, n,
-                 seed, batch_size):
+                 seed, batch_size, on_result=None):
         sampling_params = SamplingParams(
             temperature=temperature, top_p=top_p, max_tokens=max_tokens,
             stop=stop or None, n=n, skip_special_tokens=False, seed=seed,

@@ -42,14 +42,21 @@ class Backend:
 
     def generate(self, prompts: list[str], *, temperature: float, top_p: float,
                  max_tokens: int, stop: list[str] | None, n: int, seed: int,
-                 batch_size: int | None) -> list[list[GenResult]]:
-        """Return n GenResults per prompt, aligned with `prompts`."""
+                 batch_size: int | None,
+                 on_result=None) -> list[list[GenResult]]:
+        """Return n GenResults per prompt, aligned with `prompts`.
+
+        on_result(index, [GenResult, ...]) is an optional streaming hook:
+        backends that generate incrementally call it as each prompt
+        completes (possibly from worker threads). Backends may ignore it;
+        the runner writes any un-streamed results after the call returns.
+        """
         raise NotImplementedError
 
     def chat_generate(self, messages_list: list[list[dict]], *, temperature: float,
                       top_p: float, max_tokens: int, stop: list[str] | None,
-                      n: int, seed: int,
-                      batch_size: int | None) -> list[list[GenResult]]:
+                      n: int, seed: int, batch_size: int | None,
+                      on_result=None) -> list[list[GenResult]]:
         """Chat-endpoint variant (only for prefers_messages backends)."""
         raise NotImplementedError
 

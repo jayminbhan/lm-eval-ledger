@@ -67,7 +67,7 @@ class HfBackend(Backend):
         return (text[:cut], matched) if matched is not None else (text, None)
 
     def generate(self, prompts, *, temperature, top_p, max_tokens, stop, n,
-                 seed, batch_size):
+                 seed, batch_size, on_result=None):
         torch.manual_seed(seed)
         do_sample = temperature > 0
         gen_kwargs = {
@@ -108,6 +108,8 @@ class HfBackend(Backend):
                         finish = "length"
                     group.append(GenResult(text=text, finish_reason=finish,
                                            stop_reason=matched))
+                if on_result is not None:
+                    on_result(i + p_idx, group)
                 results.append(group)
         return results
 

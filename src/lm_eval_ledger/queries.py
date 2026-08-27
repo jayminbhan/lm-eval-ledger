@@ -54,7 +54,9 @@ def cmd_runs(db_path: Path) -> None:
             else:
                 verified = (f"  [verified {b['verified_accuracy']:.4f}]"
                             if b["verified_accuracy"] is not None else "")
-                print(f"  {label}: {b['accuracy']:.4f} "
+                acc = (f"{b['accuracy']:.4f}" if b['accuracy'] is not None
+                       else "(in progress)")
+                print(f"  {label}: {acc} "
                       f"({b['total_examples']} examples){verified}")
     conn.close()
 

@@ -60,7 +60,7 @@ class SglangBackend(Backend):
         return str(fr), None
 
     def generate(self, prompts, *, temperature, top_p, max_tokens, stop, n,
-                 seed, batch_size):
+                 seed, batch_size, on_result=None):
         # n > 1 via prompt repetition: universally supported, groups cleanly
         flat = [p for p in prompts for _ in range(n)]
         params = {

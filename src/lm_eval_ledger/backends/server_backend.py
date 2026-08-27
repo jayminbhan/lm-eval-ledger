@@ -117,8 +117,9 @@ class ServerBackend(Backend):
 
     # ---- generation ----
 
-    def _completion_results(self, payload_for, items, n, parse):
-        def one(item):
+    def _completion_results(self, payload_for, items, n, parse, on_result=None):
+        def one(pair):
+            idx, item = pair
             group = []
             for k in range(n):
                 try:
@@ -127,11 +128,13 @@ class ServerBackend(Backend):
                 except Exception as e:
                     group.append(GenResult(text="", finish_reason="error",
                                            stop_reason=f"{type(e).__name__}: {e}"))
+            if on_result is not None:
+                on_result(idx, group)
             return group
-        return self._map(one, items, desc="generations")
+        return self._map(one, list(enumerate(items)), desc="generations")
 
     def generate(self, prompts, *, temperature, top_p, max_tokens, stop, n,
-                 seed, batch_size):
+                 seed, batch_size, on_result=None):
         def payload_for(prompt, k):
             return "/completions", {
                 "model": self.model, "prompt": prompt,
@@ -145,10 +148,11 @@ class ServerBackend(Backend):
             return GenResult(text=choice.get("text", ""),
                              finish_reason=choice.get("finish_reason") or "",
                              stop_reason=None)
-        return self._completion_results(payload_for, prompts, n, parse)
+        return self._completion_results(payload_for, prompts, n, parse,
+                                        on_result=on_result)
 
     def chat_generate(self, messages_list, *, temperature, top_p, max_tokens,
-                      stop, n, seed, batch_size):
+                      stop, n, seed, batch_size, on_result=None):
         def payload_for(messages, k):
             return "/chat/completions", {
                 "model": self.model, "messages": messages,
@@ -174,7 +178,8 @@ class ServerBackend(Backend):
                 text=text,
                 finish_reason=choice.get("finish_reason") or "",
                 stop_reason=None)
-        return self._completion_results(payload_for, messages_list, n, parse)
+        return self._completion_results(payload_for, messages_list, n, parse,
+                                        on_result=on_result)
 
     # ---- logprob primitives ----
 

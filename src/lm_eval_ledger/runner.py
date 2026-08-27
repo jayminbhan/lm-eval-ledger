@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 import traceback
 from collections import Counter
@@ -111,6 +112,20 @@ def _error_summary(cfg, task, fewshot_k, model_name, model_tag, timestamp,
     }
 
 
+def _record_full(ledger, run_id: int, summary: dict, entries: list[dict]) -> None:
+    """Record a completed (or errored) benchmark in one shot."""
+    bid = ledger.start_benchmark(
+        run_id, model_tag=summary.get("model_tag", ""),
+        model=summary.get("model", ""), task=summary.get("task", ""),
+        fewshot_k=summary.get("fewshot_k"),
+        eval_mode=summary.get("eval_mode", ""),
+        pass_k=summary.get("pass_k", 1),
+        timestamp=summary.get("timestamp", ""))
+    if entries:
+        ledger.add_samples(bid, entries)
+    ledger.finalize_benchmark(bid, summary)
+
+
 def run_task(
     cfg: RunConfig,
     task_name: str,
@@ -120,13 +135,12 @@ def run_task(
     data_dir: Path,
     model_tag: str,
     timestamp: str,
-) -> tuple[dict, list[dict]]:
-    """
-    Run a single benchmark task.
-
-    Returns:
-        tuple of (summary_dict, log_entries_list)
-    """
+    ledger,
+    run_id: int,
+) -> dict:
+    """Run a single benchmark task; writes the benchmark row and samples
+    to the ledger itself (incrementally where the backend streams).
+    Returns the summary dict."""
     task_start = time.time()
 
     # ---------- get task ----------
@@ -141,15 +155,21 @@ def run_task(
         error_msg = (f"eval mode '{task.eval_mode}' is not supported by "
                      f"backend '{backend.name}'; use one of: vllm, hf")
         print(f"[WARN] {error_msg}")
-        return _error_summary(cfg, task, fewshot_k, model_name, model_tag,
-                              timestamp, error_msg), []
+        summary = _error_summary(cfg, task, fewshot_k, model_name, model_tag,
+                                 timestamp, error_msg)
+        _record_full(ledger, run_id, summary, [])
+        return summary
 
     # ---------- load examples ----------
     eval_examples = load_examples(task)
 
     if not eval_examples:
         print(f"[WARN] No examples found for {task_name}, skipping")
-        return {"task": task_name, "error": "No examples found"}, []
+        summary = _error_summary(cfg, task, fewshot_k or task.default_fewshot_k,
+                                 model_name, model_tag, timestamp,
+                                 "No examples found")
+        _record_full(ledger, run_id, summary, [])
+        return summary
 
     if cfg.max_examples is not None:
         eval_examples = eval_examples[:cfg.max_examples]
@@ -366,26 +386,76 @@ def run_task(
                              f"max_tokens {cfg.max_tokens} = {budget} tokens); "
                              f"raise max_model_len")
                 print(f"[WARN] {error_msg}")
-                return {
-                    "task": task.name,
-                    "fewshot_k": fewshot_k,
-                    "eval_mode": task.eval_mode,
-                    "model": model_name,
-                    "model_tag": model_tag,
-                    "error": error_msg,
-                    "pass_k": cfg.pass_k,
-                    "total_examples": 0,
-                    "correct": 0,
-                    "accuracy": 0.0,
-                    "no_answer_count": 0,
-                    "stop_reason_counts": {},
-                    "timestamp": timestamp,
-                    "settings": {
-                        "temperature": cfg.temperature,
-                        "top_p": cfg.top_p,
-                        "max_tokens": cfg.max_tokens,
-                    },
-                }, []
+                summary = _error_summary(cfg, task, fewshot_k, model_name,
+                                         model_tag, timestamp, error_msg)
+                _record_full(ledger, run_id, summary, [])
+                return summary
+
+        # Register the in-progress benchmark so samples can land as they
+        # complete (refresh the viewer mid-task and watch them arrive).
+        benchmark_id = ledger.start_benchmark(
+            run_id, model_tag=model_tag, model=model_name, task=task.name,
+            fewshot_k=fewshot_k, eval_mode=task.eval_mode,
+            pass_k=cfg.pass_k, timestamp=timestamp)
+
+        def build_entry(idx: int, all_responses) -> dict:
+            gold = gold_answers[idx]
+            # match_fn may return bool (binary tasks) or a float score in
+            # [0, 1] (partial credit); pass@k keeps the best score.
+            best_score = 0.0
+            responses_list = []
+            for result in all_responses:  # GenResult
+                pred_raw = result.text
+                finish_reason = result.finish_reason or ""
+                stop_reason = result.stop_reason
+                stop_reason_str = (f"{finish_reason}:{stop_reason}"
+                                   if stop_reason else f"{finish_reason}:-")
+                pred = task.extract_pred(pred_raw)
+                score = float(task.match_fn(gold, pred))
+                responses_list.append({
+                    "text": pred_raw,
+                    "extracted": pred,
+                    "stop_reason": stop_reason_str,
+                    "correct": score,
+                })
+                best_score = max(best_score, score)
+            return {
+                "sample_id": sample_ids[idx],
+                "prompt": prompts_without_fewshot[idx],
+                "prompt_full": prompts[idx],
+                "gold": gold_displays[idx] or gold,
+                "gold_data": gold if gold_displays[idx] else None,
+                "score": best_score,
+                "responses": responses_list,
+            }
+
+        # Incremental scoring + writes: streaming backends (server, hf)
+        # invoke on_result per completed sample from worker threads; the
+        # buffer flushes to the ledger every 20 samples or 15 seconds.
+        log_entries: list[dict] = []
+        written: set[int] = set()
+        buffer: list[dict] = []
+        write_lock = threading.Lock()
+        last_flush = [time.time()]
+
+        def flush_locked():
+            if buffer:
+                ledger.add_samples(benchmark_id, buffer)
+                buffer.clear()
+                last_flush[0] = time.time()
+
+        def on_result(idx, all_responses):
+            try:
+                entry = build_entry(idx, all_responses)
+            except Exception as e:
+                print(f"[WARN] scoring failed for sample {idx}: {e}")
+                return
+            with write_lock:
+                written.add(idx)
+                log_entries.append(entry)
+                buffer.append(entry)
+                if len(buffer) >= 20 or time.time() - last_flush[0] >= 15:
+                    flush_locked()
 
         print(f"[INFO] Running batch inference on {len(prompts)} examples...")
         inference_start = time.time()
@@ -394,24 +464,36 @@ def run_task(
             max_tokens=cfg.max_tokens,
             stop=task.stop_strings if task.stop_strings else None,
             n=cfg.pass_k, seed=cfg.seed, batch_size=cfg.batch_size,
+            on_result=on_result,
         )
-        if use_messages:
-            outputs = backend.chat_generate(messages_list, **gen_kwargs)
-        else:
-            outputs = backend.generate(prompts, **gen_kwargs)
+        try:
+            if use_messages:
+                outputs = backend.chat_generate(messages_list, **gen_kwargs)
+            else:
+                outputs = backend.generate(prompts, **gen_kwargs)
+        except Exception as e:
+            # Partial samples are already in the ledger; finalize as errored.
+            print(f"\n[ERROR] Generation failed: {e}")
+            traceback.print_exc()
+            with write_lock:
+                flush_locked()
+            summary = _error_summary(cfg, task, fewshot_k, model_name,
+                                     model_tag, timestamp,
+                                     f"{type(e).__name__}: {e}")
+            summary["total_examples"] = len(log_entries)
+            ledger.finalize_benchmark(benchmark_id, summary)
+            return summary
         inference_time = time.time() - inference_start
         print(f"[INFO] Batch inference completed in {format_time(inference_time)}")
 
-        # Process outputs and build log entries. Scoring can be slow for
-        # execution-based tasks (LiveCodeBench runs each sample's tests),
-        # so report progress periodically.
-        log_entries: list[dict] = []
-        correct_count = 0
-        all_stop_reasons: list[str] = []
+        # Score whatever the backend did not stream (non-streaming backends:
+        # everything). Scoring can be slow for execution-based tasks
+        # (LiveCodeBench runs each sample's tests) - report progress.
         score_start = time.time()
         last_progress = score_start
-
-        for idx, (all_responses, ex) in enumerate(zip(outputs, eval_examples)):
+        for idx, all_responses in enumerate(outputs):
+            if idx in written:
+                continue
             now = time.time()
             if now - last_progress >= 30:
                 last_progress = now
@@ -419,51 +501,19 @@ def run_task(
                 eta = (len(outputs) - idx) / rate if rate > 0 else 0
                 print(f"[INFO] scoring: {idx}/{len(outputs)} "
                       f"(ETA {int(eta // 60)}m{int(eta % 60):02d}s)", flush=True)
-            gold = gold_answers[idx]
-            # match_fn may return bool (binary tasks) or a float score in [0, 1]
-            # (partial-credit tasks like MRCR); pass@k keeps the best score.
-            best_score = 0.0
-            responses_list = []
+            entry = build_entry(idx, all_responses)
+            with write_lock:
+                log_entries.append(entry)
+                buffer.append(entry)
+                if len(buffer) >= 20 or now - last_flush[0] >= 15:
+                    flush_locked()
+        with write_lock:
+            flush_locked()
 
-            for result in all_responses:  # GenResult
-                pred_raw = result.text
-                finish_reason = result.finish_reason or ""
-                stop_reason = result.stop_reason
-                if stop_reason:
-                    stop_reason_str = f"{finish_reason}:{stop_reason}"
-                else:
-                    stop_reason_str = f"{finish_reason}:-"
-
-                pred = task.extract_pred(pred_raw)
-                score = float(task.match_fn(gold, pred))
-
-                responses_list.append({
-                    "text": pred_raw,
-                    "extracted": pred,
-                    "stop_reason": stop_reason_str,
-                    "correct": score,
-                })
-                all_stop_reasons.append(stop_reason_str)
-
-                best_score = max(best_score, score)
-
-            correct_count += best_score
-
-            log_entries.append({
-                "sample_id": sample_ids[idx],
-                "prompt": prompts_without_fewshot[idx],
-                "prompt_full": prompts[idx],
-                "gold": gold_displays[idx] or gold,
-                "gold_data": gold if gold_displays[idx] else None,
-                "score": best_score,
-                "responses": responses_list,
-            })
-
-    # ---------- sort entries ----------
-    try:
-        log_entries.sort(key=lambda x: int(x['sample_id']))
-    except (ValueError, TypeError):
-        log_entries.sort(key=lambda x: x['sample_id'])
+        correct_count = sum(e["score"] for e in log_entries)
+        all_stop_reasons = [r["stop_reason"] for e in log_entries
+                            for r in e["responses"]]
+        samples_written = True
 
     # ---------- compute summary ----------
     duration = time.time() - task_start
@@ -505,10 +555,18 @@ def run_task(
         }
     }
 
+    # ---------- record in the ledger ----------
+    if locals().get("samples_written"):
+        # generate path: samples already streamed/flushed; finalize stats
+        ledger.finalize_benchmark(benchmark_id, summary)
+    else:
+        # logprob paths: single-shot record
+        _record_full(ledger, run_id, summary, log_entries)
+
     # ---------- print results ----------
     print(f"[{task.name}({fewshot_k})] Accuracy: {correct:g}/{total} = {acc:.4f} | Duration: {format_time(duration)}")
 
-    return summary, log_entries
+    return summary
 
 
 # ======================================================
@@ -571,7 +629,7 @@ def run_model(
         print(f"\n[{i}/{len(tasks_to_run)}] Running {task_name}{fewshot_str}...")
 
         try:
-            summary, log_entries = run_task(
+            summary = run_task(
                 cfg=cfg,
                 task_name=task_name,
                 fewshot_k=fewshot_k,
@@ -580,6 +638,8 @@ def run_model(
                 data_dir=data_dir,
                 model_tag=model_tag,
                 timestamp=timestamp,
+                ledger=ledger,
+                run_id=run_id,
             )
         except Exception as e:
             print(f"\n[ERROR] Task {task_name} failed: {e}")
@@ -603,15 +663,16 @@ def run_model(
                     "max_tokens": cfg.max_tokens,
                 },
             }
-            log_entries = []
+            # Backstop for failures run_task could not record itself
+            # (e.g. unknown task name, dataset load crash); every path that
+            # reaches recording inside run_task returns instead of raising.
+            try:
+                ledger.add_benchmark(run_id, summary)
+            except Exception as db_err:
+                print(f"[WARN] could not record error row: {db_err}")
             print(f"[INFO] Continuing to next task...")
 
         task_summaries.append(summary)
-
-        # Append to the ledger
-        benchmark_id = ledger.add_benchmark(run_id, summary)
-        if log_entries:
-            ledger.add_samples(benchmark_id, log_entries)
 
     # ---------- unload model to free resources ----------
     print(f"\n[INFO] Unloading model: {model_tag}")
