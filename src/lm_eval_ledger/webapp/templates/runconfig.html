@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}run {{ run_id }} config - lm-eval-ledger{% endblock %}
+{% block content %}
+<h1>Config · run {{ run_id }} · {{ run_name }}</h1>
+<p class="muted"><a href="{{ url_for('runs') }}">&larr; Run History</a></p>
+
+{% if source_yaml %}
+<section class="panel">
+  <div class="lbhead">
+    <span class="lbtitle">as written</span>
+    <a class="btn subtle" href="{{ url_for('run_config_download', run_id=run_id, kind='source') }}">download</a>
+  </div>
+  <pre class="cfgtext full">{{ source_yaml }}</pre>
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="lbhead">
+    <span class="lbtitle">resolved</span>
+    <a class="btn subtle" href="{{ url_for('run_config_download', run_id=run_id, kind='resolved') }}">download</a>
+  </div>
+  {% if not source_yaml %}
+  <p class="muted">This run was launched from CLI flags only, so there is no
+    source file; the resolved config below reproduces it exactly.</p>
+  {% endif %}
+  <pre class="cfgtext full">{{ config_yaml }}</pre>
+</section>
+{% endblock %}

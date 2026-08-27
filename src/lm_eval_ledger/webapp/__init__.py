@@ -136,8 +136,19 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
                                run_bytes=run_bytes, bench_bytes=bench_bytes,
                                db_file_bytes=db_file_bytes)
 
-    @app.route("/run/<int:run_id>/config.yaml")
+    @app.route("/run/<int:run_id>/config")
     def run_config(run_id):
+        row = q1("SELECT run_name, config_yaml, source_yaml FROM runs "
+                 "WHERE run_id = ?", [run_id])
+        if row is None:
+            abort(404)
+        return render_template("runconfig.html", run_id=run_id,
+                               run_name=row["run_name"],
+                               source_yaml=row["source_yaml"],
+                               config_yaml=row["config_yaml"])
+
+    @app.route("/run/<int:run_id>/config.yaml")
+    def run_config_download(run_id):
         kind = request.args.get("kind", "source")
         row = q1("SELECT run_name, config_yaml, source_yaml FROM runs "
                  "WHERE run_id = ?", [run_id])
