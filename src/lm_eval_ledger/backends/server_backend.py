@@ -17,6 +17,7 @@ logprob_seq is not expressible over this API.
 from __future__ import annotations
 
 import concurrent.futures
+import threading
 import time
 
 import httpx
@@ -88,10 +89,31 @@ class ServerBackend(Backend):
                     time.sleep(1.5 * (attempt + 1))
         raise last
 
-    def _map(self, fn, items):
-        """Bounded-concurrency map preserving order."""
+    def _map(self, fn, items, desc="requests"):
+        """Bounded-concurrency map preserving order, with periodic progress
+        (count, rate, ETA) so long batches are not silent."""
+        total = len(items)
+        state = {"done": 0, "last": time.time()}
+        lock = threading.Lock()
+        start = time.time()
+
+        def wrapped(item):
+            result = fn(item)
+            with lock:
+                state["done"] += 1
+                now = time.time()
+                if state["done"] == total or now - state["last"] >= 30:
+                    state["last"] = now
+                    rate = state["done"] / max(now - start, 1e-9)
+                    eta = (total - state["done"]) / rate if rate > 0 else 0
+                    print(f"[INFO] server {desc}: {state['done']}/{total} "
+                          f"({rate * 60:.1f}/min, ETA "
+                          f"{int(eta // 60)}m{int(eta % 60):02d}s)",
+                          flush=True)
+            return result
+
         with concurrent.futures.ThreadPoolExecutor(self.concurrency) as pool:
-            return list(pool.map(fn, items))
+            return list(pool.map(wrapped, items))
 
     # ---- generation ----
 
@@ -106,7 +128,7 @@ class ServerBackend(Backend):
                     group.append(GenResult(text="", finish_reason="error",
                                            stop_reason=f"{type(e).__name__}: {e}"))
             return group
-        return self._map(one, items)
+        return self._map(one, items, desc="generations")
 
     def generate(self, prompts, *, temperature, top_p, max_tokens, stop, n,
                  seed, batch_size):
@@ -178,4 +200,4 @@ class ServerBackend(Backend):
                     (v for t, v in top0.items() if t.strip() == label),
                     default=float("-inf"))
             return out
-        return self._map(one, prompts)
+        return self._map(one, prompts, desc="logprob requests")

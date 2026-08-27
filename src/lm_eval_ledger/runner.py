@@ -402,12 +402,23 @@ def run_task(
         inference_time = time.time() - inference_start
         print(f"[INFO] Batch inference completed in {format_time(inference_time)}")
 
-        # Process outputs and build log entries
+        # Process outputs and build log entries. Scoring can be slow for
+        # execution-based tasks (LiveCodeBench runs each sample's tests),
+        # so report progress periodically.
         log_entries: list[dict] = []
         correct_count = 0
         all_stop_reasons: list[str] = []
+        score_start = time.time()
+        last_progress = score_start
 
         for idx, (all_responses, ex) in enumerate(zip(outputs, eval_examples)):
+            now = time.time()
+            if now - last_progress >= 30:
+                last_progress = now
+                rate = idx / max(now - score_start, 1e-9)
+                eta = (len(outputs) - idx) / rate if rate > 0 else 0
+                print(f"[INFO] scoring: {idx}/{len(outputs)} "
+                      f"(ETA {int(eta // 60)}m{int(eta % 60):02d}s)", flush=True)
             gold = gold_answers[idx]
             # match_fn may return bool (binary tasks) or a float score in [0, 1]
             # (partial-credit tasks like MRCR); pass@k keeps the best score.
