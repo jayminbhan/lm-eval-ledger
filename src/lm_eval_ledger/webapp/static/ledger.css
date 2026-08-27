@@ -35,9 +35,12 @@ header.site {
 }
 a.brand, a.brand:visited {
   display: flex; align-items: center; gap: 0.55rem;
-  color: var(--text); text-decoration: none;
-  font-weight: 800; font-size: 1.05rem;
+  text-decoration: none;
+  font-weight: 800; font-size: 1.08rem;
   letter-spacing: -0.035em;
+  background: linear-gradient(90deg, #0f172a 0%, #1e40af 60%, #2563eb 100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
 }
 .brand-dot {
   width: 0.62rem; height: 0.62rem; border-radius: 3px;
