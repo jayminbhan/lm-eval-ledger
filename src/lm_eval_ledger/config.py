@@ -368,6 +368,12 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
     data["tasks"] = parse_tasks(data.get("tasks") or [])
 
     cfg = RunConfig(**data)
+    # The config file byte-for-byte as written, stored in the ledger next to
+    # the resolved form. Plain attribute (not a dataclass field), so it stays
+    # out of to_dict()/to_yaml() and the resolved-config round-trip.
+    cfg.source_yaml_text = (
+        Path(config_path).read_text() if config_path is not None else None
+    )
 
     # ---------- validation ----------
     if not cfg.models:

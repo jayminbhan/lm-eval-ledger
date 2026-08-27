@@ -30,6 +30,17 @@ from pathlib import Path
 
 SCHEMA_VERSION = 1
 
+_SAMPLES_BYTES_EXPR = (
+    "COALESCE(length(prompt),0) + COALESCE(length(prompt_full),0) + "
+    "COALESCE(length(gold),0) + COALESCE(length(gold_data),0) + "
+    "COALESCE(length(responses),0) + COALESCE(length(verifier_verdicts),0)"
+)
+_SAMPLES_BYTES_UPDATE_ALL = f"""
+    UPDATE benchmarks SET samples_bytes = (
+        SELECT COALESCE(SUM({_SAMPLES_BYTES_EXPR}), 0)
+        FROM samples WHERE samples.benchmark_id = benchmarks.benchmark_id)
+"""
+
 DEFAULT_LEDGER_NAME = "ledger.sqlite3"
 
 
@@ -57,7 +68,8 @@ class LedgerDatabase:
                 run_name TEXT NOT NULL,
                 started_at TEXT NOT NULL,
                 harness_version TEXT,
-                config_yaml TEXT
+                config_yaml TEXT,
+                source_yaml TEXT
             )
         """)
         c.execute("""
@@ -84,7 +96,8 @@ class LedgerDatabase:
                 verifier_model TEXT,
                 verifier_mode TEXT,
                 verified_correct REAL,
-                verified_accuracy REAL
+                verified_accuracy REAL,
+                samples_bytes INTEGER
             )
         """)
         c.execute("""
@@ -130,6 +143,21 @@ class LedgerDatabase:
             )
         except sqlite3.OperationalError:
             pass  # column already exists (or fresh DB created with it)
+        # the config file exactly as the user wrote it (resolved config
+        # remains in config_yaml)
+        try:
+            c.execute("ALTER TABLE runs ADD COLUMN source_yaml TEXT")
+        except sqlite3.OperationalError:
+            pass
+        # per-benchmark sample storage footprint, maintained at finalize;
+        # one-time backfill for pre-existing ledgers
+        try:
+            c.execute("ALTER TABLE benchmarks ADD COLUMN samples_bytes INTEGER")
+            print("[INFO] Backfilling per-benchmark storage sizes "
+                  "(one-time; may take a while on a large ledger)...")
+            c.execute(_SAMPLES_BYTES_UPDATE_ALL)
+        except sqlite3.OperationalError:
+            pass
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_run ON benchmarks(run_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_task ON benchmarks(task, model_tag)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_samples_benchmark ON samples(benchmark_id)")
@@ -141,13 +169,19 @@ class LedgerDatabase:
     # ---------- runs ----------
 
     def create_run(self, run_name: str, config_yaml: str,
-                   harness_version: str = "") -> int:
-        """Register a new run; returns its run_id."""
+                   harness_version: str = "",
+                   source_yaml: str | None = None) -> int:
+        """Register a new run; returns its run_id.
+
+        config_yaml is the RESOLVED config (reproducible via -c);
+        source_yaml is the config file byte-for-byte as the user wrote
+        it (None for pure-CLI runs).
+        """
         cur = self.conn.execute(
-            "INSERT INTO runs (run_name, started_at, harness_version, config_yaml) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT INTO runs (run_name, started_at, harness_version, "
+            "config_yaml, source_yaml) VALUES (?, ?, ?, ?, ?)",
             (run_name, datetime.now().isoformat(timespec="seconds"),
-             harness_version, config_yaml),
+             harness_version, config_yaml, source_yaml),
         )
         return cur.lastrowid
 
@@ -232,6 +266,13 @@ class LedgerDatabase:
                 summary.get("error"),
                 benchmark_id,
             ),
+        )
+        self.conn.execute(
+            f"""UPDATE benchmarks SET samples_bytes = (
+                SELECT COALESCE(SUM({_SAMPLES_BYTES_EXPR}), 0)
+                FROM samples WHERE benchmark_id = ?)
+               WHERE benchmark_id = ?""",
+            (benchmark_id, benchmark_id),
         )
 
     # ---------- samples ----------

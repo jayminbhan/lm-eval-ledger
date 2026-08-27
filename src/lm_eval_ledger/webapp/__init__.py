@@ -10,6 +10,11 @@ during a run shows newly landed tasks); binds to localhost unless
 --host is given; optional shared --token gates all pages for team
 sharing behind a reverse proxy. No arbitrary SQL, LIMIT-capped queries,
 Jinja autoescaping for untrusted model generations.
+
+The one exception to read-only: Run History offers per-run / per-task
+deletion and database compaction. These are POST-only, confirm-dialog
+gated, and behind the same --token gate; a read-write connection is
+opened only for those requests.
 """
 from __future__ import annotations
 
@@ -23,6 +28,8 @@ from pathlib import Path
 from flask import (Flask, abort, redirect, render_template, request,
                    session, url_for)
 
+from ..db import _SAMPLES_BYTES_EXPR
+
 PAGE_SIZE = 100
 
 # consistency views cap (samples listed)
@@ -33,6 +40,22 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=30)
     con.row_factory = sqlite3.Row
     return con
+
+
+def _connect_rw(db_path: Path) -> sqlite3.Connection:
+    """Read-write connection, used only by the delete/compact routes."""
+    con = sqlite3.connect(db_path, isolation_level=None, timeout=60)
+    con.row_factory = sqlite3.Row
+    return con
+
+
+def _fmt_bytes(n) -> str:
+    n = float(n or 0)
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} GB"
 
 
 def create_app(db_path: Path, token: str | None = None) -> Flask:
@@ -57,6 +80,8 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
     def _trunc(value, n=120):
         s = "" if value is None else str(value)
         return s if len(s) <= n else s[:n] + "..."
+
+    app.template_filter("fmtbytes")(_fmt_bytes)
 
     @app.template_filter("resp0")
     def _resp0(responses_json, key):
@@ -87,13 +112,81 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
     def runs():
         run_rows = q("SELECT * FROM runs ORDER BY run_id DESC")
         benches = q(
-            "SELECT run_id, model_tag, task, fewshot_k, accuracy, "
-            "verified_accuracy, total_examples, no_answer_count, error "
-            "FROM benchmarks ORDER BY benchmark_id")
+            "SELECT benchmark_id, run_id, model_tag, task, fewshot_k, "
+            "accuracy, verified_accuracy, total_examples, no_answer_count, "
+            "samples_bytes, error FROM benchmarks ORDER BY benchmark_id")
+        # samples_bytes is maintained at finalize; compute it live only for
+        # the (few) in-progress benchmarks so streamed samples are counted.
+        live = {r["benchmark_id"]: r["b"] for r in q(f"""
+            SELECT benchmark_id, SUM({_SAMPLES_BYTES_EXPR}) AS b
+            FROM samples WHERE benchmark_id IN
+              (SELECT benchmark_id FROM benchmarks WHERE samples_bytes IS NULL)
+            GROUP BY benchmark_id""")}
         by_run: dict = {}
+        run_bytes: dict = {}
+        bench_bytes: dict = {}
         for b in benches:
+            nbytes = (b["samples_bytes"] if b["samples_bytes"] is not None
+                      else live.get(b["benchmark_id"], 0))
+            bench_bytes[b["benchmark_id"]] = nbytes
             by_run.setdefault(b["run_id"], []).append(b)
-        return render_template("runs.html", runs=run_rows, by_run=by_run)
+            run_bytes[b["run_id"]] = run_bytes.get(b["run_id"], 0) + (nbytes or 0)
+        db_file_bytes = app.config["DB_PATH"].stat().st_size
+        return render_template("runs.html", runs=run_rows, by_run=by_run,
+                               run_bytes=run_bytes, bench_bytes=bench_bytes,
+                               db_file_bytes=db_file_bytes)
+
+    @app.route("/run/<int:run_id>/config.yaml")
+    def run_config(run_id):
+        kind = request.args.get("kind", "source")
+        row = q1("SELECT run_name, config_yaml, source_yaml FROM runs "
+                 "WHERE run_id = ?", [run_id])
+        if row is None:
+            abort(404)
+        text = row["source_yaml"] if kind == "source" else row["config_yaml"]
+        if not text:  # pure-CLI runs have no source file
+            text, kind = row["config_yaml"], "resolved"
+        if not text:
+            abort(404)
+        from flask import Response
+        return Response(text, mimetype="text/yaml; charset=utf-8", headers={
+            "Content-Disposition": f"attachment; filename="
+            f"run{run_id}-{kind}.yaml"})
+
+    # ---------- the write routes: delete + compact (POST-only) ----------
+
+    def _rw(statements: list[tuple[str, tuple]]) -> None:
+        con = _connect_rw(app.config["DB_PATH"])
+        try:
+            for sql, params in statements:
+                con.execute(sql, params)
+        finally:
+            con.close()
+
+    @app.route("/run/<int:run_id>/delete", methods=["POST"])
+    def delete_run(run_id):
+        _rw([
+            ("DELETE FROM samples WHERE benchmark_id IN "
+             "(SELECT benchmark_id FROM benchmarks WHERE run_id = ?)", (run_id,)),
+            ("DELETE FROM benchmarks WHERE run_id = ?", (run_id,)),
+            ("DELETE FROM runs WHERE run_id = ?", (run_id,)),
+        ])
+        return redirect(url_for("runs"))
+
+    @app.route("/benchmark/<int:bid>/delete", methods=["POST"])
+    def delete_benchmark(bid):
+        _rw([
+            ("DELETE FROM samples WHERE benchmark_id = ?", (bid,)),
+            ("DELETE FROM benchmarks WHERE benchmark_id = ?", (bid,)),
+        ])
+        return redirect(url_for("runs"))
+
+    @app.route("/compact", methods=["POST"])
+    def compact():
+        # Deleted rows free pages inside the file; VACUUM returns them to
+        # the filesystem. Heavy on a big ledger - user-invoked only.
+        _rw([("VACUUM", ())])
+        return redirect(url_for("runs"))
 
     @app.route("/benchmarks")
     def benchmarks():
@@ -292,7 +385,8 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
 def main(argv=None) -> None:
     p = argparse.ArgumentParser(
         prog="lm-eval-ledger serve",
-        description="Serve the ledger viewer web app (read-only).")
+        description="Serve the ledger viewer web app (read-only, except "
+                    "the confirm-gated delete/compact actions in Run History).")
     p.add_argument("--db", type=Path, default=Path("results/ledger.sqlite3"))
     p.add_argument("--host", default="127.0.0.1",
                    help="bind address (default localhost-only; use "
@@ -307,5 +401,5 @@ def main(argv=None) -> None:
         sys.exit(1)
     app = create_app(args.db, token=args.token)
     print(f"[SERVE] Ledger viewer on http://{args.host}:{args.port} "
-          f"(db: {args.db}, read-only)")
+          f"(db: {args.db})")
     app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)

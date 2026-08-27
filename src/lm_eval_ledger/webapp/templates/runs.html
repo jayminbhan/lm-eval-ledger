@@ -1,18 +1,45 @@
 {% extends "base.html" %}
 {% block title %}Run History - lm-eval-ledger{% endblock %}
 {% block content %}
-<h1>Run History</h1>
+<div class="lbhead">
+  <h1>Run History</h1>
+  <form method="post" action="{{ url_for('compact') }}" class="inlineform"
+        onsubmit="return confirm('Compact the database file? This reclaims space freed by deleted runs. It can take a while on a large ledger and blocks writers while running.')">
+    <span class="muted">ledger file: {{ db_file_bytes|fmtbytes }}</span>
+    <button type="submit" class="btn subtle">compact</button>
+  </form>
+</div>
 {% for r in runs %}
 <section class="panel">
   <div class="lbhead">
     <span class="lbtitle">run {{ r.run_id }} · {{ r.run_name }}</span>
-    <span class="muted">{{ r.started_at }}{% if r.harness_version %} · v{{ r.harness_version }}{% endif %}</span>
+    <span class="rowactions">
+      <span class="muted">{{ r.started_at }}{% if r.harness_version %} · v{{ r.harness_version }}{% endif %}
+        · {{ run_bytes.get(r.run_id, 0)|fmtbytes }} of samples</span>
+      <form method="post" action="{{ url_for('delete_run', run_id=r.run_id) }}" class="inlineform"
+            onsubmit="return confirm('Delete run {{ r.run_id }} ({{ r.run_name }}) and ALL its benchmarks and samples? This cannot be undone.')">
+        <button type="submit" class="btn danger">delete run</button>
+      </form>
+    </span>
   </div>
+  {% if r.source_yaml or r.config_yaml %}
+  <details class="cfg">
+    <summary>config
+      {% if r.source_yaml %}
+      <a class="btn subtle" href="{{ url_for('run_config', run_id=r.run_id, kind='source') }}"
+         onclick="event.stopPropagation()">download yaml (as written)</a>
+      {% endif %}
+      <a class="btn subtle" href="{{ url_for('run_config', run_id=r.run_id, kind='resolved') }}"
+         onclick="event.stopPropagation()">download yaml (resolved)</a>
+    </summary>
+    <pre class="cfgtext">{{ r.source_yaml or r.config_yaml }}</pre>
+  </details>
+  {% endif %}
   {% set benches = by_run.get(r.run_id, []) %}
   {% if benches %}
   <table>
     <thead><tr><th>model</th><th>task</th><th>acc</th><th>verified</th>
-      <th>n</th><th>no answer</th><th>error</th></tr></thead>
+      <th>n</th><th>no answer</th><th>size</th><th>error</th><th></th></tr></thead>
     <tbody>
     {% for b in benches %}
       <tr>
@@ -22,7 +49,14 @@
         <td>{{ "%.3f"|format(b.verified_accuracy) if b.verified_accuracy is not none else "-" }}</td>
         <td>{{ b.total_examples }}</td>
         <td>{{ b.no_answer_count }}</td>
+        <td class="muted">{{ bench_bytes.get(b.benchmark_id, 0)|fmtbytes }}</td>
         <td class="err">{{ b.error|trunc(60) if b.error else "" }}</td>
+        <td>
+          <form method="post" action="{{ url_for('delete_benchmark', bid=b.benchmark_id) }}" class="inlineform"
+                onsubmit="return confirm('Delete {{ b.task }}({{ b.fewshot_k }}) of run {{ r.run_id }} and its samples? This cannot be undone.')">
+            <button type="submit" class="btn danger">delete</button>
+          </form>
+        </td>
       </tr>
     {% endfor %}
     </tbody>

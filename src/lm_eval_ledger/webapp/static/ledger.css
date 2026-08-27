@@ -233,3 +233,34 @@ code {
 details summary { cursor: pointer; color: var(--muted); font-size: 0.82rem; }
 details summary:hover { color: var(--accent); }
 details pre { margin-top: 0.5rem; }
+
+/* ---- run-history actions: config panel, delete, compact ---- */
+.rowactions { display: flex; align-items: center; gap: 0.7rem; }
+.inlineform { display: inline-flex; align-items: center; gap: 0.7rem; margin: 0; }
+.btn {
+  font: inherit; font-size: 0.75rem; padding: 0.22rem 0.6rem;
+  border-radius: 7px; border: 1px solid var(--border);
+  background: #fff; color: var(--text); cursor: pointer;
+  text-decoration: none; display: inline-block;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent);
+  box-shadow: var(--shadow-hover); text-decoration: none; }
+.btn.subtle { color: var(--muted); }
+.btn.subtle:hover { color: var(--accent); }
+.btn.danger { color: var(--bad); }
+.btn.danger:hover { border-color: var(--bad); color: #fff;
+  background: var(--bad); box-shadow: none; }
+table .btn.danger { padding: 0.1rem 0.45rem; font-size: 0.7rem; }
+.cfg { margin: 0.35rem 0 0.75rem; }
+.cfg summary {
+  cursor: pointer; color: var(--muted); font-size: 0.8rem;
+  display: flex; align-items: center; gap: 0.6rem; width: fit-content;
+}
+.cfg summary::marker { color: var(--muted); }
+.cfg .btn { font-size: 0.72rem; }
+.cfgtext {
+  max-height: 24rem; overflow: auto; font-family: var(--mono);
+  font-size: 0.74rem; line-height: 1.5; background: #f8fafc;
+  border: 1px solid var(--hairline); border-radius: 8px;
+  padding: 0.7rem 0.9rem; margin: 0.5rem 0 0;
+}

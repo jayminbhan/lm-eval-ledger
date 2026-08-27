@@ -804,7 +804,8 @@ def _run_coordinator(cfg: RunConfig) -> Path:
     # row's resolved config is the reproducibility artifact; workers load
     # their config from it (retrievable later via `lm-eval-ledger config`).
     ledger = LedgerDatabase(ledger_path)
-    run_id = ledger.create_run(run_name, cfg.to_yaml(), _harness_version())
+    run_id = ledger.create_run(run_name, cfg.to_yaml(), _harness_version(),
+                               source_yaml=getattr(cfg, "source_yaml_text", None))
     ledger.close()
 
     # ---------- print header ----------
@@ -946,7 +947,8 @@ def run(cfg: RunConfig, *, shard: str | None = None, run_name: str | None = None
     if shard is None:
         # Standalone mode: register the run; the run row's resolved config
         # is the reproducibility artifact (`lm-eval-ledger config <id>`).
-        run_id = ledger.create_run(run_name, cfg.to_yaml(), _harness_version())
+        run_id = ledger.create_run(run_name, cfg.to_yaml(), _harness_version(),
+                               source_yaml=getattr(cfg, "source_yaml_text", None))
     else:
         # Worker mode: the coordinator already registered the run.
         run_id = ledger.get_run_id(run_name)
