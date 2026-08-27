@@ -150,15 +150,53 @@ def expand_verl_checkpoints(run_dir: str) -> list[str]:
     return models
 
 
-def expand_models(models: list) -> list[str]:
-    """Expand model entries: 'verl:<run_dir>' becomes one entry per checkpoint."""
-    expanded: list[str] = []
+# Per-model override keys accepted in a mapping-form model entry.
+# Deliberately excludes sampling parameters (temperature, max_tokens, ...):
+# per-model sampling silently breaks cross-model comparability within a run.
+MODEL_OVERRIDE_KEYS = frozenset({
+    "chat_template_kwargs", "backend", "server_url", "api_key",
+    "server_extra_body", "server_concurrency", "request_timeout",
+    "quantization", "apply_chat_template",
+})
+
+
+def model_spec(entry) -> tuple[str, dict]:
+    """Normalize one models: entry to (name, overrides).
+
+    Entries are either a plain string (no overrides) or a mapping:
+        {name: Qwen/Qwen3.5-9B, chat_template_kwargs: {enable_thinking: true}}
+    Overrides replace the global value for that model only.
+    """
+    if isinstance(entry, dict):
+        overrides = dict(entry)
+        name = overrides.pop("name", None)
+        if not name:
+            raise ValueError(f"Model mapping entry needs a 'name': {entry!r}")
+        bad = set(overrides) - MODEL_OVERRIDE_KEYS
+        if bad:
+            raise ValueError(
+                f"Unknown per-model override(s) {sorted(bad)} on {name!r}; "
+                f"allowed: {sorted(MODEL_OVERRIDE_KEYS)}")
+        return str(name), overrides
+    return str(entry), {}
+
+
+def expand_models(models: list) -> list:
+    """Expand and validate model entries.
+
+    'verl:<run_dir>' becomes one entry per checkpoint (mapping-form verl
+    entries pass their overrides on to every expanded checkpoint).
+    Returned entries stay in their given form (str, or {name, **overrides})
+    so the resolved config YAML round-trips.
+    """
+    expanded: list = []
     for entry in models:
-        entry = str(entry)
-        if entry.startswith("verl:"):
-            expanded.extend(expand_verl_checkpoints(entry[len("verl:"):]))
+        name, overrides = model_spec(entry)
+        if name.startswith("verl:"):
+            for ckpt in expand_verl_checkpoints(name[len("verl:"):]):
+                expanded.append({"name": ckpt, **overrides} if overrides else ckpt)
         else:
-            expanded.append(entry)
+            expanded.append(dict(name=name, **overrides) if overrides else name)
     return expanded
 
 

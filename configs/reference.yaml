@@ -13,18 +13,33 @@
 # retrieve it with:  lm-eval-ledger config <run_id>
 
 # ── Models ──────────────────────────────────────────────────
-# What to evaluate, run sequentially. Three entry forms:
+# What to evaluate, run sequentially. Name forms:
 #   - a HuggingFace id (downloads into the HF cache; gated repos need
 #     `hf auth login`)
 #   - a local checkpoint path
 #   - "verl:<run_dir>" - expands to every global_step_* checkpoint of a
 #     veRL training run (both GRPO and SFT layouts)
-# With backend: server, the entry is the model NAME THE SERVER REPORTS
+# With backend: server, the name is the model NAME THE SERVER REPORTS
 # at <server_url>/models (e.g. "unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL").
+#
+# An entry is either a plain name, or a mapping {name: ..., <overrides>}
+# that REPLACES global settings for that model only. Allowed overrides:
+#   chat_template_kwargs, backend, server_url, api_key, server_extra_body,
+#   server_concurrency, request_timeout, quantization, apply_chat_template
+# Sampling parameters are deliberately NOT overridable per model - keeping
+# them global keeps the models in one run directly comparable.
+# This is how one run mixes thinking modes and even inference backends:
 models:
-  - Qwen/Qwen2.5-7B-Instruct
+  - Qwen/Qwen2.5-7B-Instruct                # plain: global settings
+  - name: Qwen/Qwen3.5-9B                   # thinking ON for this model only
+    chat_template_kwargs: {enable_thinking: true}
+  # - name: qwen3.8-27b-quant               # this one via an API server
+  #   backend: server
+  #   server_url: http://localhost:8080/v1
   # - /path/to/local/checkpoint
   # - verl:/path/to/verl-run
+  # - name: verl:/path/to/verl-run          # overrides reach every checkpoint
+  #   chat_template_kwargs: {enable_thinking: false}
 
 # ── Tasks ───────────────────────────────────────────────────
 # Which benchmarks to run. Forms:

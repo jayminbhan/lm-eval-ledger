@@ -88,7 +88,10 @@ def main() -> None:
     # (TTY only; workers inherit the coordinator's resolved choice)
     if args.shard is None and cfg.models:
         from .thinking import maybe_prompt_thinking_mode
-        maybe_prompt_thinking_mode(cfg, cfg.models[0])
+        from .config import model_spec
+        first_name, first_ov = model_spec(cfg.models[0])
+        if "chat_template_kwargs" not in first_ov:
+            maybe_prompt_thinking_mode(cfg, first_name)
 
     from .runner import run  # deferred: pulls in vLLM
     run(cfg, shard=args.shard, run_name=args.run_name)

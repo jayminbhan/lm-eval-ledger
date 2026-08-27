@@ -16,7 +16,9 @@ from datetime import datetime
 from pathlib import Path
 
 from .backends import get_backend
-from .config import RunConfig
+from dataclasses import replace as _dc_replace
+
+from .config import RunConfig, model_spec
 from .db import DEFAULT_LEDGER_NAME, LedgerDatabase
 from .fewshot import (
     build_fewshot_block,
@@ -853,6 +855,7 @@ def _run_coordinator(cfg: RunConfig) -> Path:
     print(f"{'='*60}")
     print(f"Models: {len(cfg.models)} (distributed across {num_workers} GPUs)")
     for i, m in enumerate(cfg.models):
+        m = model_spec(m)[0]
         print(f"  GPU {gpu_ids[i % num_workers]}: {Path(m).name}")
     print(f"Tasks: {', '.join(task_strs)}")
     print(f"Ledger: {ledger_path} (run {run_name}, id {run_id})")
@@ -1042,7 +1045,7 @@ def _run_models(
     print(f"{'='*60}")
     print(f"Models: {len(models)}")
     for m in models:
-        print(f"  - {Path(m).name}")
+        print(f"  - {Path(model_spec(m)[0]).name}")
     # Format tasks with their fewshot values for display
     task_strs = [f"{name}({k})" if k is not None else name for name, k in tasks_to_run]
     print(f"Tasks: {', '.join(task_strs)}")
@@ -1051,21 +1054,31 @@ def _run_models(
     print(f"{'='*60}")
 
     # ---------- run all models ----------
-    backend = get_backend(cfg.backend)
+    # Backend instances cached by name: consecutive models on the same
+    # backend reuse it (as before); a per-model backend override gets its
+    # own instance (e.g. one model on vllm, another on a server endpoint).
+    backends: dict[str, object] = {}
     all_model_summaries: list[dict] = []
 
-    for i, model_name in enumerate(models, 1):
-        print(f"\n[MODEL {i}/{len(models)}]")
+    for i, model_entry in enumerate(models, 1):
+        model_name, overrides = model_spec(model_entry)
+        eff_cfg = _dc_replace(cfg, **overrides) if overrides else cfg
+        if overrides:
+            print(f"\n[MODEL {i}/{len(models)}] (overrides: {overrides})")
+        else:
+            print(f"\n[MODEL {i}/{len(models)}]")
         try:
+            if eff_cfg.backend not in backends:
+                backends[eff_cfg.backend] = get_backend(eff_cfg.backend)
             model_summary = run_model(
-                cfg=cfg,
+                cfg=eff_cfg,
                 model_name=model_name,
                 tasks_to_run=tasks_to_run,
                 data_dir=data_dir,
                 timestamp=timestamp,
                 ledger=ledger,
                 run_id=run_id,
-                backend=backend,
+                backend=backends[eff_cfg.backend],
             )
             all_model_summaries.append(model_summary)
         except Exception as e:
