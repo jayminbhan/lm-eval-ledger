@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Sample Inspection - lm-eval-ledger{% endblock %}
+{% block content %}
+<h1>Sample Inspection</h1>
+
+<form class="panel" method="get" action="{{ url_for('samples') }}">
+  <div class="lbhead"><span class="lbtitle">Sample comparison</span></div>
+  <div class="controls">
+    <label>mode
+      <select name="mode" id="mode-sel">
+        <option value="browse" {{ "selected" if mode == "browse" }}>browse</option>
+        <option value="pairwise" {{ "selected" if mode == "pairwise" }}>pairwise (vertical)</option>
+        <option value="wrong" {{ "selected" if mode == "wrong" }}>always wrong</option>
+        <option value="right" {{ "selected" if mode == "right" }}>always right</option>
+      </select></label>
+    <label>task
+      <select name="task" id="task-sel">
+        <option value="">(all tasks)</option>
+        {% for t in tasks %}
+        <option {{ "selected" if args.get("task") == t }}>{{ t }}</option>
+        {% endfor %}
+      </select></label>
+    <label class="browse-only">model
+      <select name="model">
+        <option value="">(all models)</option>
+        {% for m in models or [] %}
+        <option {{ "selected" if args.get("model") == m }}>{{ m }}</option>
+        {% endfor %}
+      </select></label>
+    <label class="browse-only">outcome
+      <select name="outcome">
+        <option value="">(all)</option>
+        <option value="wrong" {{ "selected" if args.get("outcome") == "wrong" }}>wrong only</option>
+        <option value="right" {{ "selected" if args.get("outcome") == "right" }}>right only</option>
+      </select></label>
+    <label class="pair-only">benchmark A
+      <select name="a">{% for o in benches %}
+        <option value="{{ o.benchmark_id }}" data-task="{{ o.task }}"
+          {{ "selected" if args.get("a")|string == o.benchmark_id|string }}>
+          run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</option>
+      {% endfor %}</select></label>
+    <label class="pair-only">benchmark B
+      <select name="b">{% for o in benches %}
+        <option value="{{ o.benchmark_id }}" data-task="{{ o.task }}"
+          {{ "selected" if args.get("b")|string == o.benchmark_id|string }}>
+          run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</option>
+      {% endfor %}</select></label>
+    <button type="submit">Apply</button>
+  </div>
+  <label class="benchbox cons-only"><span class="benchcap">benchmarks (none checked = all)</span>
+    <div class="benchlist">
+      {% for o in benches %}
+      <label class="check" data-task="{{ o.task }}">
+        <input type="checkbox" name="bs" value="{{ o.benchmark_id }}"
+          {{ "checked" if o.benchmark_id|string in (sel or []) }}>
+        <span>run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </label>
+</form>
+
+{% if mode == "pairwise" and pairs is not none %}
+<section class="panel">
+  <div class="lbhead"><span class="lbtitle">Pairwise comparison</span>
+    <a href="{{ url_for('samples', **swap_args) }}">⇄ swap A/B</a></div>
+  <div class="pairwho">
+    <span class="tag a">A</span> {{ label_a }}
+    <span class="muted">→</span>
+    <span class="tag b">B</span> {{ label_b }}
+  </div>
+  <div class="pairbtns">
+    {% for key, text in [("all", "All"), ("improved", "Improved – B fixed"),
+                         ("regressed", "Regressed – B broke"),
+                         ("answers", "Same score, answer changed"),
+                         ("same", "Unchanged")] %}
+    <a class="chip {{ 'active' if cat == key }}"
+       href="{{ url_for('samples', mode='pairwise', a=a, b=b, cat=key) }}">{{ text }}
+       <span>{{ counts.values()|sum if key == "all" else counts[key] }}</span></a>
+    {% endfor %}
+  </div>
+</section>
+<table>
+  <thead><tr><th>sample</th><th>gold</th><th>A answered</th><th>B answered</th>
+    <th>A</th><th>B</th><th>Δ</th></tr></thead>
+  <tbody>
+  {% for c, r in pairs %}
+    <tr class="{{ 'improved' if c == 'improved' else 'regressed' if c == 'regressed' else '' }}">
+      <td><a href="{{ url_for('sample', pk=r.pk_a) }}">{{ r.sample_id|trunc(30) }}</a></td>
+      <td>{{ r.gold|trunc(100) }}</td>
+      <td>{{ r.ans_a|trunc(80) }}</td>
+      <td>{{ r.ans_b|trunc(80) }}</td>
+      <td>{{ "%g"|format(r.score_a) }}</td>
+      <td>{{ "%g"|format(r.score_b) }}</td>
+      <td class="badge">{{ {"improved": "IMPROVED", "regressed": "REGRESSED",
+                            "answers": "≠", "same": "="}[c] }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% elif mode in ("wrong", "right") and groups is defined %}
+<p class="summary"><strong>{{ groups|length }}</strong> samples always
+  {{ mode }} in every {{ "selected benchmark" if sel else "benchmark" }}
+  covering them{{ " (%d selected)"|format(sel|length) if sel }}.</p>
+<table>
+  <thead><tr><th>task</th><th>sample</th><th>evals</th><th>models</th><th>gold</th></tr></thead>
+  <tbody>
+  {% for g in groups %}
+    <tr>
+      <td>{{ g.task }}</td>
+      <td><a href="{{ url_for('sample', pk=g.example_pk) }}">{{ g.sample_id|trunc(30) }}</a></td>
+      <td>{{ g.n_evals }}</td>
+      <td>{{ g.n_models }}</td>
+      <td>{{ g.gold|trunc(120) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% elif mode == "browse" and rows is defined %}
+<p class="summary"><strong>{{ total }}</strong> samples · page {{ page }}
+  of {{ ((total - 1) // page_size) + 1 if total else 1 }}
+  {% if page > 1 %}<a href="{{ url_for('samples', **dict(args, page=page-1)) }}">← prev</a>{% endif %}
+  {% if page * page_size < total %}<a href="{{ url_for('samples', **dict(args, page=page+1)) }}">next →</a>{% endif %}
+</p>
+<table>
+  <thead><tr><th>sample</th><th>bench</th><th>model</th><th>task</th>
+    <th>gold</th><th>extracted</th><th>stop</th><th>score</th><th>verified</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr class="{{ 'improved' if (r.verified_score if r.verified_score is not none else r.score) >= 1 else '' }}">
+      <td><a href="{{ url_for('sample', pk=r.sample_pk) }}">{{ r.sample_id|trunc(24) }}</a></td>
+      <td>{{ r.benchmark_id }}</td>
+      <td>{{ r.model_tag }}</td>
+      <td>{{ r.task }}</td>
+      <td>{{ r.gold|trunc(80) }}</td>
+      <td>{{ r.extracted|trunc(60) }}</td>
+      <td>{{ r.stop_reason|trunc(30) }}</td>
+      <td>{{ "%g"|format(r.score) }}</td>
+      <td>{{ "%g"|format(r.verified_score) if r.verified_score is not none else "-" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<script>
+const modeSel = document.getElementById("mode-sel");
+const taskSel = document.getElementById("task-sel");
+function syncUi() {
+  const m = modeSel.value;
+  document.querySelectorAll(".pair-only").forEach(e =>
+    e.style.display = m === "pairwise" ? "" : "none");
+  document.querySelectorAll(".cons-only").forEach(e =>
+    e.style.display = (m === "wrong" || m === "right") ? "" : "none");
+  document.querySelectorAll(".browse-only").forEach(e =>
+    e.style.display = m === "browse" ? "" : "none");
+  const t = taskSel.value;
+  document.querySelectorAll("[data-task]").forEach(e => {
+    if (e.tagName === "OPTION") e.hidden = t !== "" && e.dataset.task !== t;
+    else e.hidden = t !== "" && e.dataset.task !== t;
+  });
+}
+modeSel.addEventListener("change", syncUi);
+taskSel.addEventListener("change", syncUi);
+syncUi();
+</script>
+{% endblock %}

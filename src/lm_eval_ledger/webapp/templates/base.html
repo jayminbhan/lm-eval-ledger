@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}lm-eval-ledger{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='ledger.css') }}">
+</head>
+<body>
+  <a class="masthead" href="{{ url_for('runs') }}">lm-eval-ledger</a>
+  <nav class="topnav">
+    <a href="{{ url_for('runs') }}">Run History</a>
+    <a href="{{ url_for('benchmarks') }}">Benchmark Results</a>
+    <a href="{{ url_for('samples') }}">Sample Inspection</a>
+  </nav>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

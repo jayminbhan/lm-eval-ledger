@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Benchmark Results - lm-eval-ledger{% endblock %}
+{% block content %}
+<h1>Benchmark Results</h1>
+
+<section class="panel">
+  <div class="lbhead">
+    <span class="lbtitle">Leaderboard</span>
+    <a class="chip {{ 'active' if dedupe }}"
+       href="{{ url_for('benchmarks', task=task or None, dedupe=None if dedupe else 1) }}">
+       best per model</a>
+  </div>
+  <div class="chipgrid">
+    <a class="chip {{ 'active' if not task }}" href="{{ url_for('benchmarks') }}">
+      <strong>all tasks</strong></a>
+    {% for t in tasks %}
+    <a class="chip {{ 'active' if task == t.task }}"
+       href="{{ url_for('benchmarks', task=t.task, dedupe=1 if dedupe else None) }}">
+      <strong>{{ t.task }}</strong>
+      <span>best {{ "%.3f"|format(t.best or 0) }} · {{ t.n }} entr{{ "ies" if t.n > 1 else "y" }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+<table>
+  <thead><tr>
+    <th>run</th><th>model</th><th>task</th>
+    <th><a href="{{ url_for('benchmarks', task=task or None, sort='accuracy', dedupe=1 if dedupe else None) }}">acc</a></th>
+    <th><a href="{{ url_for('benchmarks', task=task or None, sort='verified_accuracy', dedupe=1 if dedupe else None) }}">verified</a></th>
+    <th>n</th><th>no answer</th><th>mins</th><th>error</th>
+  </tr></thead>
+  <tbody>
+  {% for b in rows %}
+    <tr>
+      <td>{{ b.run_id }}</td>
+      <td>{{ b.model_tag }}</td>
+      <td><a href="{{ url_for('samples', benchmark_id=b.benchmark_id) }}">{{ b.task }}({{ b.fewshot_k }})</a></td>
+      <td>{{ "%.3f"|format(b.accuracy or 0) }}</td>
+      <td>{{ "%.3f"|format(b.verified_accuracy) if b.verified_accuracy is not none else "-" }}</td>
+      <td>{{ b.total_examples }}</td>
+      <td>{{ b.no_answer_count }}</td>
+      <td>{{ "%.0f"|format(b.duration_seconds / 60) if b.duration_seconds else "-" }}</td>
+      <td class="err">{{ b.error|trunc(50) if b.error else "" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

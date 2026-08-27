@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Sample {{ s.sample_id }} - lm-eval-ledger{% endblock %}
+{% block content %}
+<h1>Sample {{ s.sample_id }} <span class="muted">· {{ s.task }}({{ s.fewshot_k }})
+  · {{ s.model_tag }} · run {{ s.run_id }}</span></h1>
+
+<section class="panel">
+  <div class="lbhead"><span class="lbtitle">Verdict</span></div>
+  <p>score <strong>{{ "%g"|format(s.score) }}</strong>
+    {% if s.verified_score is not none %} · verified
+      <strong>{{ "%g"|format(s.verified_score) }}</strong>
+      {% if s.verifier_verdicts %}<span class="muted">({{ s.verifier_verdicts }})</span>{% endif %}
+    {% endif %}
+    · extracted <code>{{ s.extracted or "∅" }}</code>
+    · stop <code>{{ s.stop_reason }}</code></p>
+  <p class="muted">gold:</p>
+  <pre>{{ s.gold }}</pre>
+  {% if s.gold_data %}
+  <details><summary class="muted">gold_data (machine payload)</summary>
+    <pre>{{ s.gold_data|trunc(4000) }}</pre></details>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="lbhead"><span class="lbtitle">Prompt</span></div>
+  <pre>{{ s.prompt }}</pre>
+  {% if s.prompt_full and s.prompt_full != s.prompt %}
+  <details><summary class="muted">full prompt as sent (template + few-shot)</summary>
+    <pre>{{ s.prompt_full }}</pre></details>
+  {% endif %}
+</section>
+
+{% for r in responses %}
+<section class="panel">
+  <div class="lbhead"><span class="lbtitle">Response {{ loop.index }}
+    {% if responses|length > 1 %} of {{ responses|length }}{% endif %}</span>
+    <span class="muted">extracted: <code>{{ r.get("extracted") or "∅" }}</code>
+      · {{ r.get("stop_reason") }} · correct {{ r.get("correct") }}</span></div>
+  <pre>{{ r.get("text", "") }}</pre>
+</section>
+{% endfor %}
+
+{% if siblings|length > 1 %}
+<section class="panel">
+  <div class="lbhead"><span class="lbtitle">Other evaluations of this sample</span></div>
+  <p>
+  {% for sib in siblings %}
+    {% if sib.sample_pk == s.sample_pk %}
+      <span class="chip active">{{ sib.model_tag }} (bench {{ sib.benchmark_id }}) · {{ "%g"|format(sib.sc) }}</span>
+    {% else %}
+      <a class="chip" href="{{ url_for('sample', pk=sib.sample_pk) }}">
+        {{ sib.model_tag }} (bench {{ sib.benchmark_id }}) · {{ "%g"|format(sib.sc) }}</a>
+    {% endif %}
+  {% endfor %}
+  </p>
+</section>
+{% endif %}
+{% endblock %}

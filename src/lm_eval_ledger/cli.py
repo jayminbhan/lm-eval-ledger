@@ -50,6 +50,10 @@ def main() -> None:
         from .queries import main_query
         main_query(sys.argv[1:])
         return
+    if len(sys.argv) > 1 and sys.argv[1] == "serve":
+        from .webapp import main as serve_main
+        serve_main(sys.argv[2:])
+        return
 
     args = build_arg_parser().parse_args()
 
