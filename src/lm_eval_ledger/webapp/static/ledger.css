@@ -36,8 +36,8 @@ header.site {
 a.brand, a.brand:visited {
   display: flex; align-items: center; gap: 0.55rem;
   color: var(--text); text-decoration: none;
-  font-family: var(--mono); font-weight: 700; font-size: 1rem;
-  letter-spacing: -0.01em;
+  font-weight: 800; font-size: 1.05rem;
+  letter-spacing: -0.035em;
 }
 .brand-dot {
   width: 0.62rem; height: 0.62rem; border-radius: 3px;
