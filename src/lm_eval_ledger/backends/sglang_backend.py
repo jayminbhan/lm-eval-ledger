@@ -61,24 +61,31 @@ class SglangBackend(Backend):
 
     def generate(self, prompts, *, temperature, top_p, max_tokens, stop, n,
                  seed, batch_size, on_result=None):
-        # n > 1 via prompt repetition: universally supported, groups cleanly
-        flat = [p for p in prompts for _ in range(n)]
+        """One engine call by default; with batch_size set, chunked calls
+        stream each finished chunk through on_result."""
         params = {
             "temperature": temperature, "top_p": top_p,
             "max_new_tokens": max_tokens,
         }
         if stop:
             params["stop"] = stop
-        outputs = self.engine.generate(flat, params)
-        results = []
-        for i in range(0, len(outputs), n):
-            group = []
-            for out in outputs[i:i + n]:
-                finish, matched = self._finish(out.get("meta_info", {}))
-                group.append(GenResult(text=out.get("text", ""),
-                                       finish_reason=finish,
-                                       stop_reason=matched))
-            results.append(group)
+        chunk = batch_size if batch_size and batch_size > 0 else len(prompts)
+        results: list[list[GenResult]] = []
+        for start in range(0, len(prompts), chunk):
+            batch = prompts[start:start + chunk]
+            # n > 1 via prompt repetition: universally supported, groups cleanly
+            flat = [p for p in batch for _ in range(n)]
+            outputs = self.engine.generate(flat, params)
+            for i in range(0, len(outputs), n):
+                group = []
+                for out in outputs[i:i + n]:
+                    finish, matched = self._finish(out.get("meta_info", {}))
+                    group.append(GenResult(text=out.get("text", ""),
+                                           finish_reason=finish,
+                                           stop_reason=matched))
+                if on_result is not None:
+                    on_result(start + i // n, group)
+                results.append(group)
         return results
 
     # ---- logprob primitives ----

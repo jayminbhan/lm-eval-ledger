@@ -63,33 +63,36 @@ class VllmBackend(Backend):
 
     # ---- generation ----
 
-    def _generate_batched(self, prompts, sampling_params, batch_size):
-        if not batch_size or batch_size <= 0:
-            return self.llm.generate(prompts, sampling_params=sampling_params,
-                                     use_tqdm=True)
-        outputs = []
-        num_batches = (len(prompts) + batch_size - 1) // batch_size
-        print(f"[INFO] Processing in {num_batches} batches of size {batch_size}")
-        for i in range(0, len(prompts), batch_size):
-            print(f"[INFO] Batch {i // batch_size + 1}/{num_batches}...")
-            outputs.extend(self.llm.generate(
-                prompts[i:i + batch_size], sampling_params=sampling_params,
-                use_tqdm=True))
-        return outputs
-
     def generate(self, prompts, *, temperature, top_p, max_tokens, stop, n,
                  seed, batch_size, on_result=None):
+        """One engine call by default (best throughput: the engine batches
+        continuously over the full set). With batch_size set, generation is
+        chunked and each finished chunk streams through on_result - samples
+        reach the ledger per chunk at a modest throughput cost."""
         sampling_params = SamplingParams(
             temperature=temperature, top_p=top_p, max_tokens=max_tokens,
             stop=stop or None, n=n, skip_special_tokens=False, seed=seed,
         )
-        outputs = self._generate_batched(prompts, sampling_params, batch_size)
-        return [
-            [GenResult(text=r.text, finish_reason=r.finish_reason or "",
-                       stop_reason=r.stop_reason)
-             for r in out.outputs]
-            for out in outputs
-        ]
+        chunk = batch_size if batch_size and batch_size > 0 else len(prompts)
+        num_batches = max((len(prompts) + chunk - 1) // chunk, 1)
+        if num_batches > 1:
+            print(f"[INFO] Processing in {num_batches} batches of size {chunk}")
+        results: list[list[GenResult]] = []
+        for start in range(0, len(prompts), chunk):
+            if num_batches > 1:
+                print(f"[INFO] Batch {start // chunk + 1}/{num_batches}...")
+            outs = self.llm.generate(prompts[start:start + chunk],
+                                     sampling_params=sampling_params,
+                                     use_tqdm=True)
+            for j, out in enumerate(outs):
+                group = [GenResult(text=r.text,
+                                   finish_reason=r.finish_reason or "",
+                                   stop_reason=r.stop_reason)
+                         for r in out.outputs]
+                if on_result is not None:
+                    on_result(start + j, group)
+                results.append(group)
+        return results
 
     # ---- logprob primitives ----
 
