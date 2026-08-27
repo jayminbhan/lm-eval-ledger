@@ -29,7 +29,10 @@ _RETRIES = 3
 
 class ServerBackend(Backend):
     name = "server"
-    capabilities = frozenset({"generate", "logprob_token"})
+    # "vision": image content parts pass through to the chat endpoint;
+    # whether they work is the served model's capability (the server
+    # errors per-request otherwise).
+    capabilities = frozenset({"generate", "logprob_token", "vision"})
     prefers_messages = True  # chat templating happens server-side
 
     def __init__(self):

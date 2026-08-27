@@ -21,16 +21,6 @@ def extract_gold(example: dict) -> str:
     return str(example.get("Answer", "")).strip()
 
 
-def _hf_post_process(examples: list[dict]) -> list[dict]:
-    """Filter out image-dependent questions from HF-loaded data."""
-    text_only = []
-    for ex in examples:
-        picture = ex.get("Picture")
-        if picture is None or (isinstance(picture, float) and math.isnan(picture)):
-            text_only.append(ex)
-    return text_only
-
-
 def get_task() -> TaskConfig:
     """Get TheoremQA task (text-only, images filtered out)."""
     return TaskConfig(
@@ -45,5 +35,5 @@ def get_task() -> TaskConfig:
         description="TheoremQA - theorem-based math/science (text-only)",
         hf_repo="TIGER-Lab/TheoremQA",
         hf_split="test",
-        hf_post_process=_hf_post_process,
+        image_field="Picture",
     )

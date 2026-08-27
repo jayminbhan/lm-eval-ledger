@@ -7,8 +7,9 @@ and log in with `huggingface-cli login` before running).
 
 2,500 expert-written questions across 100+ subjects, designed to be the
 "final" closed-ended academic benchmark. Questions are either exact-match
-or multiple-choice (choices embedded in the question text). ~10% of
-questions require images; those are filtered out here (text-only eval).
+or multiple-choice (choices embedded in the question text). ~14% of
+questions carry an image: modality "text" (default) drops them,
+modality "all" feeds them to a vision-capable backend.
 
 Scoring note: the official leaderboard verifies exact-match answers with an
 LLM judge (o3-mini). This task uses normalized string matching instead,
@@ -17,13 +18,6 @@ which is stricter - treat scores as a lower bound.
 from __future__ import annotations
 
 from .base import TaskConfig, extract_boxed_strict, normalized_match
-
-
-def _hf_post_process(examples: list[dict]) -> list[dict]:
-    """Keep text-only questions (drop any with an attached image)."""
-    text_only = [ex for ex in examples if not ex.get("image")]
-    print(f"  [INFO] HLE: {len(text_only)}/{len(examples)} text-only questions kept")
-    return text_only
 
 
 def build_prompt(example: dict, fewshot_block: str) -> str:
@@ -70,5 +64,5 @@ def get_task() -> TaskConfig:
                     "(gated dataset; string-match approximation of LLM-judge scoring)",
         hf_repo="cais/hle",
         hf_split="test",
-        hf_post_process=_hf_post_process,
+        image_field="image",
     )

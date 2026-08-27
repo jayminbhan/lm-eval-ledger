@@ -3,6 +3,7 @@
 multi-GPU coordinator. Engine specifics live in lm_eval_ledger.backends."""
 from __future__ import annotations
 
+import base64
 import json
 import os
 import subprocess
@@ -27,7 +28,7 @@ from .fewshot import (
 )
 from .runlog import OutputLogger
 from .tasks import get_task, get_available_tasks
-from .tasks.base import load_from_hf
+from .tasks.base import apply_modality, load_from_hf
 
 
 def format_time(seconds: float) -> str:
@@ -46,15 +47,15 @@ def format_time(seconds: float) -> str:
 
 
 
-def load_examples(task) -> list[dict]:
+def load_examples(task, modality: str = "text") -> list[dict]:
     """Load evaluation examples from HuggingFace (or the task's custom loader)."""
     if task.load_fn is not None:
         examples = task.load_fn()
         print(f"[INFO] Loaded {len(examples)} examples via custom loader ({task.name})")
-        return examples
-    examples = load_from_hf(task, split=task.hf_split)
-    print(f"[INFO] Loaded {len(examples)} examples from HF ({task.hf_repo})")
-    return examples
+    else:
+        examples = load_from_hf(task, split=task.hf_split)
+        print(f"[INFO] Loaded {len(examples)} examples from HF ({task.hf_repo})")
+    return apply_modality(task, examples, modality)
 
 
 # ======================================================
@@ -70,8 +71,24 @@ def build_messages(task, example: dict, prompt_raw: str,
         return task.build_messages(example)
     if fewshot_chat_prefix:
         test_question = task.build_prompt(example, "")
-        return fewshot_chat_prefix + [{"role": "user", "content": test_question}]
-    return [{"role": "user", "content": prompt_raw}]
+        return fewshot_chat_prefix + [
+            {"role": "user", "content": _user_content(test_question, example)}]
+    return [{"role": "user", "content": _user_content(prompt_raw, example)}]
+
+
+def _user_content(text: str, example: dict):
+    """Plain string content, or OpenAI content parts when the example
+    carries images (data-URI image_url parts: works for local and remote
+    servers alike, no file paths leak)."""
+    images = example.get("_images")
+    if not images:
+        return text
+    parts: list[dict] = [{"type": "text", "text": text}]
+    for data, mime in images:
+        b64 = base64.b64encode(data).decode()
+        parts.append({"type": "image_url",
+                      "image_url": {"url": f"data:{mime};base64,{b64}"}})
+    return parts
 
 
 def apply_chat_template(backend, task, example: dict, prompt_raw: str,
@@ -161,7 +178,7 @@ def run_task(
         return summary
 
     # ---------- load examples ----------
-    eval_examples = load_examples(task)
+    eval_examples = load_examples(task, getattr(cfg, "modality", "text"))
 
     if not eval_examples:
         print(f"[WARN] No examples found for {task_name}, skipping")
@@ -339,6 +356,24 @@ def run_task(
         if cfg.pass_k > 1:
             print(f"[INFO] Pass@{cfg.pass_k} mode: generating {cfg.pass_k} responses per sample")
 
+        # ---------- vision gate ----------
+        # Image examples exist only under modality: all. They need a
+        # backend that forwards image content parts AND server-side chat
+        # templating; fail loudly rather than feeding blind prompts.
+        if any(ex.get("_images") for ex in eval_examples):
+            if "vision" not in backend.capabilities or not (
+                    cfg.apply_chat_template and backend.prefers_messages):
+                error_msg = (
+                    f"Task '{task.name}' has image examples (modality: all) "
+                    f"but backend '{backend.name}' cannot send images. Use "
+                    f"backend: server with a vision-capable model and "
+                    f"apply_chat_template: true, or set modality: text.")
+                print(f"[ERROR] {error_msg}")
+                summary = _error_summary(cfg, task, fewshot_k, model_name,
+                                         model_tag, timestamp, error_msg)
+                _record_full(ledger, run_id, summary, [])
+                return summary
+
         # ---------- build prompts ----------
         print(f"[INFO] Building prompts...")
 
@@ -419,7 +454,7 @@ def run_task(
                     "correct": score,
                 })
                 best_score = max(best_score, score)
-            return {
+            entry = {
                 "sample_id": sample_ids[idx],
                 "prompt": prompts_without_fewshot[idx],
                 "prompt_full": prompts[idx],
@@ -428,6 +463,9 @@ def run_task(
                 "score": best_score,
                 "responses": responses_list,
             }
+            if eval_examples[idx].get("_images"):
+                entry["_images"] = eval_examples[idx]["_images"]
+            return entry
 
         # Incremental scoring + writes: streaming backends (server, hf)
         # invoke on_result per completed sample from worker threads; the

@@ -46,6 +46,19 @@ tasks:
 # max_examples: cap per task - small number for smoke tests, null = all.
 max_examples: 20
 
+# modality: what to do with image-bearing questions in benchmarks that
+# mix text and images (HLE ~14%, TheoremQA).
+#   text (default) - drop image questions before eval: classic text-only
+#          scores, directly comparable to published text-subset numbers
+#   all  - keep them and send the images to the model as OpenAI-style
+#          image_url content parts. Requires a vision-capable model on
+#          backend: server (llama.cpp with an mmproj, or any hosted VLM
+#          endpoint) plus apply_chat_template: true; other backends
+#          record a clear per-task error rather than feeding blind
+#          prompts. Images are stored deduplicated in the ledger and
+#          shown in the viewer's Sample Inspection.
+modality: text
+
 # batch_size: split generation into chunks of this many prompts.
 #   null (default) = one engine call per task - best vllm/sglang
 #   throughput, but samples reach the ledger only at task end.

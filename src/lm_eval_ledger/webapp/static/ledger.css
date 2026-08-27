@@ -265,3 +265,14 @@ table .btn.danger { padding: 0.1rem 0.45rem; font-size: 0.7rem; }
   padding: 0.7rem 0.9rem; margin: 0.5rem 0 0;
 }
 .cfgtext.full { max-height: none; }
+
+/* ---- sample images ---- */
+.imgrow { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.sample-img {
+  max-width: 100%; max-height: 24rem; border: 1px solid var(--border);
+  border-radius: 8px; background: #fff;
+}
+.thumb {
+  max-height: 4.5rem; max-width: 8rem; border: 1px solid var(--border);
+  border-radius: 6px; display: block; margin-bottom: 0.3rem;
+}

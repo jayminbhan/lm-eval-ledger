@@ -56,6 +56,10 @@ class RunConfig:
     # "hf" (transformers+accelerate; [hf]), "sglang" ([sglang]), or
     # "server" (any OpenAI-compatible endpoint: llama.cpp, ollama, ...).
     backend: str = "vllm"
+    # "text" = drop image-bearing questions (classic text-only eval);
+    # "all" = include them and send images to the model (needs a
+    # vision-capable backend+model; currently backend: server)
+    modality: str = "text"
 
     # Server backend settings (backend: server only)
     server_url: str = "http://localhost:8080/v1"
@@ -293,6 +297,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="directory with optional local few-shot files (default: ./data)")
     p.add_argument("--db-path", type=str, default=None, metavar="FILE",
                    help="ledger database file (default: <results-dir>/ledger.sqlite3)")
+    p.add_argument("--modality", type=str, default=None,
+                   choices=["text", "all"],
+                   help="text = drop image questions; all = feed images too "
+                        "(vision-capable backend required)")
     p.add_argument("--backend", type=str, default=None,
                    choices=["vllm", "hf", "server", "sglang"],
                    help="inference backend (default: vllm)")
@@ -350,7 +358,8 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
                 "top_p", "max_tokens", "pass_k", "seed", "gpu_memory_utilization",
                 "max_model_len", "enforce_eager", "results_dir", "logs_dir", "data_dir",
                 "db_path", "verifier_model", "verifier_mode", "verifier_max_model_len",
-                "backend", "server_url", "api_key", "server_concurrency"):
+                "backend", "server_url", "api_key", "server_concurrency",
+                "modality"):
         value = getattr(args, key)
         if value is not None:
             data[key] = value
@@ -389,6 +398,8 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
         not isinstance(cfg.gpu_ids, list) or not all(isinstance(g, int) for g in cfg.gpu_ids)
     ):
         raise ValueError(f"gpu_ids must be a list of ints or null, got {cfg.gpu_ids!r}")
+    if cfg.modality not in ("text", "all"):
+        raise ValueError(f"modality must be 'text' or 'all', got {cfg.modality!r}")
     if cfg.verifier_mode not in ("fallback", "all"):
         raise ValueError(
             f"verifier_mode must be 'fallback' or 'all', got {cfg.verifier_mode!r}"

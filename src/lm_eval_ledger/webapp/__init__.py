@@ -74,6 +74,16 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
         rows = q(sql, params)
         return rows[0] if rows else None
 
+    def has_images() -> bool:
+        """Old ledgers (not yet opened by the new harness) lack the
+        image columns; render without them instead of erroring."""
+        con = _connect(app.config["DB_PATH"])
+        try:
+            cols = [r[1] for r in con.execute("PRAGMA table_info(samples)")]
+            return "image_ids" in cols
+        finally:
+            con.close()
+
     # ---------- helpers exposed to templates ----------
 
     @app.template_filter("trunc")
@@ -82,6 +92,13 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
         return s if len(s) <= n else s[:n] + "..."
 
     app.template_filter("fmtbytes")(_fmt_bytes)
+
+    @app.template_filter("imgids")
+    def _imgids(image_ids_json):
+        try:
+            return json.loads(image_ids_json or "[]")
+        except Exception:
+            return []
 
     @app.template_filter("resp0")
     def _resp0(responses_json, key):
@@ -196,7 +213,15 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
     def compact():
         # Deleted rows free pages inside the file; VACUUM returns them to
         # the filesystem. Heavy on a big ledger - user-invoked only.
-        _rw([("VACUUM", ())])
+        # Images are shared across runs, so they are garbage-collected
+        # here (when no remaining sample references them), not on delete.
+        stmts = [("VACUUM", ())]
+        if has_images():
+            stmts.insert(0, (
+                "DELETE FROM images WHERE image_id NOT IN "
+                "(SELECT value FROM samples, json_each(samples.image_ids) "
+                " WHERE samples.image_ids IS NOT NULL)", ()))
+        _rw(stmts)
         return redirect(url_for("runs"))
 
     @app.route("/benchmarks")
@@ -274,10 +299,11 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
         total = q1(f"SELECT COUNT(*) AS n FROM samples s "
                    f"JOIN benchmarks b USING (benchmark_id) "
                    f"WHERE {' AND '.join(where)}", params)["n"]
+        img_col = ("s.image_ids" if has_images() else "NULL AS image_ids")
         rows = q(f"""
             SELECT s.sample_pk, s.sample_id, s.benchmark_id, s.model_tag,
                    b.task, s.gold, s.extracted, s.stop_reason, s.score,
-                   s.verified_score,
+                   s.verified_score, {img_col},
                    substr(s.prompt, 1, 500) AS prompt_snip,
                    substr(json_extract(s.responses, '$[0].text'), 1, 1200)
                        AS response_snip
@@ -387,8 +413,25 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
             FROM samples s JOIN benchmarks b USING (benchmark_id)
             WHERE b.task = ? AND s.sample_id = ? ORDER BY s.benchmark_id""",
             [row["task"], row["sample_id"]])
+        try:
+            image_ids = json.loads(row["image_ids"] or "[]")
+        except (IndexError, KeyError, ValueError):
+            image_ids = []
         return render_template("sample.html", s=row, responses=responses,
-                               siblings=siblings)
+                               siblings=siblings, image_ids=image_ids)
+
+    @app.route("/image/<int:image_id>")
+    def image(image_id):
+        try:
+            row = q1("SELECT mime, data FROM images WHERE image_id = ?",
+                     [image_id])
+        except sqlite3.OperationalError:
+            row = None  # no images table yet (old ledger)
+        if row is None:
+            abort(404)
+        from flask import Response
+        return Response(row["data"], mimetype=row["mime"] or "image/png",
+                        headers={"Cache-Control": "public, max-age=86400"})
 
     return app
 

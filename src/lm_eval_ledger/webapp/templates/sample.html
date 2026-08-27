@@ -23,6 +23,15 @@
 
 <section class="panel">
   <div class="lbhead"><span class="lbtitle">Prompt</span></div>
+  {% if image_ids %}
+  <div class="imgrow">
+    {% for iid in image_ids %}
+    <a href="{{ url_for('image', image_id=iid) }}" target="_blank">
+      <img class="sample-img" src="{{ url_for('image', image_id=iid) }}"
+           alt="attached image {{ loop.index }}"></a>
+    {% endfor %}
+  </div>
+  {% endif %}
   <pre>{{ s.prompt }}</pre>
   {% if s.prompt_full and s.prompt_full != s.prompt %}
   <details><summary class="muted">full prompt as sent (template + few-shot)</summary>

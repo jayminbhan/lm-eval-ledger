@@ -23,6 +23,7 @@ Concurrency: WAL mode + autocommit + busy timeout, so multi-GPU workers
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from datetime import datetime
@@ -114,16 +115,29 @@ class LedgerDatabase:
                 score REAL,
                 verifier_verdicts TEXT,
                 verified_score REAL,
+                image_ids TEXT,
                 extracted TEXT GENERATED ALWAYS AS
                     (json_extract(responses, '$[0].extracted')) VIRTUAL,
                 stop_reason TEXT GENERATED ALWAYS AS
                     (json_extract(responses, '$[0].stop_reason')) VIRTUAL
             )
         """)
+        # Images referenced by samples, content-addressed by sha256 so a
+        # benchmark's images are stored once no matter how many runs use
+        # them. Excluded from samples_bytes (shared, not per-benchmark).
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS images (
+                image_id INTEGER PRIMARY KEY,
+                sha256 TEXT UNIQUE NOT NULL,
+                mime TEXT,
+                data BLOB NOT NULL
+            )
+        """)
         # Migrations for ledgers created under earlier schema revisions.
         # VIRTUAL generated columns are metadata-only: instant on any size DB.
         for ddl in (
             "ALTER TABLE samples ADD COLUMN gold_data TEXT",
+            "ALTER TABLE samples ADD COLUMN image_ids TEXT",
             "ALTER TABLE samples ADD COLUMN extracted TEXT GENERATED ALWAYS AS "
             "(json_extract(responses, '$[0].extracted')) VIRTUAL",
             "ALTER TABLE samples ADD COLUMN stop_reason TEXT GENERATED ALWAYS AS "
@@ -277,18 +291,35 @@ class LedgerDatabase:
 
     # ---------- samples ----------
 
+    def store_image(self, data: bytes, mime: str = "image/png") -> int:
+        """Store one image, deduplicated by content hash; returns image_id."""
+        sha = hashlib.sha256(data).hexdigest()
+        self.conn.execute(
+            "INSERT OR IGNORE INTO images (sha256, mime, data) VALUES (?, ?, ?)",
+            (sha, mime, data))
+        return self.conn.execute(
+            "SELECT image_id FROM images WHERE sha256 = ?", (sha,)
+        ).fetchone()["image_id"]
+
     def add_samples(self, benchmark_id: int, entries: list[dict]) -> None:
         """Add sample rows for one benchmark.
 
         Each entry: sample_id, prompt, prompt_full, gold (human-readable),
         optional gold_data (machine payload for re-scoring), score, and
         responses = [{"text", "extracted", "stop_reason", "correct"}, ...].
+        An optional "_images" key ([(bytes, mime), ...]) is stored in the
+        deduplicated images table and recorded as image_ids.
         """
         tag_row = self.conn.execute(
             "SELECT model_tag FROM benchmarks WHERE benchmark_id = ?",
             (benchmark_id,),
         ).fetchone()
         model_tag = tag_row["model_tag"] if tag_row else ""
+        for entry in entries:
+            imgs = entry.pop("_images", None)
+            if imgs:
+                entry["image_ids"] = json.dumps(
+                    [self.store_image(data, mime) for data, mime in imgs])
         rows = [
             (
                 benchmark_id,
@@ -300,13 +331,14 @@ class LedgerDatabase:
                 entry.get("gold_data"),
                 json.dumps(entry.get("responses", [])),
                 float(entry.get("score") or 0.0),
+                entry.get("image_ids"),
             )
             for entry in entries
         ]
         self.conn.executemany(
             "INSERT INTO samples (benchmark_id, model_tag, sample_id, prompt, "
-            "prompt_full, gold, gold_data, responses, score) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "prompt_full, gold, gold_data, responses, score, image_ids) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
 

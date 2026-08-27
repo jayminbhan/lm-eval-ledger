@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
+import math
 import json
 import re
 
@@ -68,6 +69,11 @@ class TaskConfig:
     hf_configs: list[str] | None = None     # multi-config datasets (iterate all configs)
     hf_config_field: str | None = None      # field name to tag examples (e.g., "subtask")
     hf_post_process: Callable[[list[dict]], list[dict]] | None = None  # post-load transform
+    # Name of the example field holding an attached image, for datasets that
+    # mix text-only and image questions. modality="text" drops image
+    # examples; modality="all" keeps them, normalized into ex["_images"]
+    # as [(bytes, mime), ...].
+    image_field: str | None = None
 
 
 # ============================================================
@@ -84,6 +90,78 @@ def load_jsonl(path: Path | str) -> list[dict]:
             if line:
                 items.append(json.loads(line))
     return items
+
+
+def _example_image(example: dict, field: str):
+    """The example's image value, treating None/NaN/empty as absent."""
+    val = example.get(field)
+    if val is None or val == "":
+        return None
+    if isinstance(val, float) and math.isnan(val):
+        return None
+    return val
+
+
+def normalize_image(val) -> tuple[bytes, str] | None:
+    """Normalize a dataset image value to (bytes, mime).
+
+    Handles PIL images, raw bytes, HF Image-feature dicts, and base64
+    data-URI strings. Returns None for values it cannot decode.
+    """
+    if isinstance(val, str):
+        if val.startswith("data:"):
+            import base64
+            header, _, b64 = val.partition(",")
+            mime = header[5:].split(";")[0] or "image/png"
+            try:
+                return base64.b64decode(b64), mime
+            except Exception:
+                return None
+        return None  # bare URL: not fetched (offline determinism)
+    if isinstance(val, bytes):
+        return val, "image/png"
+    if isinstance(val, dict) and val.get("bytes"):
+        return val["bytes"], "image/png"
+    if hasattr(val, "save"):  # PIL image
+        import io
+        buf = io.BytesIO()
+        fmt = getattr(val, "format", None) or "PNG"
+        val.save(buf, format=fmt)
+        return buf.getvalue(), f"image/{fmt.lower()}"
+    return None
+
+
+def apply_modality(task: TaskConfig, examples: list[dict],
+                   modality: str) -> list[dict]:
+    """Drop or attach images per the configured modality."""
+    if not task.image_field:
+        return examples
+    kept = []
+    dropped_undecodable = 0
+    for ex in examples:
+        val = _example_image(ex, task.image_field)
+        if val is None:
+            kept.append(ex)
+            continue
+        if modality == "text":
+            continue
+        img = normalize_image(val)
+        if img is None:
+            dropped_undecodable += 1
+            continue
+        ex["_images"] = [img]
+        kept.append(ex)
+    n_img = sum(1 for ex in kept if ex.get("_images"))
+    if modality == "text":
+        print(f"  [INFO] {task.name}: {len(kept)}/{len(examples)} text-only "
+              f"questions kept (modality: text)")
+    else:
+        print(f"  [INFO] {task.name}: {len(kept)}/{len(examples)} questions "
+              f"kept, {n_img} with images (modality: all)")
+        if dropped_undecodable:
+            print(f"  [WARN] {task.name}: {dropped_undecodable} image "
+                  f"questions dropped (undecodable image format)")
+    return kept
 
 
 def load_from_hf(task: TaskConfig, split: str | None = None) -> list[dict]:

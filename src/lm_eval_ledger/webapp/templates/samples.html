@@ -143,7 +143,12 @@
       <td><a href="{{ url_for('sample', pk=r.sample_pk) }}">{{ r.sample_id|trunc(24) }}</a>
         <div class="muted small">bench {{ r.benchmark_id }}</div></td>
       <td>{{ r.model_tag }}<div class="muted small">{{ r.task }}</div></td>
-      <td class="cell-text"><div class="clamp">{{ r.prompt_snip }}</div></td>
+      <td class="cell-text">
+        {% for iid in r.image_ids|imgids %}
+        <a href="{{ url_for('image', image_id=iid) }}" target="_blank"><img
+           class="thumb" src="{{ url_for('image', image_id=iid) }}" alt="img"></a>
+        {% endfor %}
+        <div class="clamp">{{ r.prompt_snip }}</div></td>
       <td class="cell-text"><div class="clamp tall">{{ r.response_snip }}</div></td>
       <td class="cell-text"><div class="clamp">{{ r.gold|trunc(200) }}</div></td>
       <td>{{ r.extracted|trunc(40) }}</td>
