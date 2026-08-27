@@ -28,9 +28,10 @@ apply_chat_template: true
 # Thinking disabled: this quant aborts reasoning on hard questions and
 # overruns the 8k slot budget when it does engage; non-thinking mode
 # gives complete direct answers. Greedy is fine without thinking.
-server_extra_body:
-  chat_template_kwargs:
-    enable_thinking: false
+# (chat_template_kwargs is backend-uniform: tokenizer kwargs in-process,
+# chat_template_kwargs field over the server API)
+chat_template_kwargs:
+  enable_thinking: false
 
 temperature: 0.0
 top_p: 0.95

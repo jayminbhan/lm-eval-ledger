@@ -35,6 +35,7 @@ class SglangBackend(Backend):
         self.engine = sgl.Engine(**kwargs)
         self.tokenizer = AutoTokenizer.from_pretrained(
             model, trust_remote_code=True)
+        self.template_kwargs = dict(cfg.chat_template_kwargs or {})
 
     def unload(self) -> None:
         import gc
@@ -120,7 +121,8 @@ class SglangBackend(Backend):
             return None
         try:
             return self.tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True)
+                messages, tokenize=False, add_generation_prompt=True,
+                **self.template_kwargs)
         except Exception:
             return None
 

@@ -43,6 +43,7 @@ class HfBackend(Backend):
         self.tokenizer.padding_side = "left"  # decoder-only batching
         self.model = AutoModelForCausalLM.from_pretrained(model, **kwargs)
         self.model.eval()
+        self.template_kwargs = dict(cfg.chat_template_kwargs or {})
 
     def unload(self) -> None:
         import gc
@@ -167,7 +168,8 @@ class HfBackend(Backend):
             return None
         try:
             return self.tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True)
+                messages, tokenize=False, add_generation_prompt=True,
+                **self.template_kwargs)
         except Exception:
             return None
 

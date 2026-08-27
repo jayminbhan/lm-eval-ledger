@@ -70,6 +70,9 @@ class Backend:
 
     # ---- text utilities ----
 
+    #: extra chat-template kwargs (set by load() from cfg.chat_template_kwargs)
+    template_kwargs: dict = {}
+
     def apply_chat_template(self, messages: list[dict]) -> str | None:
         """Render messages with the model's chat template, or None if the
         backend cannot template client-side."""

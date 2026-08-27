@@ -47,6 +47,7 @@ class ServerBackend(Backend):
         self.base_url = cfg.server_url.rstrip("/")
         self.concurrency = cfg.server_concurrency
         self.extra_body = dict(cfg.server_extra_body or {})
+        self.template_kwargs = dict(cfg.chat_template_kwargs or {})
         if self.extra_body:
             print(f"[INFO] server extra body: {self.extra_body}")
         headers = {}
@@ -132,6 +133,8 @@ class ServerBackend(Backend):
                 "temperature": temperature, "top_p": top_p,
                 "max_tokens": max_tokens, "stop": stop or None,
                 "seed": seed + k, **self.extra_body,
+                **({"chat_template_kwargs": self.template_kwargs}
+                   if self.template_kwargs else {}),
             }
 
         def parse(data):

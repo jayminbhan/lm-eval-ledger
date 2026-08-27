@@ -38,6 +38,12 @@ class RunConfig:
 
     # Prompting
     apply_chat_template: bool = False  # True for instruct/chat models
+    # Extra kwargs for the model's chat template, passed to every backend's
+    # templating (tokenizer kwargs in-process; chat_template_kwargs over the
+    # server API). Model-family specific, e.g.:
+    #   {enable_thinking: false}   # Qwen3-family hybrid thinking off
+    #   {thinking: true}           # Granite
+    chat_template_kwargs: dict | None = None
 
     # Sampling
     temperature: float = 0.0

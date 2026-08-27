@@ -46,6 +46,7 @@ class VllmBackend(Backend):
             kwargs["quantization"] = quantization
         self.llm = LLM(**kwargs)
         self.tokenizer = self.llm.get_tokenizer()
+        self.template_kwargs = dict(cfg.chat_template_kwargs or {})
 
     def unload(self) -> None:
         import gc
@@ -161,7 +162,8 @@ class VllmBackend(Backend):
             return None
         try:
             return self.tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True)
+                messages, tokenize=False, add_generation_prompt=True,
+                **self.template_kwargs)
         except Exception:
             return None
 
