@@ -45,7 +45,14 @@
     {% if responses|length > 1 %} of {{ responses|length }}{% endif %}</span>
     <span class="muted">extracted: <code>{{ r.get("extracted") or "∅" }}</code>
       · {{ r.get("stop_reason") }} · correct {{ r.get("correct") }}</span></div>
+  {% set thinking, answer = r.get("text", "")|split_think %}
+  {% if thinking %}
+  <details><summary class="muted">thinking ({{ "{:,}".format(thinking|length) }} chars, ends with &lt;/think&gt;)</summary>
+    <pre>{{ thinking }}</pre></details>
+  <pre>{{ answer }}</pre>
+  {% else %}
   <pre>{{ r.get("text", "") }}</pre>
+  {% endif %}
 </section>
 {% endfor %}
 

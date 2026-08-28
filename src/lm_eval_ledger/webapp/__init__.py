@@ -109,6 +109,16 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
         except Exception:
             return []
 
+    @app.template_filter("split_think")
+    def _split_think(text):
+        """(thinking, answer) split at the last </think>; thinking is ""
+        for non-thinking responses. The opening <think> usually lives in
+        the prompt (the template emits it), so only the closing tag is
+        matched."""
+        t = text or ""
+        head, sep, tail = t.rpartition("</think>")
+        return (head, tail.lstrip("\n")) if sep else ("", t)
+
     @app.template_filter("resp0")
     def _resp0(responses_json, key):
         try:
