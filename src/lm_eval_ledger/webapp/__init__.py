@@ -286,51 +286,25 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
         return _samples_browse(ctx)
 
     def _samples_browse(ctx):
-        where, params = ["1=1"], []
+        # One "show" scope instead of four interlocking facet boxes:
+        #   b:<id>  one benchmark        t:<task>  a task across runs
+        #   r:<id>  everything in a run  m:<tag>   a model across tasks
+        # Legacy params (task/model/run/benchmark_id) still filter, so
+        # old URLs keep working; active ones render as removable chips.
+        scope = request.args.get("scope", "")
         task = request.args.get("task", "")
         model = request.args.get("model", "")
         bid = request.args.get("benchmark_id", "")
-        outcome = request.args.get("outcome", "")
         run = request.args.get("run", "")
+        outcome = request.args.get("outcome", "")
+        if scope:
+            kind, _, val = scope.partition(":")
+            task = val if kind == "t" else ""
+            model = val if kind == "m" else ""
+            run = val if kind == "r" else ""
+            bid = val if kind == "b" else ""
 
-        # Faceted filter options: each dropdown offers only values that
-        # exist in the benchmarks table under the OTHER active filters,
-        # so no selectable combination returns an empty page. Computing a
-        # dimension's options without its own constraint keeps switching
-        # within a dimension possible. benchmarks is small - four cheap
-        # queries, no samples scan.
-        def facet(exclude: str, select: str, order: str):
-            fw, fp = ["1=1"], []
-            if task and exclude != "task":
-                fw.append("task = ?"); fp.append(task)
-            if model and exclude != "model":
-                fw.append("model_tag = ?"); fp.append(model)
-            if run.isdigit() and exclude != "run":
-                fw.append("run_id = ?"); fp.append(int(run))
-            if bid.isdigit() and exclude != "benchmark_id":
-                fw.append("benchmark_id = ?"); fp.append(int(bid))
-            return q(f"SELECT DISTINCT {select} FROM benchmarks "
-                     f"WHERE {' AND '.join(fw)} ORDER BY {order}", fp)
-
-        ctx["tasks"] = [r["task"] for r in facet("task", "task", "task")]
-        facet_models = [r["model_tag"] for r in
-                        facet("model", "model_tag", "model_tag")]
-        run_ids = {r["run_id"] for r in facet("run", "run_id", "run_id")}
-        ctx["run_list"] = [r for r in ctx["run_list"] if r["run_id"] in run_ids]
-        # the benchmark filter (how Leaderboard rows link here) gets a
-        # visible, faceted select of its own - never an invisible lock
-        bench_ids = {r["benchmark_id"] for r in
-                     facet("benchmark_id", "benchmark_id", "benchmark_id")}
-        if bid.isdigit():
-            bench_ids.add(int(bid))  # keep an excluded selection visible
-        ctx["browse_benches"] = [b for b in ctx["benches"]
-                                 if b["benchmark_id"] in bench_ids]
-        # keep an already-selected value visible even when the other
-        # filters exclude it, so it can be seen and un-selected
-        if task and task not in ctx["tasks"]:
-            ctx["tasks"].append(task)
-        if model and model not in facet_models:
-            facet_models.append(model)
+        where, params = ["1=1"], []
         if task:
             where.append("b.task = ?"); params.append(task)
         if model:
@@ -343,6 +317,51 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
             where.append("COALESCE(s.verified_score, s.score) < 1")
         elif outcome == "right":
             where.append("COALESCE(s.verified_score, s.score) >= 1")
+
+        # scope select contents (benchmarks table is small)
+        run_names = {r["run_id"]: r["run_name"] for r in ctx["run_list"]}
+        groups: list = []
+        cur = None
+        for b in ctx["benches"]:
+            if cur is None or cur["run_id"] != b["run_id"]:
+                cur = {"run_id": b["run_id"],
+                       "run_name": run_names.get(b["run_id"], ""), "benches": []}
+                groups.append(cur)
+            cur["benches"].append(b)
+        groups.sort(key=lambda g: -g["run_id"])
+        scope_tasks = [r["task"] for r in q(
+            "SELECT DISTINCT task FROM benchmarks ORDER BY task")]
+        scope_models = [r["model_tag"] for r in q(
+            "SELECT DISTINCT model_tag FROM benchmarks ORDER BY model_tag")]
+
+        # the current selection as a scope value (custom combos -> "")
+        active = [p for p in (("t", task), ("m", model), ("r", run), ("b", bid))
+                  if p[1]]
+        scope_value = f"{active[0][0]}:{active[0][1]}" if len(active) == 1 else ""
+
+        # plain-language chips describing every active filter; each chip's
+        # "remove" link is the same URL minus that parameter
+        def url_without(*keys):
+            kept = {k: v for k, v in request.args.items()
+                    if k not in keys and k not in ("scope", "page", "mode")}
+            return url_for("samples", mode="browse", **kept)
+        chips = []
+        if bid.isdigit():
+            lbl = next((f'run {o["run_id"]} · {o["model_tag"]} · '
+                        f'{o["task"]}({o["fewshot_k"]})'
+                        for o in ctx["benches"]
+                        if str(o["benchmark_id"]) == bid), f"benchmark {bid}")
+            chips.append((lbl, url_without("benchmark_id")))
+        if run.isdigit() and not bid.isdigit():
+            chips.append((f'run {run} · {run_names.get(int(run), "")}',
+                          url_without("run")))
+        if model and not bid.isdigit():
+            chips.append((model, url_without("model")))
+        if task and not bid.isdigit():
+            chips.append((task, url_without("task")))
+        if outcome in ("wrong", "right"):
+            chips.append((f"{outcome} only", url_without("outcome")))
+
         page = max(1, int(request.args.get("page", "1") or 1))
         total = q1(f"SELECT COUNT(*) AS n FROM samples s "
                    f"JOIN benchmarks b USING (benchmark_id) "
@@ -360,7 +379,9 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
             ORDER BY s.benchmark_id, CAST(s.sample_id AS INTEGER), s.sample_id
             LIMIT ? OFFSET ?""", params + [PAGE_SIZE, (page - 1) * PAGE_SIZE])
         ctx.update(rows=rows, total=total, page=page, page_size=PAGE_SIZE,
-                   models=facet_models)
+                   scope_groups=groups, scope_tasks=scope_tasks,
+                   scope_models=scope_models, scope_value=scope_value,
+                   chips=chips)
         return render_template("samples.html", **ctx)
 
     def _samples_pairwise(ctx):

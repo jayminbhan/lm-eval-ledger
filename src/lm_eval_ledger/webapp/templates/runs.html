@@ -46,8 +46,7 @@
     {% for b in benches %}
       <tr>
         <td>{{ b.model_tag }}</td>
-        <td><a href="{{ url_for('samples', mode='browse', benchmark_id=b.benchmark_id,
-                task=b.task, run=r.run_id, model=b.model_tag) }}">{{ b.task }}({{ b.fewshot_k }})</a></td>
+        <td><a href="{{ url_for('samples', mode='browse', scope='b:' ~ b.benchmark_id) }}">{{ b.task }}({{ b.fewshot_k }})</a></td>
         <td>{{ "%.3f"|format(b.accuracy) if b.accuracy is not none else "…" }}</td>
         <td>{{ "%.3f"|format(b.verified_accuracy) if b.verified_accuracy is not none else "-" }}</td>
         <td>{{ b.total_examples }}</td>

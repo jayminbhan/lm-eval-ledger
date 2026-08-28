@@ -13,36 +13,41 @@
         <option value="wrong" {{ "selected" if mode == "wrong" }}>always wrong</option>
         <option value="right" {{ "selected" if mode == "right" }}>always right</option>
       </select></label>
-    <label>task
+    <label class="notbrowse">task
       <select name="task" id="task-sel">
         <option value="">(all tasks)</option>
         {% for t in tasks %}
         <option {{ "selected" if args.get("task") == t }}>{{ t }}</option>
         {% endfor %}
       </select></label>
-    <label class="browse-only">run
-      <select name="run">
-        <option value="">(all runs)</option>
-        {% for r in run_list %}
-        <option value="{{ r.run_id }}" {{ "selected" if args.get("run") == r.run_id|string }}>
-          run {{ r.run_id }} · {{ r.run_name }}</option>
+    <label class="browse-only">show
+      <select name="scope" id="scope-sel">
+        <option value="">(everything)</option>
+        {% for g in scope_groups or [] %}
+        <optgroup label="run {{ g.run_id }} · {{ g.run_name }}">
+          {% for o in g.benches %}
+          <option value="b:{{ o.benchmark_id }}"
+            {{ "selected" if scope_value == "b:" ~ o.benchmark_id }}>
+            {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</option>
+          {% endfor %}
+        </optgroup>
         {% endfor %}
-      </select></label>
-    <label class="browse-only">benchmark
-      <select name="benchmark_id">
-        <option value="">(all benchmarks)</option>
-        {% for o in browse_benches or [] %}
-        <option value="{{ o.benchmark_id }}"
-          {{ "selected" if args.get("benchmark_id") == o.benchmark_id|string }}>
-          run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</option>
-        {% endfor %}
-      </select></label>
-    <label class="browse-only">model
-      <select name="model">
-        <option value="">(all models)</option>
-        {% for m in models or [] %}
-        <option {{ "selected" if args.get("model") == m }}>{{ m }}</option>
-        {% endfor %}
+        <optgroup label="by task (all runs & models)">
+          {% for t in scope_tasks or [] %}
+          <option value="t:{{ t }}" {{ "selected" if scope_value == "t:" ~ t }}>{{ t }}</option>
+          {% endfor %}
+        </optgroup>
+        <optgroup label="by run (all its benchmarks)">
+          {% for r in run_list %}
+          <option value="r:{{ r.run_id }}" {{ "selected" if scope_value == "r:" ~ r.run_id }}>
+            run {{ r.run_id }} · {{ r.run_name }}</option>
+          {% endfor %}
+        </optgroup>
+        <optgroup label="by model (all tasks & runs)">
+          {% for m in scope_models or [] %}
+          <option value="m:{{ m }}" {{ "selected" if scope_value == "m:" ~ m }}>{{ m }}</option>
+          {% endfor %}
+        </optgroup>
       </select></label>
     <label class="browse-only">outcome
       <select name="outcome">
@@ -136,7 +141,14 @@
 </table>
 
 {% elif mode == "browse" and rows is defined %}
-<p class="summary"><strong>{{ total }}</strong> samples · page {{ page }}
+<p class="summary">Showing
+  {% if chips %}
+    {% for label, remove_url in chips %}
+    <span class="chip">{{ label }} <a class="chip-x" href="{{ remove_url }}"
+      title="remove this filter">×</a></span>
+    {% endfor %}
+  {% else %}<span class="chip">everything</span>{% endif %}
+  — <strong>{{ total }}</strong> samples · page {{ page }}
   of {{ ((total - 1) // page_size) + 1 if total else 1 }}
   {% if page > 1 %}<a href="{{ url_for('samples', **dict(args, page=page-1)) }}">← prev</a>{% endif %}
   {% if page * page_size < total %}<a href="{{ url_for('samples', **dict(args, page=page+1)) }}">next →</a>{% endif %}
@@ -181,6 +193,8 @@ function syncUi() {
     e.style.display = (m === "wrong" || m === "right") ? "" : "none");
   document.querySelectorAll(".browse-only").forEach(e =>
     e.style.display = m === "browse" ? "" : "none");
+  document.querySelectorAll(".notbrowse").forEach(e =>
+    e.style.display = m === "browse" ? "none" : "");
   const t = taskSel.value;
   document.querySelectorAll("[data-task]").forEach(e => {
     if (e.tagName === "OPTION") e.hidden = t !== "" && e.dataset.task !== t;
@@ -190,20 +204,17 @@ function syncUi() {
 modeSel.addEventListener("change", syncUi);
 taskSel.addEventListener("change", syncUi);
 syncUi();
-// Browse filters are faceted server-side: every dropdown's options
-// depend on the other selections, so changing one re-submits the form
-// to re-render all boxes against the new state (dropping any stale
-// page number). The Apply button remains as the no-JS fallback.
-document.querySelectorAll(".browse-only select, #task-sel").forEach(sel =>
+// In browse mode the single scope select replaces the task box (task
+// remains for pairwise/consistency); scope and outcome apply on change.
+// Selecting a scope supersedes any legacy per-field params in the URL.
+document.querySelectorAll("#scope-sel, .browse-only select").forEach(sel =>
   sel.addEventListener("change", () => {
     if (modeSel.value !== "browse") return;
-    // a specific benchmark is narrower than task/run/model: changing a
-    // broader filter invalidates it, so clear it instead of carrying a
-    // stale benchmark into a zero-result page
-    const benchSel = sel.form.querySelector('select[name="benchmark_id"]');
-    if (benchSel && sel !== benchSel) benchSel.value = "";
-    const page = sel.form.querySelector('input[name="page"]');
-    if (page) page.remove();
+    ["task", "run", "model", "benchmark_id"].forEach(n => {
+      const el = sel.form.querySelector(`[name="${n}"]`);
+      if (el && el.id !== "task-sel") el.remove();
+      else if (el) el.value = "";
+    });
     sel.form.submit();
   }));
 </script>

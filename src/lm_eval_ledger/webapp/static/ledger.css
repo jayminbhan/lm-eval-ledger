@@ -276,3 +276,10 @@ table .btn.danger { padding: 0.1rem 0.45rem; font-size: 0.7rem; }
   max-height: 4.5rem; max-width: 8rem; border: 1px solid var(--border);
   border-radius: 6px; display: block; margin-bottom: 0.3rem;
 }
+
+/* ---- browse scope chips ---- */
+.summary .chip { margin-right: 0.3rem; }
+.chip-x { color: var(--muted); text-decoration: none; margin-left: 0.25rem;
+  font-weight: 700; }
+.chip-x:hover { color: var(--bad); }
+#scope-sel { max-width: 34rem; }
