@@ -28,6 +28,7 @@ models:
   - name: Qwen/Qwen3.5-9B
     chat_template_kwargs: {enable_thinking: true}
   - google/gemma-4-12B-it-qat-w4a16-ct   # gated: needs `hf auth login`
+
   # - name: qwen3.8-27b-quant            # a model served over an API
   #   backend: server
   #   server_url: http://localhost:8080/v1
@@ -45,15 +46,17 @@ models:
 # \boxed{} extraction), _logprob_token (first-token log-probability),
 # _logprob_seq (completion log-likelihood; vllm/hf backends only).
 tasks:
-  # - aime_2025:0
-  # - gpqa_diamond_generate
-  # - gsm8k_main:0
-  - livecodebench:0
-  # - {name: mmlu_pro_generate, fewshot: [0, 4]}
+  - aime_2025:0
+  - gpqa_diamond_generate
+  - gsm8k_main:0
+  - livecodebench
+  - gsm8k_main:4
+  - math500
+  - {name: mmlu_pro_generate, fewshot: [4,0]}
 
 # ── Evaluation size ─────────────────────────────────────────
 # max_examples: cap per task - small number for smoke tests, null = all.
-max_examples: 50
+max_examples: null
 
 # batch_size: split generation into chunks of this many prompts.
 #   null (default) = one engine call per task - best vllm/sglang

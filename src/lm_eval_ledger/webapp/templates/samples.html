@@ -190,5 +190,21 @@ function syncUi() {
 modeSel.addEventListener("change", syncUi);
 taskSel.addEventListener("change", syncUi);
 syncUi();
+// Browse filters are faceted server-side: every dropdown's options
+// depend on the other selections, so changing one re-submits the form
+// to re-render all boxes against the new state (dropping any stale
+// page number). The Apply button remains as the no-JS fallback.
+document.querySelectorAll(".browse-only select, #task-sel").forEach(sel =>
+  sel.addEventListener("change", () => {
+    if (modeSel.value !== "browse") return;
+    // a specific benchmark is narrower than task/run/model: changing a
+    // broader filter invalidates it, so clear it instead of carrying a
+    // stale benchmark into a zero-result page
+    const benchSel = sel.form.querySelector('select[name="benchmark_id"]');
+    if (benchSel && sel !== benchSel) benchSel.value = "";
+    const page = sel.form.querySelector('input[name="page"]');
+    if (page) page.remove();
+    sel.form.submit();
+  }));
 </script>
 {% endblock %}
