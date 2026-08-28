@@ -67,7 +67,7 @@
           {{ "selected" if args.get("b")|string == o.benchmark_id|string }}>
           run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</option>
       {% endfor %}</select></label>
-    <button type="submit">Apply</button>
+    <button type="submit" class="notcons">Apply</button>
   </div>
   <label class="benchbox cons-only"><span class="benchcap">benchmarks (none checked = all)</span>
     <div class="benchlist">
@@ -80,6 +80,9 @@
       {% endfor %}
     </div>
   </label>
+  <div class="cons-only applyrow">
+    <button type="submit">Apply</button>
+  </div>
 </form>
 
 {% if mode == "pairwise" and pairs is not none %}
@@ -191,6 +194,8 @@ function syncUi() {
     e.style.display = m === "pairwise" ? "" : "none");
   document.querySelectorAll(".cons-only").forEach(e =>
     e.style.display = (m === "wrong" || m === "right") ? "" : "none");
+  document.querySelectorAll(".notcons").forEach(e =>
+    e.style.display = (m === "wrong" || m === "right") ? "none" : "");
   document.querySelectorAll(".browse-only").forEach(e =>
     e.style.display = m === "browse" ? "" : "none");
   document.querySelectorAll(".notbrowse").forEach(e =>

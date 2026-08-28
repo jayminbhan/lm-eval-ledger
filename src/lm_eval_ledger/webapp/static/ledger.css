@@ -283,3 +283,8 @@ table .btn.danger { padding: 0.1rem 0.45rem; font-size: 0.7rem; }
   font-weight: 700; }
 .chip-x:hover { color: var(--bad); }
 #scope-sel { max-width: 34rem; }
+.summary .chip {
+  flex-direction: row; align-items: baseline; gap: 0.35rem;
+  white-space: nowrap; padding: 0.3rem 0.6rem;
+}
+.applyrow { margin-top: 0.7rem; }
