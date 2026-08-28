@@ -233,18 +233,24 @@ def extract_last_number(text: str) -> str:
 
 
 def extract_boxed(text: str) -> str:
-    """Extract content from \\boxed{...}, falling back to the full text."""
-    match = _BOXED_RE.search(text)
-    if match:
-        return match.group(1).strip()
+    """Extract content from the LAST \\boxed{...}, falling back to the full text."""
+    matches = _BOXED_RE.findall(text)
+    if matches:
+        return matches[-1].strip()
     return text.strip()
 
 
 def extract_boxed_strict(text: str) -> str:
-    """Extract content from the FIRST \\boxed{...}, or "" if none found."""
-    match = _BOXED_RE.search(text)
-    if match:
-        return match.group(1).strip()
+    """Extract content from the LAST \\boxed{...}, or "" if none found.
+
+    Last, not first: the format instruction says to END the response with
+    the boxed answer, and reasoning models routinely restate the
+    instruction (a literal \\boxed{<answer>}) or box intermediate values
+    while thinking before concluding. The final box is the answer.
+    """
+    matches = _BOXED_RE.findall(text)
+    if matches:
+        return matches[-1].strip()
     return ""
 
 
