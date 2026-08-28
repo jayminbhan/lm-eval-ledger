@@ -50,6 +50,8 @@
   <details><summary class="muted">thinking ({{ "{:,}".format(thinking|length) }} chars, ends with &lt;/think&gt;)</summary>
     <pre>{{ thinking }}</pre></details>
   <pre>{{ answer }}</pre>
+  <details><summary class="muted">raw stored text ({{ "{:,}".format(r.get("text", "")|length) }} chars, byte-exact, no splitting)</summary>
+    <pre>{{ r.get("text", "") }}</pre></details>
   {% else %}
   <pre>{{ r.get("text", "") }}</pre>
   {% endif %}
