@@ -292,3 +292,8 @@ tr.rowlink { cursor: pointer; }
 tr.rowlink:hover td { background: var(--accent-soft); }
 tr.rowlink.regressed:hover td { background: #fee5e5; }
 tr.rowlink.improved:hover td { background: #e2f7e9; }
+.noanswer {
+  color: var(--bad); background: var(--bad-bg);
+  border: 1px dashed var(--bad); border-radius: 8px;
+  padding: 0.6rem 0.9rem; font-size: 0.85rem;
+}

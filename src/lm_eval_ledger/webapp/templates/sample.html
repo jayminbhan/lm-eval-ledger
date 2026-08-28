@@ -49,7 +49,13 @@
   {% if thinking %}
   <details><summary class="muted">thinking ({{ "{:,}".format(thinking|length) }} chars, ends with &lt;/think&gt;)</summary>
     <pre>{{ thinking }}</pre></details>
+  {% if answer.strip() %}
   <pre>{{ answer }}</pre>
+  {% else %}
+  <p class="noanswer">No answer text after the thinking block - generation
+    ended inside it ({{ r.get("stop_reason") }}). The full output is under
+    "thinking" above.</p>
+  {% endif %}
   <details><summary class="muted">raw stored text ({{ "{:,}".format(r.get("text", "")|length) }} chars, byte-exact, no splitting)</summary>
     <pre>{{ r.get("text", "") }}</pre></details>
   {% else %}
