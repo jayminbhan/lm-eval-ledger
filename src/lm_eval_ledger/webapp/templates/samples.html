@@ -163,7 +163,8 @@
   <tbody>
   {% for r in rows %}
     {% set eff = r.verified_score if r.verified_score is not none else r.score %}
-    <tr class="{{ 'improved' if eff >= 1 else 'regressed' }}">
+    <tr class="{{ 'improved' if eff >= 1 else 'regressed' }} rowlink"
+        data-href="{{ url_for('sample', pk=r.sample_pk) }}">
       <td><a href="{{ url_for('sample', pk=r.sample_pk) }}">{{ r.sample_id|trunc(24) }}</a>
         <div class="muted small">bench {{ r.benchmark_id }}</div></td>
       <td>{{ r.model_tag }}<div class="muted small">{{ r.task }}</div></td>
@@ -206,6 +207,15 @@ function syncUi() {
     else e.hidden = t !== "" && e.dataset.task !== t;
   });
 }
+// Whole-row click opens the sample detail. Real links inside the row
+// (sample id, image thumbnails) keep their own behavior, and a drag
+// that selected text is not treated as a click.
+document.querySelectorAll("tr.rowlink").forEach(tr =>
+  tr.addEventListener("click", e => {
+    if (e.target.closest("a")) return;
+    if (window.getSelection().toString()) return;
+    window.location = tr.dataset.href;
+  }));
 modeSel.addEventListener("change", syncUi);
 taskSel.addEventListener("change", syncUi);
 syncUi();

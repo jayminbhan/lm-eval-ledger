@@ -29,10 +29,14 @@ models:
 #    chat_template_kwargs: {enable_thinking: true}
 #  - google/gemma-4-12B-it-qat-w4a16-ct   # gated: needs `hf auth login`
 
-  - name: qwen3.8-27b-quant            # a model served over an API
+  # name must match what the server reports at /v1/models (add
+  # --alias qwen3.8-27b-quant to the llama-server command to use a
+  # shorter tag instead)
+  - name: unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL
     backend: server
     server_url: http://localhost:8080/v1
-    chat_template_kwargs: {enable_thinking: true}
+    chat_template_kwargs: {enable_thinking: true, reasoning_effort: high}
+
 
 # ── Tasks ───────────────────────────────────────────────────
 # Which benchmarks to run. Forms:
@@ -48,11 +52,11 @@ models:
 tasks:
   - aime_2025:0
   - gpqa_diamond_generate
-  - gsm8k_main:0
+#  - gsm8k_main:0
   - livecodebench
   - gsm8k_main:4
   - math500
-  - {name: mmlu_pro_generate, fewshot: [4,0]}
+  - {name: mmlu_pro_generate, fewshot: [4]}
 
 # ── Evaluation size ─────────────────────────────────────────
 # max_examples: cap per task - small number for smoke tests, null = all.
@@ -84,7 +88,7 @@ apply_chat_template: true
 # `curl <server>/props`), or just run interactively - if this field is
 # unset and knobs are detected, the CLI offers a menu and prints the
 # YAML to make your choice permanent. {} = template defaults, no menu.
-chat_template_kwargs: {}
+# chat_template_kwargs: {}
 
 # ── Sampling ────────────────────────────────────────────────
 temperature: 0.6    # 0 = greedy/deterministic. Thinking models often
@@ -112,7 +116,7 @@ backend: vllm
 # ── Server backend settings (backend: server only) ─────────
 server_url: http://localhost:8080/v1   # the endpoint's /v1 base
 api_key: null                # bearer token, for endpoints that need one
-server_concurrency: 8        # in-flight requests; match the server's
+server_concurrency: 4        # = llama-server -np slots
                              # parallel slots (llama-server -np)
 request_timeout: 600         # seconds per request; big models + long
                              # generations can legitimately take minutes

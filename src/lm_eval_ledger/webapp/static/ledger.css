@@ -288,3 +288,7 @@ table .btn.danger { padding: 0.1rem 0.45rem; font-size: 0.7rem; }
   white-space: nowrap; padding: 0.3rem 0.6rem;
 }
 .applyrow { margin-top: 0.7rem; }
+tr.rowlink { cursor: pointer; }
+tr.rowlink:hover td { background: var(--accent-soft); }
+tr.rowlink.regressed:hover td { background: #fee5e5; }
+tr.rowlink.improved:hover td { background: #e2f7e9; }
