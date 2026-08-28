@@ -499,10 +499,19 @@ def run_task(
 
         print(f"[INFO] Running batch inference on {len(prompts)} examples...")
         inference_start = time.time()
+        # Task stop strings ("Question:", ...) exist to end few-shot
+        # COMPLETION-mode continuation, where the model would otherwise
+        # invent the next question. In chat mode that format doesn't
+        # exist - the model answers once and emits EOS - and the only
+        # effect of the stop is killing chat/thinking models mid-response
+        # when they restate the question ("Question: ..." while
+        # reasoning). Chat mode therefore relies on EOS alone.
+        use_stop = task.stop_strings if (task.stop_strings
+                                         and not cfg.apply_chat_template) else None
         gen_kwargs = dict(
             temperature=cfg.temperature, top_p=cfg.top_p,
             max_tokens=cfg.max_tokens,
-            stop=task.stop_strings if task.stop_strings else None,
+            stop=use_stop,
             n=cfg.pass_k, seed=cfg.seed, batch_size=cfg.batch_size,
             on_result=on_result,
         )
