@@ -93,42 +93,69 @@ def _yaml_snippet(kwargs: dict) -> str:
     return "\n".join(lines)
 
 
-def maybe_prompt_thinking_mode(cfg, model: str) -> None:
-    """Interactively pick a thinking mode when the config left it unset.
+def maybe_prompt_thinking_mode(cfg) -> None:
+    """Interactively pick thinking modes when the config left them unset.
 
-    Mutates cfg.chat_template_kwargs in place; no-ops when non-interactive,
-    chat templating is off, the config already chose (even {}), or the
-    template has no recognizable knobs.
+    Asks once PER MODEL whose entry has no chat_template_kwargs override
+    (skipping models whose templates expose no knobs); each answer is
+    stored as that model's per-model override, and a copy-paste YAML
+    models: snippet is printed to make the choices permanent. No-ops
+    when non-interactive, chat templating is off, or the global
+    chat_template_kwargs is set ({} = explicit opt-out).
     """
     if not cfg.apply_chat_template or cfg.chat_template_kwargs is not None:
         return
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         return
-    template = fetch_chat_template(cfg, model)
-    if not template:
-        return
-    knobs = detect_thinking_knobs(template)
-    if not knobs:
-        return
+    from dataclasses import replace as _dc_replace
 
-    choices = _build_choices(knobs)
-    print(f"\n[THINKING] {model}'s chat template supports thinking-mode "
-          f"knobs: {', '.join(knobs)}")
-    print("[THINKING] chat_template_kwargs is not set in your config - "
-          "choose a mode for this run:")
-    for i, (label, _) in enumerate(choices, 1):
-        print(f"  {i}) {label}")
-    while True:
-        raw = input(f"Select 1-{len(choices)} [1]: ").strip() or "1"
-        if raw.isdigit() and 1 <= int(raw) <= len(choices):
-            break
-        print("Invalid choice.")
-    _, kwargs = choices[int(raw) - 1]
-    if kwargs is None:
+    from .config import model_spec
+
+    chosen: list[tuple[str, dict | None]] = []
+    for idx, entry in enumerate(cfg.models):
+        name, overrides = model_spec(entry)
+        if "chat_template_kwargs" in overrides:
+            continue  # this model already chose in the config
+        eff = (_dc_replace(cfg, **overrides) if overrides else cfg)
+        template = fetch_chat_template(eff, name)
+        if not template:
+            continue
+        knobs = detect_thinking_knobs(template)
+        if not knobs:
+            continue
+
+        choices = _build_choices(knobs)
+        print(f"\n[THINKING] {name}'s chat template supports thinking-mode "
+              f"knobs: {', '.join(knobs)}")
+        print("[THINKING] chat_template_kwargs is not set for this model - "
+              "choose a mode for this run:")
+        for i, (label, _) in enumerate(choices, 1):
+            print(f"  {i}) {label}")
+        while True:
+            raw = input(f"Select 1-{len(choices)} [1]: ").strip() or "1"
+            if raw.isdigit() and 1 <= int(raw) <= len(choices):
+                break
+            print("Invalid choice.")
+        _, kwargs = choices[int(raw) - 1]
+        chosen.append((name, kwargs))
+        if kwargs is not None:
+            cfg.models[idx] = {"name": name, **overrides,
+                               "chat_template_kwargs": kwargs}
+
+    if not chosen:
+        return
+    if all(kw is None for _, kw in chosen):
         print("[THINKING] Using template defaults. To silence this prompt, "
               "add to your config:\n  chat_template_kwargs: {}")
         cfg.chat_template_kwargs = {}
         return
-    cfg.chat_template_kwargs = kwargs
-    print(f"[THINKING] Applied. To make this permanent, add to your config:\n"
-          f"{_yaml_snippet(kwargs)}")
+    print("[THINKING] Applied. To make this permanent, use these models: "
+          "entries in your config:")
+    for name, kwargs in chosen:
+        if kwargs is None:
+            print(f"  - {name}")
+        else:
+            inner = ", ".join(
+                f"{k}: {str(v).lower() if isinstance(v, bool) else v}"
+                for k, v in kwargs.items())
+            print(f"  - name: {name}\n    chat_template_kwargs: {{{inner}}}")

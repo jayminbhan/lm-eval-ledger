@@ -25,14 +25,14 @@
 # turn thinking ON for Qwen only; gemma's template has no thinking knob
 # and keeps the global settings.
 models:
-  - name: Qwen/Qwen3.5-9B
-    chat_template_kwargs: {enable_thinking: true}
-  - google/gemma-4-12B-it-qat-w4a16-ct   # gated: needs `hf auth login`
+ # - name: Qwen/Qwen3.5-9B
+#    chat_template_kwargs: {enable_thinking: true}
+#  - google/gemma-4-12B-it-qat-w4a16-ct   # gated: needs `hf auth login`
 
-  # - name: qwen3.8-27b-quant            # a model served over an API
-  #   backend: server
-  #   server_url: http://localhost:8080/v1
-  # - verl:/path/to/verl-run
+  - name: qwen3.8-27b-quant            # a model served over an API
+    backend: server
+    server_url: http://localhost:8080/v1
+    chat_template_kwargs: {enable_thinking: true}
 
 # ── Tasks ───────────────────────────────────────────────────
 # Which benchmarks to run. Forms:
