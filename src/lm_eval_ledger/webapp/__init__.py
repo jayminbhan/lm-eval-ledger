@@ -320,15 +320,15 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
 
         # scope select contents (benchmarks table is small)
         run_names = {r["run_id"]: r["run_name"] for r in ctx["run_list"]}
-        groups: list = []
-        cur = None
+        by_run: dict[int, dict] = {}
         for b in ctx["benches"]:
-            if cur is None or cur["run_id"] != b["run_id"]:
-                cur = {"run_id": b["run_id"],
-                       "run_name": run_names.get(b["run_id"], ""), "benches": []}
-                groups.append(cur)
-            cur["benches"].append(b)
-        groups.sort(key=lambda g: -g["run_id"])
+            g = by_run.setdefault(b["run_id"], {
+                "run_id": b["run_id"],
+                "run_name": run_names.get(b["run_id"], ""), "benches": []})
+            g["benches"].append(b)
+        groups = sorted(by_run.values(), key=lambda g: -g["run_id"])
+        for g in groups:
+            g["benches"].sort(key=lambda b: b["benchmark_id"])
         scope_tasks = [r["task"] for r in q(
             "SELECT DISTINCT task FROM benchmarks ORDER BY task")]
         scope_models = [r["model_tag"] for r in q(
