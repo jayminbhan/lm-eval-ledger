@@ -58,10 +58,19 @@ def _fmt_bytes(n) -> str:
     return f"{n:.1f} GB"
 
 
-def create_app(db_path: Path, token: str | None = None) -> Flask:
+def create_app(db_path: Path, token: str | None = None,
+               read_only: bool = False) -> Flask:
     app = Flask(__name__)
     app.secret_key = secrets.token_hex(32)
     app.config["DB_PATH"] = Path(db_path)
+    # read_only hard-disables the write routes (delete/compact): they
+    # return 403 and their buttons are not rendered. For public
+    # deployments (e.g. HF Spaces) where anyone can click anything.
+    app.config["READ_ONLY"] = bool(read_only)
+
+    @app.context_processor
+    def _flags():
+        return {"read_only": app.config["READ_ONLY"]}
 
     def q(sql: str, params=()) -> list[sqlite3.Row]:
         con = _connect(app.config["DB_PATH"])
@@ -206,6 +215,8 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
     # ---------- the write routes: delete + compact (POST-only) ----------
 
     def _rw(statements: list[tuple[str, tuple]]) -> None:
+        if app.config["READ_ONLY"]:
+            abort(403)
         con = _connect_rw(app.config["DB_PATH"])
         try:
             for sql, params in statements:
@@ -528,12 +539,16 @@ def main(argv=None) -> None:
     p.add_argument("--port", type=int, default=8090)
     p.add_argument("--token", default=None,
                    help="shared access token gating all pages (team sharing)")
+    p.add_argument("--read-only", action="store_true",
+                   help="disable the delete/compact actions entirely "
+                        "(for public deployments)")
     p.add_argument("--debug", action="store_true")
     args = p.parse_args(argv)
     if not args.db.exists():
         print(f"[ERROR] Ledger not found: {args.db}", file=sys.stderr)
         sys.exit(1)
-    app = create_app(args.db, token=args.token)
+    app = create_app(args.db, token=args.token,
+                     read_only=args.read_only)
     print(f"[SERVE] Ledger viewer on http://{args.host}:{args.port} "
           f"(db: {args.db})")
     app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)
