@@ -98,7 +98,10 @@ def create_app(db_path: Path, token: str | None = None) -> Flask:
         """'2026-08-27T21:12:56' -> 'Aug 27, 2026 21:12'."""
         from datetime import datetime
         try:
-            return datetime.fromisoformat(str(iso)).strftime("%b %-d, %Y %H:%M")
+            dt = datetime.fromisoformat(str(iso))
+            # %-d is glibc-only (Windows strftime rejects it); build the
+            # day portably instead
+            return f"{dt.strftime('%b')} {dt.day}, {dt.year} {dt.strftime('%H:%M')}"
         except (ValueError, TypeError):
             return iso or ""
 
