@@ -48,7 +48,15 @@ def detect_thinking_knobs(template: str) -> dict:
     knobs: dict = {}
     for k in _BOOL_KNOBS:
         if re.search(rf"\b{k}\b", template):
-            knobs[k] = {"type": "bool"}
+            # the template's own default, when statically visible:
+            #   {k} if {k} is defined else True   |   {k} | default(true)
+            m = re.search(
+                rf"{k}\s+is\s+defined\s+else\s+(True|False|true|false)"
+                rf"|{k}\s*\|\s*default\(\s*(True|False|true|false)", template)
+            default = None
+            if m:
+                default = (m.group(1) or m.group(2)).lower() == "true"
+            knobs[k] = {"type": "bool", "default": default}
     for k in _ENUM_KNOBS:
         if re.search(rf"\b{k}\b", template):
             options = sorted(set(
@@ -66,9 +74,13 @@ def detect_thinking_knobs(template: str) -> dict:
 
 def _build_choices(knobs: dict) -> list[tuple[str, dict | None]]:
     """(label, kwargs) menu entries; kwargs None = send nothing."""
-    choices: list[tuple[str, dict | None]] = [
-        ("template default (send nothing)", None)]
     bool_knob = next((k for k in _BOOL_KNOBS if k in knobs), None)
+    bool_default = knobs[bool_knob].get("default") if bool_knob else None
+    default_note = ("" if bool_default is None else
+                    f" = thinking {'ON' if bool_default else 'OFF'}"
+                    f" for this model")
+    choices: list[tuple[str, dict | None]] = [
+        (f"template default (send nothing{default_note})", None)]
     enum = knobs.get("reasoning_effort")
     if bool_knob:
         choices.append((f"thinking off  ({bool_knob}: false)",
