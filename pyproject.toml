@@ -3,6 +3,7 @@ name = "lm-eval-ledger"
 version = "0.1.0"
 description = "vLLM-based LLM benchmark harness that records every prompt, response, and score to SQLite"
 readme = "README.md"
+license = { text = "MIT" }
 authors = [
     { name = "Jaymin Bhan", email = "jayminbhan@gmail.com" }
 ]
@@ -13,11 +14,11 @@ dependencies = [
     "huggingface-hub>=0.23",
     "httpx>=0.27",
     "flask>=3.0",
-    "datasette>=0.65.3",
 ]
 
 keywords = ["llm", "evaluation", "benchmark", "vllm", "eval-harness"]
 classifiers = [
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

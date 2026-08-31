@@ -25,17 +25,17 @@
 # turn thinking ON for Qwen only; gemma's template has no thinking knob
 # and keeps the global settings.
 models:
- # - name: Qwen/Qwen3.5-9B
-#    chat_template_kwargs: {enable_thinking: true}
+  - name: Qwen/Qwen3.5-9B
+    chat_template_kwargs: {enable_thinking: false}
 #  - google/gemma-4-12B-it-qat-w4a16-ct   # gated: needs `hf auth login`
 
   # name must match what the server reports at /v1/models (add
   # --alias qwen3.8-27b-quant to the llama-server command to use a
   # shorter tag instead)
-  - name: unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL
-    backend: server
-    server_url: http://localhost:8080/v1
-    chat_template_kwargs: {enable_thinking: true, reasoning_effort: high}
+#  - name: unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL
+#    backend: server
+#    server_url: http://localhost:8080/v1
+#    chat_template_kwargs: {enable_thinking: true, reasoning_effort: high}
 
 
 # ── Tasks ───────────────────────────────────────────────────
@@ -56,7 +56,7 @@ tasks:
   - livecodebench
   - gsm8k_main:4
   - math500
-  - {name: mmlu_pro_generate, fewshot: [4]}
+#  - {name: mmlu_pro_generate, fewshot: [4]}
 
 # ── Evaluation size ─────────────────────────────────────────
 # max_examples: cap per task - small number for smoke tests, null = all.
