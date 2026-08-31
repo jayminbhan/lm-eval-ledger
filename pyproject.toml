@@ -25,17 +25,24 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 [project.optional-dependencies]
-vllm = ["vllm>=0.28", "bitsandbytes>=0.45"]
+# vllm/sglang publish Linux-only wheels; the platform markers keep
+# `pip install lm-eval-ledger[vllm]` (and [all]) resolvable on Windows
+# by skipping them there - the harness explains at runtime instead.
+# Windows-supported routes: base install (server backend) and [hf].
+vllm = ["vllm>=0.28; sys_platform == 'linux'",
+        "bitsandbytes>=0.45; sys_platform == 'linux'"]
 hf = ["torch>=2.4", "transformers>=4.48", "accelerate>=1.2"]
-sglang = ["sglang>=0.4"]
+sglang = ["sglang>=0.4; sys_platform == 'linux'"]
 all = [
-    "vllm>=0.28", "bitsandbytes>=0.45",
+    "vllm>=0.28; sys_platform == 'linux'",
+    "bitsandbytes>=0.45; sys_platform == 'linux'",
     "torch>=2.4", "transformers>=4.48", "accelerate>=1.2",
-    "sglang>=0.4",
+    "sglang>=0.4; sys_platform == 'linux'",
 ]
 
 [project.scripts]

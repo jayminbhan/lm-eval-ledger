@@ -39,12 +39,12 @@ Every field is documented in [`configs/reference.yaml`](configs/reference.yaml) 
 
 One config format, four engines — pick at install time:
 
-| backend | install | eval modes | notes |
-|---|---|---|---|
-| `vllm` | `pip install lm-eval-ledger[vllm]` | generate, logprob_token, logprob_seq | in-process, fastest |
-| `hf` | `pip install lm-eval-ledger[hf]` | all three | transformers + accelerate; every architecture; slow |
-| `sglang` | `pip install lm-eval-ledger[sglang]` | generate, logprob_token | in-process sglang.Engine |
-| `server` | *(no extra)* | generate, logprob_token* | any OpenAI-compatible endpoint |
+| backend | install | eval modes | OS | notes |
+|---|---|---|---|---|
+| `vllm` | `pip install lm-eval-ledger[vllm]` | generate, logprob_token, logprob_seq | Linux | in-process, fastest |
+| `hf` | `pip install lm-eval-ledger[hf]` | all three | Linux, Windows | transformers + accelerate; every architecture; slow |
+| `sglang` | `pip install lm-eval-ledger[sglang]` | generate, logprob_token | Linux | in-process sglang.Engine |
+| `server` | *(no extra)* | generate, logprob_token* | Linux, Windows | any OpenAI-compatible endpoint |
 
 `backend: server` benchmarks **llama.cpp, ollama, LM Studio, remote vLLM/SGLang, or hosted APIs** — anything speaking the OpenAI chat API. llama.cpp example:
 
@@ -59,6 +59,10 @@ server_concurrency: 4        # match the server's -np slots
 ```
 
 \* logprob mode requires an endpoint that returns logprobs.
+
+On Windows, the base install (`server` backend) and `[hf]` are fully
+supported; `[vllm]`/`[sglang]` skip their Linux-only engines at install
+time (so `[all]` still resolves) and explain if selected at runtime.
 
 ## The ledger
 

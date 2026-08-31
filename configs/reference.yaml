@@ -154,6 +154,8 @@ verifier_max_model_len: 16384
 # Per-model backend overrides (section 1) let one run mix backends.
 
 backend: vllm       # vllm | hf | sglang | server
+                    # Windows: server and hf are native; vllm/sglang
+                    # are Linux-only (no Windows wheels upstream)
 
 # ── backend: vllm ───────────────────────────────────────────
 # In-process, fastest, all eval modes. pip install lm-eval-ledger[vllm]

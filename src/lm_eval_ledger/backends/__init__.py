@@ -26,9 +26,16 @@ def get_backend(name: str) -> Backend:
             f"Unknown backend {name!r}. Available: {', '.join(BACKEND_NAMES)}")
     module_name, class_name, extra = _BACKENDS[name]
     import importlib
+    import sys
     try:
         module = importlib.import_module(module_name, package=__name__)
     except ImportError as e:
+        if name in ("vllm", "sglang") and sys.platform != "linux":
+            raise RuntimeError(
+                f"Backend {name!r} is Linux-only ({name} publishes no "
+                f"{sys.platform} wheels). On this platform use "
+                f"backend: hf, or backend: server against a native "
+                f"llama.cpp / ollama / LM Studio endpoint.") from e
         hint = (f"pip install lm-eval-ledger[{extra}]" if extra
                 else "pip install httpx")
         raise RuntimeError(
