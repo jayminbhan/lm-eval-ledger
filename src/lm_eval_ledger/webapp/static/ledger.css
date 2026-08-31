@@ -297,3 +297,11 @@ tr.rowlink.improved:hover td { background: #e2f7e9; }
   border: 1px dashed var(--bad); border-radius: 8px;
   padding: 0.6rem 0.9rem; font-size: 0.85rem;
 }
+.btn:disabled {
+  opacity: 0.45; cursor: not-allowed;
+  pointer-events: auto;  /* keep the explanatory tooltip on hover */
+}
+.btn.danger:disabled:hover { background: #fff; color: var(--bad);
+  border-color: var(--border); box-shadow: none; }
+.btn.subtle:disabled:hover { color: var(--muted);
+  border-color: var(--border); box-shadow: none; }

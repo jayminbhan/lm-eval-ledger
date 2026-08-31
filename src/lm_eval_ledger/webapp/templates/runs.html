@@ -4,12 +4,10 @@
 <div class="lbhead">
   <h1>Run History</h1>
   <span class="muted">ledger file: {{ db_file_bytes|fmtbytes }}</span>
-  {% if not read_only %}
   <form method="post" action="{{ url_for('compact') }}" class="inlineform"
         onsubmit="return confirm('Compact the database file? This reclaims space freed by deleted runs. It can take a while on a large ledger and blocks writers while running.')">
-    <button type="submit" class="btn subtle">compact</button>
+    <button type="submit" class="btn subtle" {{ "disabled title='disabled: read-only viewer'"|safe if read_only }}>compact</button>
   </form>
-  {% endif %}
 </div>
 {% for r in runs %}
 <section class="panel">
@@ -18,12 +16,10 @@
     <span class="rowactions">
       <span class="muted">{{ r.started_at|fmtdate }}
         · {{ run_bytes.get(r.run_id, 0)|fmtbytes }} of samples</span>
-      {% if not read_only %}
       <form method="post" action="{{ url_for('delete_run', run_id=r.run_id) }}" class="inlineform"
             onsubmit="return confirm('Delete run {{ r.run_id }} ({{ r.run_name }}) and ALL its benchmarks and samples? This cannot be undone.')">
-        <button type="submit" class="btn danger">delete run</button>
+        <button type="submit" class="btn danger" {{ "disabled title='disabled: read-only viewer'"|safe if read_only }}>delete run</button>
       </form>
-      {% endif %}
     </span>
   </div>
   {% if r.source_yaml or r.config_yaml %}
@@ -58,12 +54,10 @@
         <td class="muted">{{ bench_bytes.get(b.benchmark_id, 0)|fmtbytes }}</td>
         <td class="err">{{ b.error|trunc(60) if b.error else "" }}</td>
         <td>
-          {% if not read_only %}
           <form method="post" action="{{ url_for('delete_benchmark', bid=b.benchmark_id) }}" class="inlineform"
                 onsubmit="return confirm('Delete {{ b.task }}({{ b.fewshot_k }}) of run {{ r.run_id }} and its samples? This cannot be undone.')">
-            <button type="submit" class="btn danger">delete</button>
+            <button type="submit" class="btn danger" {{ "disabled title='disabled: read-only viewer'"|safe if read_only }}>delete</button>
           </form>
-          {% endif %}
         </td>
       </tr>
     {% endfor %}
