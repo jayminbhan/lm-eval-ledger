@@ -54,6 +54,10 @@ def main() -> None:
         from .webapp import main as serve_main
         serve_main(sys.argv[2:])
         return
+    if len(sys.argv) > 1 and sys.argv[1] == "init":
+        from .init_cmd import main as init_main
+        init_main(sys.argv[2:])
+        return
 
     args = build_arg_parser().parse_args()
 

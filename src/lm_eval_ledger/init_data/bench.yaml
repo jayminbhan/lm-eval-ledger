@@ -1,0 +1,22 @@
+# bench.yaml - lm-eval-ledger starter config
+# (created by `lm-eval-ledger init`; picked up automatically by
+#  `lm-eval-ledger` when run in this directory)
+#
+# Every available field, explained: ./reference.yaml
+# Every task string:                ./TASKS.md
+
+models:
+  - Qwen/Qwen2.5-7B-Instruct
+
+tasks:
+  - gsm8k_main:0
+
+# small smoke-test cap; set to null for full runs
+max_examples: 20
+
+backend: vllm            # vllm | hf | sglang | server (see reference.yaml)
+apply_chat_template: true
+temperature: 0.6
+top_p: 0.95
+max_tokens: 2048
+max_model_len: 8192
