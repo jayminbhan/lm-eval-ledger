@@ -304,6 +304,11 @@ def create_app(db_path: Path, token: str | None = None,
             "args": request.args,
         }
         if mode == "pairwise":
+            # a benchmark without an accuracy (in progress / never
+            # finished) has nothing to pairwise-compare; newest runs first
+            ctx["pair_benches"] = sorted(
+                (b for b in ctx["benches"] if b["acc"] is not None),
+                key=lambda b: (-b["run_id"], b["benchmark_id"]))
             return _samples_pairwise(ctx)
         if mode in ("wrong", "right"):
             return _samples_consistency(ctx)

@@ -56,13 +56,13 @@
         <option value="right" {{ "selected" if args.get("outcome") == "right" }}>right only</option>
       </select></label>
     <label class="pair-only">benchmark A
-      <select name="a">{% for o in benches %}
+      <select name="a">{% for o in pair_benches or benches %}
         <option value="{{ o.benchmark_id }}" data-task="{{ o.task }}"
           {{ "selected" if args.get("a")|string == o.benchmark_id|string }}>
           run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</option>
       {% endfor %}</select></label>
     <label class="pair-only">benchmark B
-      <select name="b">{% for o in benches %}
+      <select name="b">{% for o in pair_benches or benches %}
         <option value="{{ o.benchmark_id }}" data-task="{{ o.task }}"
           {{ "selected" if args.get("b")|string == o.benchmark_id|string }}>
           run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</option>
