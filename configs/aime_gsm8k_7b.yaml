@@ -94,7 +94,7 @@ apply_chat_template: true
 temperature: 0.6    # 0 = greedy/deterministic. Thinking models often
                     # NEED sampling (Qwen3: 0.6) - check the model card.
 top_p: 0.95
-max_tokens: 8192    # generation budget per response. Reasoning models
+max_tokens: 66000    # generation budget per response. Reasoning models
                     # and LiveCodeBench want >= 2048; truncations show
                     # up as "length" in stop_reason_counts.
 pass_k: 1           # responses per sample; a sample scores its BEST
@@ -118,7 +118,7 @@ server_url: http://localhost:8080/v1   # the endpoint's /v1 base
 api_key: null                # bearer token, for endpoints that need one
 server_concurrency: 4        # = llama-server -np slots
                              # parallel slots (llama-server -np)
-request_timeout: 600         # seconds per request; big models + long
+request_timeout: 3600         # seconds per request; big models + long
                              # generations can legitimately take minutes
 # server_extra_body: extra JSON merged into every request body, for
 # server-specific knobs outside the OpenAI schema (top_k, ...):

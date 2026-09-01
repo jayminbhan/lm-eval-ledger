@@ -90,6 +90,13 @@ def main() -> None:
         from .thinking import maybe_prompt_thinking_mode
         maybe_prompt_thinking_mode(cfg)
 
+    # Context-budget preflight: catch zero/thin prompt budgets and slot
+    # mismatches before any GPU time is spent (workers inherit the
+    # coordinator's already-checked config).
+    if args.shard is None and cfg.models:
+        from .preflight import preflight_context
+        preflight_context(cfg)
+
     from .runner import run  # deferred: pulls in vLLM
     run(cfg, shard=args.shard, run_name=args.run_name)
 

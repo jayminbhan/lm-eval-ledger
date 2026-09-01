@@ -1,6 +1,9 @@
 # lm-eval-ledger
 
-**A YAML-driven LLM benchmark harness where every run appends to one SQLite ledger** — with a built-in web viewer, cross-run comparison, LLM-judge verification, and four inference backends behind one config format.
+
+
+
+**A minimal YAML-driven LLM benchmark harness where every run appends to one SQLite ledger** — with a built-in web viewer, cross-run comparison, LLM-judge verification, and four inference backends behind one config format.
 
 Most harnesses treat a benchmark run as a pile of output files. lm-eval-ledger treats it as a **row in a database you keep forever**: every run, benchmark, and individual sample (prompt, full response, extracted answer, score) lands in one SQLite file, with the exact config that produced it stored alongside. Three weeks later you can diff two runs sample-by-sample, re-judge old responses with a better verifier, or open the viewer and read the one response that ruined your average.
 
