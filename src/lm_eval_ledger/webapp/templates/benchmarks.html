@@ -27,7 +27,7 @@
     <th>run</th><th>model</th><th>task</th>
     <th><a href="{{ url_for('benchmarks', task=task or None, sort='accuracy', dedupe=1 if dedupe else None) }}">acc</a></th>
     <th><a href="{{ url_for('benchmarks', task=task or None, sort='verified_accuracy', dedupe=1 if dedupe else None) }}">verified</a></th>
-    <th>n</th><th>no answer</th><th>mins</th><th>error</th>
+    <th>n</th><th>no answer</th><th>mins</th>
   </tr></thead>
   <tbody>
   {% for b in rows %}
@@ -40,7 +40,6 @@
       <td>{{ b.total_examples }}</td>
       <td>{{ b.no_answer_count }}</td>
       <td>{{ "%.0f"|format(b.duration_seconds / 60) if b.duration_seconds else "-" }}</td>
-      <td class="err">{{ b.error|trunc(50) if b.error else "" }}</td>
     </tr>
   {% endfor %}
   </tbody>

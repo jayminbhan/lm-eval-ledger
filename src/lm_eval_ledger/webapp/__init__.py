@@ -284,7 +284,9 @@ def create_app(db_path: Path, token: str | None = None,
                   PARTITION BY task, model_tag
                   ORDER BY COALESCE(verified_accuracy, accuracy) DESC
               ) AS rn
-              FROM benchmarks b WHERE 1=1 {where}
+              FROM benchmarks b
+              WHERE (error IS NULL OR error = '')
+                AND accuracy IS NOT NULL {where}
             ) WHERE {("rn = 1" if dedupe else "1=1")}
             ORDER BY {sort} DESC LIMIT 500""", params)
         return render_template("benchmarks.html", rows=rows, tasks=tasks,
