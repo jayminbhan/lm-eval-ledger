@@ -270,6 +270,10 @@ def create_app(db_path: Path, token: str | None = None,
                   "ROUND(MAX(COALESCE(verified_accuracy, accuracy)), 3) AS best "
                   "FROM benchmarks WHERE (error IS NULL OR error='') "
                   "GROUP BY task ORDER BY task")
+        # a leaderboard mixes scores of ONE task; there is no all-tasks
+        # view - default to the first task when none is selected
+        if not task and tasks:
+            task = tasks[0]["task"]
         where, params = "", []
         if task:
             where = "AND task = ?"

@@ -11,8 +11,6 @@
        best per model</a>
   </div>
   <div class="chipgrid">
-    <a class="chip {{ 'active' if not task }}" href="{{ url_for('benchmarks') }}">
-      <strong>all tasks</strong></a>
     {% for t in tasks %}
     <a class="chip {{ 'active' if task == t.task }}"
        href="{{ url_for('benchmarks', task=t.task, dedupe=1 if dedupe else None) }}">
