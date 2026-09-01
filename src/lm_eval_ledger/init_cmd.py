@@ -1,10 +1,9 @@
 # init_cmd.py
 """`lm-eval-ledger init`: materialize a working directory.
 
-Writes a starter bench.yaml plus the bundled reference material
-(reference.yaml field manual, TASKS.md task list) into the target
-directory and creates the results/logs/data directories. Existing
-files are never overwritten.
+Writes reference.yaml - the fully annotated config that doubles as
+the field manual and a runnable 20-example smoke test - and creates
+the results/logs directories. Existing files are never overwritten.
 """
 from __future__ import annotations
 
@@ -12,15 +11,15 @@ import argparse
 from importlib import resources
 from pathlib import Path
 
-_FILES = ("bench.yaml", "reference.yaml", "TASKS.md")
-_DIRS = ("results", "logs", "data")
+_FILES = ("reference.yaml",)
+_DIRS = ("results", "logs")
 
 
 def main(argv=None) -> None:
     p = argparse.ArgumentParser(
         prog="lm-eval-ledger init",
-        description="Create a starter config, reference docs, and the "
-                    "results/logs/data directories.")
+        description="Create the annotated starter config (reference.yaml) "
+                    "and the results/logs directories.")
     p.add_argument("directory", nargs="?", default=".",
                    help="target directory (default: current)")
     args = p.parse_args(argv)
@@ -38,8 +37,9 @@ def main(argv=None) -> None:
     for d in _DIRS:
         (target / d).mkdir(exist_ok=True)
     print(f"  [INIT] directories: {', '.join(_DIRS)}")
+    cfg = f"{target}/reference.yaml" if args.directory != "." else "reference.yaml"
     print("\nNext steps:")
-    print("  1. edit bench.yaml (fields: reference.yaml, tasks: TASKS.md)")
-    print("  2. lm-eval-ledger" + (f" -c {target}/bench.yaml"
-                                   if args.directory != "." else ""))
-    print("  3. lm-eval-ledger serve   # browse results")
+    print(f"  1. edit {cfg} (every field documented in place; task list: "
+          f"lm-eval-ledger --help)")
+    print(f"  2. lm-eval-ledger -c {cfg}   # 20-example smoke run as shipped")
+    print("  3. lm-eval-ledger serve        # browse results")

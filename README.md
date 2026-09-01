@@ -49,14 +49,14 @@ pip install "lm-eval-ledger[hf]"       # HF transformers (slow, but always works
 ## Quickstart
 
 ```bash
-lm-eval-ledger init                                 # starter bench.yaml + reference docs + dirs
+lm-eval-ledger init                                 # annotated starter config + results/logs dirs
 lm-eval-ledger -c bench.yaml                        # run benchmarks from a YAML config
 lm-eval-ledger serve --db results/ledger.sqlite3    # browse results at http://localhost:8090
 ```
 
-`init` drops a commented starter `bench.yaml`, the full field reference
-(`reference.yaml`), and the task list (`TASKS.md`) into the current
-directory - existing files are never overwritten.
+`init` drops `reference.yaml` - a fully annotated config that doubles
+as the field manual and, as shipped, a 20-example smoke run - into the
+current directory (never overwrites).
 
 See [Configuration](#configuration) for the YAML format.
 

@@ -37,8 +37,8 @@
 # (e.g. a local vllm model + a remote API model, or on multi-GPU).
 models:
   - Qwen/Qwen2.5-7B-Instruct                # plain: global settings
-  - name: Qwen/Qwen3.5-9B                   # thinking ON for this model only
-    chat_template_kwargs: {enable_thinking: true}
+  # - name: Qwen/Qwen3-8B                   # thinking ON for this model only
+  #   chat_template_kwargs: {enable_thinking: true}
   # - name: unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL   # served over an API
   #   backend: server
   #   server_url: http://localhost:8080/v1
