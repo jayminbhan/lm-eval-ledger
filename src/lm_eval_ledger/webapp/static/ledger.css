@@ -69,7 +69,13 @@ a { color: var(--accent); }
   background: #fff; border: 1px solid var(--border); border-radius: 12px;
   box-shadow: var(--shadow);
   padding: 1rem 1.25rem 1.2rem; margin: 0.9rem 0;
+  /* tables have a natural minimum width (many columns); on narrow
+     screens scroll inside the card instead of protruding out of it */
+  overflow-x: auto;
 }
+.panel table { min-width: max-content; }
+/* keep the model-name column from character-wrapping when space allows */
+.panel td:first-child { white-space: nowrap; }
 .lbhead {
   display: flex; align-items: center; justify-content: space-between;
   gap: 1rem; margin-bottom: 0.75rem;
