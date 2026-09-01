@@ -15,7 +15,7 @@
       </select></label>
     <label class="notbrowse">task
       <select name="task" id="task-sel">
-        <option value="">(all tasks)</option>
+        <option value="" id="all-tasks-opt">(all tasks)</option>
         {% for t in tasks %}
         <option {{ "selected" if args.get("task") == t }}>{{ t }}</option>
         {% endfor %}
@@ -201,6 +201,24 @@ function syncUi() {
     e.style.display = m === "browse" ? "" : "none");
   document.querySelectorAll(".notbrowse").forEach(e =>
     e.style.display = m === "browse" ? "none" : "");
+  if (m === "pairwise") {
+    // pairwise joins samples between two benchmarks of the SAME task:
+    // force a task choice, offering only tasks with 2+ scored benchmarks
+    const counts = {};
+    document.querySelectorAll('select[name="a"] option[data-task]')
+      .forEach(o => counts[o.dataset.task] = (counts[o.dataset.task] || 0) + 1);
+    let firstValid = null;
+    taskSel.querySelectorAll("option").forEach(o => {
+      const ok = o.value !== "" && (counts[o.value] || 0) >= 2;
+      o.hidden = !ok;
+      if (ok && firstValid === null) firstValid = o.value;
+    });
+    if (!taskSel.value || (counts[taskSel.value] || 0) < 2) {
+      if (firstValid !== null) taskSel.value = firstValid;
+    }
+  } else {
+    document.getElementById("all-tasks-opt").hidden = false;
+  }
   const t = taskSel.value;
   document.querySelectorAll("[data-task]").forEach(e => {
     if (e.tagName === "OPTION") e.hidden = t !== "" && e.dataset.task !== t;
