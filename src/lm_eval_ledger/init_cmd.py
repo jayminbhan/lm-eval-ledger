@@ -1,9 +1,9 @@
 # init_cmd.py
 """`lm-eval-ledger init`: materialize a working directory.
 
-Writes reference.yaml - the fully annotated config that doubles as
-the field manual and a runnable 20-example smoke test - and creates
-the results/logs directories. Existing files are never overwritten.
+Writes template.yaml - every config field, annotated; the intended
+workflow is copy it, edit the copy, run the copy - and creates the
+results/logs directories. Existing files are never overwritten.
 """
 from __future__ import annotations
 
@@ -11,14 +11,14 @@ import argparse
 from importlib import resources
 from pathlib import Path
 
-_FILES = ("reference.yaml",)
+_FILES = ("template.yaml",)
 _DIRS = ("results", "logs")
 
 
 def main(argv=None) -> None:
     p = argparse.ArgumentParser(
         prog="lm-eval-ledger init",
-        description="Create the annotated starter config (reference.yaml) "
+        description="Create the annotated config template (template.yaml) "
                     "and the results/logs directories.")
     p.add_argument("directory", nargs="?", default=".",
                    help="target directory (default: current)")
@@ -37,9 +37,10 @@ def main(argv=None) -> None:
     for d in _DIRS:
         (target / d).mkdir(exist_ok=True)
     print(f"  [INIT] directories: {', '.join(_DIRS)}")
-    cfg = f"{target}/reference.yaml" if args.directory != "." else "reference.yaml"
+    tpl = f"{target}/template.yaml" if args.directory != "." else "template.yaml"
     print("\nNext steps:")
-    print(f"  1. edit {cfg} (every field documented in place; task list: "
-          f"lm-eval-ledger --help)")
-    print(f"  2. lm-eval-ledger -c {cfg}   # 20-example smoke run as shipped")
-    print("  3. lm-eval-ledger serve        # browse results")
+    print(f"  1. cp {tpl} bench.yaml   # your working copy (auto-discovered)")
+    print("  2. edit bench.yaml (every field documented in place; "
+          "task list: lm-eval-ledger --help)")
+    print("  3. lm-eval-ledger          # run it (20-example smoke as shipped)")
+    print("  4. lm-eval-ledger serve    # browse results")

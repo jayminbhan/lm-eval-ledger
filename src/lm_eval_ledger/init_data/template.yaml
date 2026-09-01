@@ -1,10 +1,11 @@
 # ============================================================
-# lm-eval-ledger - configuration reference
+# lm-eval-ledger - config template
 # ============================================================
-# Every available field, with explanation and examples. This file is
-# valid and loadable as-is; copy it and delete what you don't need.
+# Every available field, with explanation and examples. Copy this
+# file, edit the copy, run it (naming the copy bench.yaml lets
+# `lm-eval-ledger` pick it up with no -c flag):
 #
-#   lm-eval-ledger -c my_config.yaml
+#   cp template.yaml bench.yaml && lm-eval-ledger
 #
 # Precedence: built-in defaults < this YAML < CLI flags
 # (any field here also exists as a --kebab-case flag, e.g. --max-tokens).

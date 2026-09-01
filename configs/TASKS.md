@@ -4,7 +4,7 @@ Every task string accepted in a config's `tasks:` list (or `--task`).
 Generated from the live registry (`lm_eval_ledger.tasks.TASK_REGISTRY`);
 `lm-eval-ledger --help` always shows the current list.
 
-Usage forms (see `reference.yaml`):
+Usage forms (see `template.yaml`):
 
 ```yaml
 tasks:
