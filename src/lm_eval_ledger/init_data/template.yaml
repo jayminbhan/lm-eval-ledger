@@ -1,205 +1,94 @@
-# ============================================================
-# lm-eval-ledger - config template
-# ============================================================
-# Every field, with a short explanation and examples. Copy this file,
-# uncomment what you need, and run it with `lm-eval-ledger -c <file>`.
-# A copy named bench.yaml is picked up automatically - no -c needed.
-#
-# The resolved config of every run is stored in the ledger's runs
-# table. Download it from the web app to reproduce a run exactly.
-#
-# Layout: sections 1-4 apply to every run. Section 5 is grouped by
-# backend - keep the block for the backend you use and delete the
-# rest (settings for other backends are ignored, so leftovers are
-# harmless, just noise).
+# lm-eval-ledger config template
+#   cp template.yaml bench.yaml && lm-eval-ledger     (bench.yaml is auto-discovered)
+# Any field is also a CLI flag (--max-tokens 4096). Unknown keys fail loudly.
+# The resolved config of every run is stored in the ledger for reproduction.
+# Layout: PART 1 behaves identically on every backend; PART 2 is one
+# block per backend - keep the block you use, delete the rest.
 
 # ════════════════════════════════════════════════════════════
-# 1. WHAT TO EVALUATE
+# PART 1 - backend-agnostic
 # ════════════════════════════════════════════════════════════
 
-# ── Models ──────────────────────────────────────────────────
-# Models run sequentially. A name is an HF id, a local checkpoint
-# path, or "verl:<run_dir>" (expands to every checkpoint in the run).
-# With backend: server, the name is what the server reports at
-# /v1/models (single-model servers like llama-server ignore it for
-# routing, but it becomes the ledger's model_tag - use the real
-# artifact name, or --alias).
-#
-# An entry is a plain name, or a mapping {name: ..., <overrides>}
-# that replaces global settings for that model only. Allowed
-# overrides:
-#   chat_template_kwargs, backend, server_url, api_key, server_extra_body,
-#   server_concurrency, request_timeout, quantization, apply_chat_template
-# Sampling stays global on purpose, so models in one run remain
-# comparable. Overrides are also how a single run mixes thinking
-# modes or backends (e.g. a local vllm model plus a remote API model,
-# or one model per GPU).
+# HF id, local path, or "verl:<run_dir>" (every checkpoint). A mapping
+# entry overrides globals for that model only (chat_template_kwargs,
+# backend, server_url, api_key, quantization, apply_chat_template, ...).
+# With backend: server, the name is what the server reports at /v1/models.
 models:
-  - Qwen/Qwen2.5-7B-Instruct                # plain: global settings
-  # - name: Qwen/Qwen3-8B                   # thinking ON for this model only
+  - Qwen/Qwen2.5-7B-Instruct
+  # - name: Qwen/Qwen3-8B
   #   chat_template_kwargs: {enable_thinking: true}
-  # - name: unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_XL   # served over an API
+  # - name: my-served-model          # one run can mix backends
   #   backend: server
   #   server_url: http://localhost:8080/v1
-  # - /path/to/local/checkpoint
-  # - verl:/path/to/verl-run                # overrides reach every checkpoint
 
-# ── Tasks ───────────────────────────────────────────────────
-# Full list with few-shot support and sample counts: configs/TASKS.md
-# Forms:
-#   "name"            task-default few-shot count
-#   "name:4"          explicit few-shot count
-#   "name:0,4,8"      few-shot ladder (three separate benchmarks)
-#   {name: gsm8k_main, fewshot: [0, 8]}   mapping form of the same
-# Empty list = run EVERY registered task at its defaults.
-# MCQ tasks come in three eval modes (suffixes): _generate (free-form
-# + \boxed{} extraction), _logprob_token (first-token log-probability),
-# _logprob_seq (completion log-likelihood; vllm/hf backends only).
+# "name" (task-default few-shot), "name:4", or "name:0,4" (ladder).
+# Full list: lm-eval-ledger --help or configs/TASKS.md. MCQ suffixes:
+# _generate | _logprob_token | _logprob_seq (seq: vllm/hf only).
 tasks:
   - gsm8k_main:0
   - gpqa_diamond_generate:0
-  # - {name: mmlu_pro_generate, fewshot: [0, 4]}
 
-# max_examples: cap examples per task. Use a small number for smoke
-# tests; null = run everything.
-max_examples: null
+max_examples: 20     # per-task cap; null = all (20 = smoke test)
 
-# batch_size: split generation into chunks of this many prompts.
-#   null (default) = one engine call per task. Best vllm/sglang
-#   throughput, but samples reach the ledger only when the task ends.
-#   Set a number to (a) relieve OOM and (b) stream samples to the
-#   ledger per chunk, so you can watch them arrive mid-task.
-#   The server and hf backends stream per request/batch regardless.
-batch_size: null
-
-# modality: what to do with image-bearing questions (HLE, TheoremQA).
-#   text (default) = drop them: classic text-only scores.
-#   all = send the images too. Needs a vision-capable model on
-#   backend: server with apply_chat_template: true; other backends
-#   record a clear per-task error. Images are stored deduplicated in
-#   the ledger and shown in the viewer.
+# Image-bearing questions (HLE, TheoremQA): text = drop them;
+# all = send images (needs a vision-capable model on backend: server).
 modality: text
 
-# ════════════════════════════════════════════════════════════
-# 2. PROMPTING
-# ════════════════════════════════════════════════════════════
+apply_chat_template: true   # true for instruct/chat, false for base
 
-# apply_chat_template: wrap prompts in the model's chat template.
-#   true for instruct/chat models, false for base models.
-#   In-process backends render the template client-side; the server
-#   backend sends messages to /chat/completions and the server
-#   renders it. Chat mode relies on EOS to end responses (task stop
-#   strings apply only to base-model completion mode).
-apply_chat_template: true
+# Thinking-mode control (model-family specific chat-template kwargs,
+# e.g. {enable_thinking: false}). Left unset, a terminal launch offers
+# a menu per model and prints the YAML to pin the choice.
+# chat_template_kwargs: {}   # uncomment to silence the menu
 
-# chat_template_kwargs: extra chat-template kwargs - this is the
-# thinking-mode control. Model-family specific; write whatever your
-# model's template defines, and the run records exactly what was sent:
-#   Qwen3 family:  {enable_thinking: false}
-#                  {enable_thinking: true, reasoning_effort: high}
-#   Granite:       {thinking: true}
-# Leave UNSET and launch from a terminal to be prompted per model:
-# the harness reads each template, offers its knobs as a menu, and
-# prints the YAML to make your choice permanent. {} = template
-# defaults, no menu. Per-model values belong on the model entry
-# (section 1).
-# chat_template_kwargs: {}    # uncomment to silence the menu
-
-# ════════════════════════════════════════════════════════════
-# 3. SAMPLING
-# ════════════════════════════════════════════════════════════
-
-temperature: 0.6    # 0 = greedy/deterministic. Thinking models NEED
-                    # sampling (Qwen3: 0.6) - greedy can loop; check
-                    # the model card.
+# Sampling (thinking models need sampling - check the model card).
+temperature: 0.6
 top_p: 0.95
-max_tokens: 2048    # generation budget per response. Thinking modes
-                    # want 8192+; LiveCodeBench >= 2048. Truncations
-                    # show up as "length" in stop_reason_counts.
-pass_k: 1           # responses per sample; a sample scores its BEST
-                    # response (pass@k). >1 needs temperature > 0.
-seed: 42            # sampling seed (per-request seeds derive from it)
+max_tokens: 2048     # generation budget; thinking modes want 8192+
+pass_k: 1            # best-of-k scoring; >1 needs temperature > 0
+seed: 42             # best-effort on hosted APIs
+
+logs_dir: logs
+db_path: null        # THE ledger; null = ./results/ledger.sqlite3
+
+# Post-run LLM verification (CompassVerifier); recovers unformatted
+# answers - matters for free-form benchmarks (HLE, TheoremQA).
+verifier: off        # off | 3b | 7b
 
 # ════════════════════════════════════════════════════════════
-# 4. OUTPUT & VERIFICATION
+# PART 2 - backend-specific: keep ONE block, delete the rest
 # ════════════════════════════════════════════════════════════
 
-# Relative paths resolve against the directory you run from; use
-# absolute paths so runs land in the same place from anywhere.
-logs_dir: logs               # tee'd stdout/stderr per run
-# db_path: THE ledger - the one SQLite file all runs append to,
-# powering `lm-eval-ledger runs/compare/serve`.
-# null = ./results/ledger.sqlite3
-db_path: null
-#   db_path: /abs/path/to/ledger.sqlite3
+# ── vllm (in-process, fastest; pip install lm-eval-ledger[vllm]) ────
+backend: vllm
+gpu_memory_utilization: 0.90
+max_model_len: 8192   # context window (prompt + max_tokens must fit)
+enforce_eager: true
+gpu_ids: null         # [3] = pin GPU; [0,1] = one worker per GPU
+quantization: null    # "bitsandbytes" | "awq" | "gptq" | "fp8" | {tag: method}
+batch_size: null      # null = one engine call; N = write to ledger every N
 
-# LLM answer verification (optional post-run pass): re-judge stored
-# responses with CompassVerifier - recovers correct answers that
-# ignored the \boxed{} format (essential for free-form benchmarks like
-# HLE/TheoremQA). Writes verified_accuracy ALONGSIDE accuracy; the
-# strict score is never overwritten. Also runs retroactively:
-#   lm-eval-ledger-verify results/ledger.sqlite3 --run 3
-# The verifier is prefetched at run start and loads only after the
-# eval model unloads (it shares the GPU).
-# Most benchmarks score exactly without it (MCQ letters, normalized
-# math answers); it matters for the free-form ones (HLE, TheoremQA).
-verifier: off       # off | 3b | 7b (CompassVerifier scale; 7b is the
-                    # better judge, 3b lighter/faster)
+# ── hf (transformers; every architecture, slow; [hf] extra) ─────────
+# backend: hf
+# max_model_len: 8192
+# gpu_ids: null
+# quantization: null  # "bitsandbytes" only
+# batch_size: 8       # true VRAM knob here - keep small
 
-# ════════════════════════════════════════════════════════════
-# 5. INFERENCE BACKEND - pick one block, delete the rest
-# ════════════════════════════════════════════════════════════
-# backend selects the engine; each block below lists the settings
-# that engine reads. Settings from other blocks are ignored (not an
-# error). Per-model backend overrides (section 1) let one run mix
-# backends.
+# ── sglang (in-process; [sglang] extra) ─────────────────────────────
+# backend: sglang
+# gpu_memory_utilization: 0.90
+# max_model_len: 8192
+# gpu_ids: null
+# batch_size: null
 
-backend: vllm       # vllm | hf | sglang | server
-                    # Windows: server and hf are native; vllm/sglang
-                    # are Linux-only (no Windows wheels upstream)
-
-# ── backend: vllm ───────────────────────────────────────────
-# In-process, fastest, all eval modes. pip install lm-eval-ledger[vllm]
-gpu_memory_utilization: 0.90 # fraction of VRAM the engine may claim
-max_model_len: 4096          # context window (prompt + generation).
-                             # null = model default. Prompts exceeding
-                             # (max_model_len - max_tokens) are skipped
-                             # with a warning; long-context tasks
-                             # (mrcr_*) need 32k+.
-enforce_eager: true          # disable CUDA graphs: slower decode,
-                             # less VRAM; false is fine for long runs
-gpu_ids: null                # null = default GPU; [3] = pin to GPU 3;
-                             # [0, 1, 2] = one worker per GPU, models
-                             # distributed round-robin, one ledger
-# quantization: on-the-fly quantization (also honored by hf).
-#   null = native precision; a string for all models ("bitsandbytes" /
-#   "awq" / "gptq" / "fp8"); or a {model_tag: method} mapping.
-quantization: null
-#   quantization: {Qwen3-14B: bitsandbytes}
-
-# ── backend: hf ─────────────────────────────────────────────
-# transformers + accelerate; every architecture, all eval modes,
-# slow - the compatibility backend. pip install lm-eval-ledger[hf]
-# Reads: max_model_len, gpu_ids, quantization (bitsandbytes) above.
-
-# ── backend: sglang ─────────────────────────────────────────
-# In-process sglang.Engine; generate + logprob_token.
-# pip install lm-eval-ledger[sglang]
-# Reads: gpu_memory_utilization, max_model_len, gpu_ids above.
-
-# ── backend: server ─────────────────────────────────────────
-# Any OpenAI-compatible endpoint: llama.cpp llama-server, ollama,
-# LM Studio, remote vllm/sglang, hosted APIs. No extra install.
-# generate + logprob_token (server-dependent). The server owns model
-# loading, context size, and quantization.
-# llama-server example (16k context per slot, template kwargs on):
-#   llama-server -hf <repo:quant> -ngl 999 -c 65536 -np 4 --jinja
-server_url: http://localhost:8080/v1   # the endpoint's /v1 base
-api_key: null                # bearer token, for endpoints that need one
-server_concurrency: 8        # in-flight requests; = llama-server -np
-request_timeout: 600         # seconds per request: thinking modes can
-                             # legitimately take minutes
-# server_extra_body: extra JSON merged into every request body, for
-# server-specific knobs outside the OpenAI schema:
-server_extra_body: null
-#   e.g.  server_extra_body: {top_k: 20}
+# ── server (any OpenAI-compatible endpoint: llama.cpp, ollama,
+#    hosted APIs; no extra install). The server owns model loading,
+#    context size, and quantization. llama-server example:
+#      llama-server -hf <repo:quant> -ngl 999 -c 65536 -np 4 --jinja
+# backend: server
+# server_url: http://localhost:8080/v1
+# api_key: null
+# server_concurrency: 4    # = llama-server -np slots
+# request_timeout: 600     # seconds; thinking modes can take minutes
+# server_extra_body: null  # extra JSON per request, e.g. {top_k: 20}
