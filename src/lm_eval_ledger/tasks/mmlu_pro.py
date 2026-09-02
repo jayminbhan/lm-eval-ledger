@@ -58,6 +58,9 @@ def get_task_generate() -> TaskConfig:
         fewshot_answer_field="answer",
         description="MMLU-Pro - harder MCQ with up to 10 options (generative)",
         hf_repo="TIGER-Lab/MMLU-Pro",
+        # pinned: dataset repo state as of 2026-09 (upstream edits must
+        # not silently shift scores)
+        hf_revision="b189ec765aa7ed75c8acfea42df31fdae71f97be",
         hf_split="test",
         hf_fewshot_split="validation",
     )
@@ -78,6 +81,9 @@ def get_task_logprob_token() -> TaskConfig:
         eval_mode="logprob_token",
         choice_labels=CHOICE_LABELS,
         hf_repo="TIGER-Lab/MMLU-Pro",
+        # pinned: dataset repo state as of 2026-09 (upstream edits must
+        # not silently shift scores)
+        hf_revision="b189ec765aa7ed75c8acfea42df31fdae71f97be",
         hf_split="test",
         hf_fewshot_split="validation",
     )
@@ -99,6 +105,9 @@ def get_task_logprob_seq() -> TaskConfig:
         choice_labels=CHOICE_LABELS,
         get_choice_texts=get_choice_texts,
         hf_repo="TIGER-Lab/MMLU-Pro",
+        # pinned: dataset repo state as of 2026-09 (upstream edits must
+        # not silently shift scores)
+        hf_revision="b189ec765aa7ed75c8acfea42df31fdae71f97be",
         hf_split="test",
         hf_fewshot_split="validation",
     )

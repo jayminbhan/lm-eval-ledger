@@ -69,6 +69,9 @@ class TaskConfig:
     hf_configs: list[str] | None = None     # multi-config datasets (iterate all configs)
     hf_config_field: str | None = None      # field name to tag examples (e.g., "subtask")
     hf_post_process: Callable[[list[dict]], list[dict]] | None = None  # post-load transform
+    # Pin the dataset to a specific repo revision (commit hash) so scores
+    # cannot silently shift when the dataset repo is edited upstream.
+    hf_revision: str | None = None
     # Name of the example field holding an attached image, for datasets that
     # mix text-only and image questions. modality="text" drops image
     # examples; modality="all" keeps them, normalized into ex["_images"]
@@ -190,7 +193,8 @@ def load_from_hf(task: TaskConfig, split: str | None = None) -> list[dict]:
         n = len(task.hf_configs)
         for i, config_name in enumerate(task.hf_configs, 1):
             print(f"  [{i}/{n}] Loading {task.hf_repo}/{config_name} split={split}")
-            ds = load_dataset(task.hf_repo, config_name, split=split)
+            ds = load_dataset(task.hf_repo, config_name, split=split,
+                              revision=task.hf_revision)
             rows = [dict(row) for row in ds]
             if task.hf_config_field:
                 for row in rows:
@@ -199,7 +203,8 @@ def load_from_hf(task: TaskConfig, split: str | None = None) -> list[dict]:
         examples = all_examples
     else:
         # Single config
-        ds = load_dataset(task.hf_repo, task.hf_config, split=split)
+        ds = load_dataset(task.hf_repo, task.hf_config, split=split,
+                          revision=task.hf_revision)
         examples = [dict(row) for row in ds]
 
     if task.hf_post_process:
@@ -313,3 +318,63 @@ def normalize_answer(text: str) -> str:
 def normalized_match(gold: str, pred: str) -> bool:
     """Match after normalizing both strings."""
     return normalize_answer(gold) == normalize_answer(pred)
+
+
+def _to_sympy(s: str):
+    """Parse an answer string to a sympy expression (LaTeX first, plain
+    expression as fallback). Returns None when unparseable."""
+    import sympy
+    from latex2sympy2_extended import latex2sympy
+    s = s.strip().strip("$").strip()
+    if not s:
+        return None
+    try:
+        return latex2sympy(s)
+    except Exception:
+        pass
+    try:
+        return sympy.sympify(s.replace("^", "**"), evaluate=True)
+    except Exception:
+        return None
+
+
+def symbolic_match(gold: str, pred: str) -> bool:
+    """String/numeric match, then sympy symbolic equivalence.
+
+    Catches mathematically equal but differently written answers
+    (\frac{1}{2} vs 0.5 vs 1/2, sqrt forms, reordered expressions) -
+    the standard scoring for MATH-style benchmarks (cf. lighteval /
+    Qwen2.5-Math, via latex2sympy2_extended). Long inputs skip the
+    symbolic step: sympy can be slow and real answers are short.
+    """
+    if normalized_match(gold, pred):
+        return True
+    if numeric_match_strict(gold, pred):
+        return True
+    if len(gold) > 200 or len(pred) > 200:
+        return False
+    g, p = _to_sympy(gold), _to_sympy(pred)
+    if g is None or p is None:
+        return False
+    try:
+        if g == p:
+            return True
+        diff = (g - p) if not (g.free_symbols or p.free_symbols) else None
+        if diff is not None:
+            import sympy
+            return bool(sympy.simplify(diff) == 0)
+        return bool(g.equals(p))
+    except Exception:
+        return False
+
+
+def numeric_match_strict(gold: str, pred: str) -> bool:
+    """numeric_match without its string-equality fallback."""
+    try:
+        g = float(gold.replace(",", ""))
+        p = float(pred.replace(",", ""))
+        if g == int(g) and p == int(p):
+            return int(g) == int(p)
+        return abs(g - p) < 1e-6
+    except (ValueError, TypeError):
+        return False

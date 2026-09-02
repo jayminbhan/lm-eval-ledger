@@ -33,8 +33,9 @@ def extract_gold(example: dict) -> str:
 
 def match_answer(gold: str, pred: str) -> bool:
     """Match answers with flexibility for OlympiadBench."""
-    # Try normalized match first
-    if normalized_match(gold, pred):
+    # Symbolic equivalence covers normalized string equality and more
+    from .base import symbolic_match
+    if symbolic_match(gold, pred):
         return True
 
     # Try numeric comparison

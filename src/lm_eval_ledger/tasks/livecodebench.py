@@ -43,7 +43,8 @@ _VERSION_FILES = {f"release_v{i}": _ALL_FILES[:i] for i in range(1, 7)}
 
 _TEST_TIMEOUT_S = 6
 
-_CODE_BLOCK_RE = re.compile(r"```(?:python)?\s*\n(.*?)```", re.DOTALL)
+_CODE_BLOCK_RE = re.compile(r"```(?:python3?|py)?\s*\n(.*?)```", re.DOTALL)
+_ANY_FENCE_RE = re.compile(r"```\S*\s*\n(.*?)```", re.DOTALL)
 
 # Prepended before the model's code, mirroring the official harness: LeetCode
 # solutions routinely use List/deque/Counter/etc. without importing them.
@@ -164,8 +165,11 @@ def extract_gold_display(example: dict) -> str:
 
 
 def extract_pred(model_output: str) -> str:
-    """Extract the last ```python ...``` code block (official behavior)."""
+    """Extract the last ```python ...``` code block (official behavior);
+    fall back to the last fenced block of any language tag."""
     matches = _CODE_BLOCK_RE.findall(model_output)
+    if not matches:
+        matches = _ANY_FENCE_RE.findall(model_output)
     return matches[-1].strip() if matches else ""
 
 
@@ -279,3 +283,24 @@ def get_task() -> TaskConfig:
                     "use max_tokens >= 2048",
         load_fn=lambda: _load("release_v6"),
     )
+
+
+def _load_window(start: str, end: str) -> list[dict]:
+    """Problems whose contest_date falls in [start, end) - the
+    contamination-control slices labs actually report."""
+    ex = [e for e in _load("release_v6")
+          if start <= e["contest_date"][:10] < end]
+    print(f"  [INFO] livecodebench window {start}..{end}: {len(ex)} problems")
+    return ex
+
+
+def get_task_window(name: str, start: str, end: str) -> TaskConfig:
+    """A date-windowed LiveCodeBench task. The window is part of the task
+    name, so a name always denotes the same problem set."""
+    base = get_task()
+    base.name = name
+    base.description = (f"LiveCodeBench contests {start}..{end} - evaluate "
+                        f"only problems past a model's training cutoff; "
+                        f"EXECUTES generated code locally")
+    base.load_fn = lambda: _load_window(start, end)
+    return base

@@ -5,7 +5,7 @@ from __future__ import annotations
 from .base import (
     TaskConfig,
     extract_boxed_strict,
-    normalized_match,
+    symbolic_match,
 )
 
 
@@ -29,7 +29,7 @@ def get_task() -> TaskConfig:
         build_prompt=build_prompt,
         extract_gold=extract_gold,
         extract_pred=extract_boxed_strict,
-        match_fn=normalized_match,
+        match_fn=symbolic_match,
         stop_strings=["Problem:"],
         default_fewshot_k=0,
         fewshot_answer_field="solution",
