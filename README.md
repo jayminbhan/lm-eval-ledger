@@ -56,23 +56,13 @@ pip install "lm-eval-ledger[hf]"       # HF transformers
 ## Quickstart
 
 ```bash
-lm-eval-ledger init                                 # write template.yaml, create results/ and logs/
+lm-eval-ledger init                                 # write template.yaml + TASKS.md, create results/ and logs/
 lm-eval-ledger -c config.yaml                       # run benchmarks
 lm-eval-ledger serve --db results/ledger.sqlite3    # browse at http://localhost:8090
 ```
 
 See [template.yaml](#configuration) for the YAML format and [TASKS.md](TASKS.md) for available tasks.
 
-## Configuration 
-
-A minimal config:
-
-```yaml
-backend: vllm
-models:
-  - name: Qwen/Qwen3-8B
-tasks: [gsm8k_main, math500]
-```
 
 Every option, with defaults and per-backend settings, is documented in [`template.yaml`](template.yaml) (the same file `lm-eval-ledger init` writes). Copy it and uncomment what you need.
 
