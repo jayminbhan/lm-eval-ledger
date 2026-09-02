@@ -585,6 +585,12 @@ def main(argv=None) -> None:
         sys.exit(1)
     app = create_app(args.db, token=args.token,
                      read_only=args.read_only)
+    mode = " (read-only)" if args.read_only else ""
     print(f"[SERVE] Ledger viewer on http://{args.host}:{args.port} "
-          f"(db: {args.db})")
-    app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)
+          f"(db: {args.db}){mode}")
+    if args.debug:
+        # Flask dev server: auto-reload + debugger, development only
+        app.run(host=args.host, port=args.port, debug=True, threaded=True)
+    else:
+        from waitress import serve as waitress_serve
+        waitress_serve(app, host=args.host, port=args.port, threads=8)
