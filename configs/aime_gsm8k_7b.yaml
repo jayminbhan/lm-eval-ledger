@@ -27,7 +27,9 @@
 models:
   - name: Qwen/Qwen3.5-9B
     chat_template_kwargs: {enable_thinking: true}
+
   - google/gemma-4-12B-it-qat-w4a16-ct   # gated: needs `hf auth login`
+
 
   # name must match what the server reports at /v1/models (add
   # --alias qwen3.8-27b-quant to the llama-server command to use a
@@ -56,7 +58,7 @@ tasks:
   - livecodebench
   - gsm8k_main:4
   - math500
-  - {name: mmlu_pro_generate, fewshot: [4]}
+  # - {name: mmlu_pro_generate, fewshot: [4]}
 
 # ── Evaluation size ─────────────────────────────────────────
 # max_examples: cap per task - small number for smoke tests, null = all.
@@ -175,3 +177,12 @@ verifier_mode: fallback      # fallback = re-judge only string-match
                              # pipeline accepts it); all = the verifier
                              # verdict alone decides
 verifier_max_model_len: 16384
+
+
+
+
+
+
+
+
+
