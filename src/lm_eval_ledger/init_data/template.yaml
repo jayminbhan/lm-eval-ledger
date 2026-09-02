@@ -103,7 +103,7 @@ apply_chat_template: true
 # prints the YAML to make your choice permanent. {} = template
 # defaults, no menu. Per-model values belong on the model entry
 # (section 1).
-chat_template_kwargs: {}
+# chat_template_kwargs: {}    # uncomment to silence the menu
 
 # ════════════════════════════════════════════════════════════
 # 3. SAMPLING
