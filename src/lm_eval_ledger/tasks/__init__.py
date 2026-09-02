@@ -45,7 +45,7 @@ TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
     "math500": math500.get_task,
 
     # Hendrycks MATH (7 subjects aggregated)
-    "hendrycks_math": hendrycks_math.get_task,
+    "math": hendrycks_math.get_task,
 
     # MMLU Redux 2.0
     "mmlu_redux_2": mmlu_redux_2.get_task,

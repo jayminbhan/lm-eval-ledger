@@ -41,7 +41,7 @@ the maximum k.
 | `aime_2024` | 0 | 0-shot only | 30 | HuggingFaceH4/aime_2024 |
 | `aime_2025` | 0 | 0-shot only | 30 | MathArena/aime_2025 |
 | `gsm8k` | 8 | train split (pool 7473) | 1319 | openai/gsm8k |
-| `hendrycks_math` | 0 | algebra/train split (pool 1744) | ~5000 | EleutherAI/hendrycks_math (7 subjects) |
+| `math` | 0 | algebra/train split (pool 1744) | ~5000 | EleutherAI/hendrycks_math (7 subjects; the MATH benchmark, Hendrycks et al.) |
 | `math500` | 0 | 0-shot only | 500 | HuggingFaceH4/MATH-500 |
 | `olympiad_bench_math_en` | 0 | 0-shot only | ~675 | Hothan/OlympiadBench [OE_TO_maths_en_COMP] |
 | `olympiad_bench_physics_en` | 0 | 0-shot only | ~250 | Hothan/OlympiadBench [OE_TO_physics_en_COMP] |

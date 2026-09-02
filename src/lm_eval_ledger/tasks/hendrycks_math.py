@@ -36,7 +36,7 @@ def extract_gold(example: dict) -> str:
 def get_task() -> TaskConfig:
     """Get Hendrycks MATH task (all 7 subjects aggregated)."""
     return TaskConfig(
-        name="hendrycks_math",
+        name="math",
         build_prompt=build_prompt,
         extract_gold=extract_gold,
         extract_pred=extract_boxed_strict,
@@ -44,7 +44,7 @@ def get_task() -> TaskConfig:
         stop_strings=["Problem:"],
         default_fewshot_k=0,
         fewshot_solution_field="solution",
-        description="Hendrycks MATH - competition math (7 subjects aggregated)",
+        description="MATH (Hendrycks et al.) - competition math (7 subjects aggregated)",
         hf_repo="EleutherAI/hendrycks_math",
         hf_split="test",
         hf_configs=MATH_SUBJECTS,
