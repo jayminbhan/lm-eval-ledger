@@ -26,10 +26,14 @@ as explicit opt-in variants, named by suffix:
 
 \* server: needs an endpoint that returns logprobs.
 
-Logprob modes are cheap (no generation) and useful for base models or
-for measuring the scoring-method difference on the same model - e.g.
-run both `gpqa_diamond` and `gpqa_diamond_logprob_token` and compare.
-The old `<task>_generate` names remain accepted as aliases.
+Logprob variants exist for exactly the MCQ tasks marked **+logprob**
+in the tables below (a fixed choice set is required); every other task
+is generate-only, and an unsupported suffix fails loudly with the list
+of valid names. Logprob modes are cheap (no generation) and useful for
+base models or for measuring the scoring-method difference on the same
+model - e.g. run both `gpqa_diamond` and `gpqa_diamond_logprob_token`
+and compare. The old `<task>_generate` names remain accepted as
+aliases.
 
 Few-shot: `name:k` draws the first k exemplars from the task's few-shot
 source — a held-out HF split (never the eval set), or a curated local
@@ -54,8 +58,7 @@ the maximum k, though practical values are 0-8.
 
 ## Science / knowledge MCQ
 
-Bare name = generate scoring; append `_logprob_token` / `_logprob_seq`
-for the logprob variants.
+All tasks in this section are **+logprob** (both suffix variants).
 
 | task | default k | few-shot | n | dataset |
 |---|---|---|---|---|
@@ -75,10 +78,10 @@ off-protocol versus the paper's 5-shot numbers.
 | task | default k | few-shot | n | dataset |
 |---|---|---|---|---|
 | `bbh` | 0 | 0-shot only | ~6500 | lukaemon/bbh (27 subtasks) |
-| `arc_challenge` | 0 | train split (pool 1119) | 1172 | allenai/ai2_arc [ARC-Challenge] |
-| `arc_easy` | 0 | train split (pool 2251) | 2376 | allenai/ai2_arc [ARC-Easy] |
-| `hellaswag` | 0 | train split (pool 39905) | ~10000 | Rowan/hellaswag |
-| `winogrande` | 0 | train split (pool 40398) | 1267 | allenai/winogrande [winogrande_xl] |
+| `arc_challenge` **+logprob** | 0 | train split (pool 1119) | 1172 | allenai/ai2_arc [ARC-Challenge] |
+| `arc_easy` **+logprob** | 0 | train split (pool 2251) | 2376 | allenai/ai2_arc [ARC-Easy] |
+| `hellaswag` **+logprob** | 0 | train split (pool 39905) | ~10000 | Rowan/hellaswag |
+| `winogrande` **+logprob** | 0 | train split (pool 40398) | 1267 | allenai/winogrande [winogrande_xl] |
 
 ## Frontier / specialty
 
