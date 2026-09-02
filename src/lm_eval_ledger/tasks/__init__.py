@@ -35,8 +35,7 @@ from . import mrcr
 
 TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
     # GSM8K
-    "gsm8k_main": gsm8k.get_task_main,
-    "gsm8k_socratic": gsm8k.get_task_socratic,
+    "gsm8k": gsm8k.get_task,
 
     # AIME
     "aime_2024": aime.get_task_2024,
@@ -120,6 +119,8 @@ TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
 # records. Generate is the default eval mode - suffixes select the
 # logprob modes.
 TASK_ALIASES = {
+    "gsm8k_main": "gsm8k",
+    "gsm8k_socratic": "gsm8k",
     "arc_challenge_generate": "arc_challenge",
     "arc_easy_generate": "arc_easy",
     "gpqa_diamond_generate": "gpqa_diamond",

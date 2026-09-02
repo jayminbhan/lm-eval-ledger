@@ -29,7 +29,7 @@ models:
 # Full list: lm-eval-ledger --help or ./TASKS.md (written by init). MCQ tasks:
 # bare name = generate scoring; _logprob_token | _logprob_seq variants.
 tasks:
-  - gsm8k_main:0
+  - gsm8k:0
   - gpqa_diamond:0
 
 max_examples: null   # per-task cap; null = all (set ~20 for a smoke test)

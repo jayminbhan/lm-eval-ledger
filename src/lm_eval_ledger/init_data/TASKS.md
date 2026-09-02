@@ -8,13 +8,12 @@ Usage forms (see `template.yaml`):
 ```yaml
 tasks:
   - gpqa_diamond                 # task-default few-shot count
-  - gsm8k_main:0                 # explicit few-shot count
+  - gsm8k:0                 # explicit few-shot count
   - mmlu_pro_generate:0,4        # few-shot ladder (two benchmarks)
 ```
 
 Every bare task name scores by **generation** (free-form response +
-`\boxed{}` answer extraction) - the mode that matches how models are used and
-what leaderboards report. MCQ tasks additionally offer logprob scoring. Named by suffix:
+`\boxed{}` answer extraction). MCQ tasks additionally offer logprob scoring. Named by suffix:
 
 | variant | how it scores | backends |
 |---|---|---|
@@ -22,24 +21,18 @@ what leaderboards report. MCQ tasks additionally offer logprob scoring. Named by
 | `<task>_logprob_token` | first-token log-probability over choice letters | vllm, hf, sglang, server* |
 | `<task>_logprob_seq` | completion log-likelihood of each full answer | vllm, hf |
 
-\* server: llama.cpp only (other endpoints fail with a clear error,
-never a silent zero).
+\* server: llama.cpp only 
 
 Logprob variants exist for exactly the MCQ tasks marked **+logprob**
-in the tables below (a fixed choice set is required); every other task
-is generate-only, and an unsupported suffix fails loudly with the list
-of valid names. Logprob modes are cheap (no generation) and useful for
+in the tables below; every other task
+is generate-only. Logprob modes are cheap (no generation) and useful for
 base models or for measuring the scoring-method difference on the same
 model - e.g. run both `gpqa_diamond` and `gpqa_diamond_logprob_token`
-and compare. The old `<task>_generate` names remain accepted as
-aliases.
+and compare.
 
 Few-shot: `name:k` draws the first k exemplars from the task's few-shot
-source — a held-out HF split (never the eval set), or a curated local
-file under `data/`. Tasks listed as **0-shot only** have no such source
-(no held-out split exists, or few-shot is not meaningful for the task);
-requesting `:k` on them currently runs 0-shot. The pool size below is
-the maximum k, though practical values are 0-8.
+source. Tasks listed as **0-shot only** have no such source. The few-shot size below is
+the maximum k.
 
 ## Math
 
@@ -47,8 +40,7 @@ the maximum k, though practical values are 0-8.
 |---|---|---|---|---|
 | `aime_2024` | 0 | 0-shot only | 30 | HuggingFaceH4/aime_2024 |
 | `aime_2025` | 0 | 0-shot only | 30 | MathArena/aime_2025 |
-| `gsm8k_main` | 8 | train split (pool 7473) | 1319 | openai/gsm8k [main] |
-| `gsm8k_socratic` | 8 | main/train split (pool 7473) | 1319 | openai/gsm8k [socratic] |
+| `gsm8k` | 8 | train split (pool 7473) | 1319 | openai/gsm8k |
 | `hendrycks_math` | 0 | algebra/train split (pool 1744) | ~5000 | EleutherAI/hendrycks_math (7 subjects) |
 | `math500` | 0 | 0-shot only | 500 | HuggingFaceH4/MATH-500 |
 | `olympiad_bench_math_en` | 0 | 0-shot only | ~675 | Hothan/OlympiadBench [OE_TO_maths_en_COMP] |

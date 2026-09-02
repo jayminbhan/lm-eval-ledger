@@ -1,5 +1,5 @@
 # tasks/gsm8k.py
-"""GSM8K benchmark tasks - Grade School Math 8K (main and socratic versions)."""
+"""GSM8K benchmark task - Grade School Math 8K."""
 from __future__ import annotations
 
 from .base import (
@@ -36,10 +36,12 @@ def extract_pred(model_output: str) -> str:
     return raw.replace(",", "").replace("$", "").strip()
 
 
-def get_task_main() -> TaskConfig:
-    """Get GSM8K main task configuration."""
+def get_task() -> TaskConfig:
+    """GSM8K (the "main" config; "socratic" shares the identical test
+    questions and answers, differing only in solution style, so it is
+    not a separate eval task)."""
     return TaskConfig(
-        name="gsm8k_main",
+        name="gsm8k",
         build_prompt=build_prompt,
         extract_gold=extract_gold,
         extract_pred=extract_pred,
@@ -47,29 +49,9 @@ def get_task_main() -> TaskConfig:
         stop_strings=["Question:", "\n\nQuestion"],
         default_fewshot_k=8,
         fewshot_answer_field="answer",
-        description="GSM8K Main - arithmetic word problems",
+        description="GSM8K - arithmetic word problems",
         hf_repo="openai/gsm8k",
         hf_config="main",
         hf_split="test",
         hf_fewshot_split="train",
-    )
-
-
-def get_task_socratic() -> TaskConfig:
-    """Get GSM8K socratic task configuration."""
-    return TaskConfig(
-        name="gsm8k_socratic",
-        build_prompt=build_prompt,
-        extract_gold=extract_gold,
-        extract_pred=extract_pred,
-        match_fn=numeric_match,
-        stop_strings=["Question:", "\n\nQuestion"],
-        default_fewshot_k=8,
-        fewshot_answer_field="answer",
-        description="GSM8K Socratic - arithmetic word problems (socratic version)",
-        hf_repo="openai/gsm8k",
-        hf_config="socratic",
-        hf_split="test",
-        hf_fewshot_split="train",
-        hf_fewshot_config="main",  # Use main's few-shot examples
     )
