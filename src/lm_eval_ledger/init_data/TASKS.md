@@ -22,7 +22,8 @@ what leaderboards report. MCQ tasks additionally offer logprob scoring. Named by
 | `<task>_logprob_token` | first-token log-probability over choice letters | vllm, hf, sglang, server* |
 | `<task>_logprob_seq` | completion log-likelihood of each full answer | vllm, hf |
 
-\* server: needs an endpoint that returns logprobs.
+\* server: llama.cpp only (other endpoints fail with a clear error,
+never a silent zero).
 
 Logprob variants exist for exactly the MCQ tasks marked **+logprob**
 in the tables below (a fixed choice set is required); every other task
