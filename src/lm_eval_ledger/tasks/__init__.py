@@ -114,26 +114,6 @@ TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
 }
 
 
-# Old explicit-generate names stay accepted (stored configs, muscle
-# memory); they resolve to the bare name, which is what the ledger
-# records. Generate is the default eval mode - suffixes select the
-# logprob modes.
-TASK_ALIASES = {
-    "gsm8k_main": "gsm8k",
-    "gsm8k_socratic": "gsm8k",
-    "arc_challenge_generate": "arc_challenge",
-    "arc_easy_generate": "arc_easy",
-    "gpqa_diamond_generate": "gpqa_diamond",
-    "gpqa_extended_generate": "gpqa_extended",
-    "gpqa_main_generate": "gpqa_main",
-    "hellaswag_generate": "hellaswag",
-    "mmlu_pro_generate": "mmlu_pro",
-    "mmlu_redux_1_generate": "mmlu_redux_1",
-    "mmlu_redux_2_generate": "mmlu_redux_2",
-    "winogrande_generate": "winogrande",
-}
-
-
 def register_task(name: str, factory: Callable[..., TaskConfig],
                   overwrite: bool = False) -> None:
     """Register a custom task so it can be referenced by name in configs.
@@ -165,8 +145,6 @@ def get_task(task_name: str) -> TaskConfig:
     Returns:
         TaskConfig instance
     """
-    if task_name in TASK_ALIASES:
-        task_name = TASK_ALIASES[task_name]
     if task_name not in TASK_REGISTRY:
         available = ", ".join(sorted(TASK_REGISTRY.keys()))
         raise ValueError(f"Unknown task '{task_name}'. Available tasks: {available}")
