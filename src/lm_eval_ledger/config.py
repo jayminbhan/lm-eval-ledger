@@ -24,8 +24,6 @@ class RunConfig:
     """All settings for a benchmark run."""
 
     # Models: HuggingFace ids or local paths, run sequentially.
-    # "verl:/path/to/run_dir" expands to every global_step_* checkpoint's
-    # huggingface/ dir inside that veRL run directory.
     models: list[str] = field(default_factory=list)
 
     # Tasks: list of (task_name, fewshot_k) pairs; fewshot_k None = task default.
@@ -130,34 +128,6 @@ _VALID_KEYS = {f.name for f in fields(RunConfig)}
 # Model list expansion
 # ============================================================
 
-def expand_verl_checkpoints(run_dir: str) -> list[str]:
-    """Expand a veRL run directory into HF model paths, one per checkpoint.
-
-    Finds all global_step_* checkpoints and returns paths to their huggingface/
-    dirs. Handles both GRPO (actor/huggingface/) and SFT (huggingface/) layouts.
-    """
-    run_path = Path(run_dir)
-    if not run_path.exists():
-        print(f"[WARN] veRL run dir not found: {run_dir}")
-        return []
-    step_dirs = sorted(
-        [d for d in run_path.iterdir() if d.is_dir() and d.name.startswith("global_step_")],
-        key=lambda d: int(d.name.split("_")[-1]),
-    )
-    models = []
-    for step_dir in step_dirs:
-        # GRPO layout: global_step_XXX/actor/huggingface/
-        hf_path = step_dir / "actor" / "huggingface"
-        if not hf_path.exists():
-            # SFT layout: global_step_XXX/huggingface/
-            hf_path = step_dir / "huggingface"
-        if hf_path.exists() and (hf_path / "config.json").exists():
-            models.append(str(hf_path))
-    if not models:
-        print(f"[WARN] No checkpoints found in veRL run dir: {run_dir}")
-    return models
-
-
 # Per-model override keys accepted in a mapping-form model entry.
 # Deliberately excludes sampling parameters (temperature, max_tokens, ...):
 # per-model sampling silently breaks cross-model comparability within a run.
@@ -190,21 +160,15 @@ def model_spec(entry) -> tuple[str, dict]:
 
 
 def expand_models(models: list) -> list:
-    """Expand and validate model entries.
+    """Validate and normalize model entries.
 
-    'verl:<run_dir>' becomes one entry per checkpoint (mapping-form verl
-    entries pass their overrides on to every expanded checkpoint).
-    Returned entries stay in their given form (str, or {name, **overrides})
-    so the resolved config YAML round-trips.
+    Entries stay in their given form (str, or {name, **overrides}) so
+    the resolved config YAML round-trips.
     """
     expanded: list = []
     for entry in models:
         name, overrides = model_spec(entry)
-        if name.startswith("verl:"):
-            for ckpt in expand_verl_checkpoints(name[len("verl:"):]):
-                expanded.append({"name": ckpt, **overrides} if overrides else ckpt)
-        else:
-            expanded.append(dict(name=name, **overrides) if overrides else name)
+        expanded.append(dict(name=name, **overrides) if overrides else name)
     return expanded
 
 
@@ -308,8 +272,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("-c", "--config", type=Path, default=None, metavar="YAML",
                    help=f"config file (default: ./{DEFAULT_CONFIG_FILE} if present)")
     p.add_argument("--model", action="append", dest="models", metavar="MODEL",
-                   help="model HF id or local path; repeatable (replaces YAML models). "
-                        "Use verl:<run_dir> to expand veRL checkpoints")
+                   help="model HF id or local path; repeatable (replaces YAML models)")
     p.add_argument("--task", action="append", dest="tasks", metavar="NAME[:K[,K...]]",
                    help="task with optional fewshot k or ladder, e.g. gsm8k_main:0,4,8; "
                         "repeatable (replaces YAML tasks)")

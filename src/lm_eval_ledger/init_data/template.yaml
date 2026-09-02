@@ -10,8 +10,7 @@
 # ════════════════════════════════════════════════════════════
 
 # What a model NAME is depends on the backend:
-#   vllm / sglang / hf:  an HF repo id, a local checkpoint path, or
-#                        "verl:<run_dir>" (expands to every checkpoint)
+#   vllm / sglang / hf:  an HF repo id or a local checkpoint path
 #   server:              the name the endpoint reports - copy it verbatim
 #                        from `curl <server_url>/models`. Multi-model
 #                        servers (ollama, hosted APIs) switch models per

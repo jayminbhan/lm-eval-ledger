@@ -636,23 +636,6 @@ def run_model(
     model_start = time.time()
     model_tag = Path(model_name).name
 
-    # If model_tag is just "huggingface" (veRL checkpoint), use parent dir info
-    # GRPO: .../run_name/global_step_200/actor/huggingface -> "run_name_global_step_200"
-    # SFT:  .../run_name/global_step_600/huggingface       -> "run_name_global_step_600"
-    if model_tag == "huggingface":
-        model_path = Path(model_name)
-        parent = model_path.parent
-        if parent.name == "actor" and parent.parent.name.startswith("global_step"):
-            # GRPO layout: huggingface -> actor -> global_step_XXX -> run_name
-            step_dir = parent.parent.name
-            run_dir = parent.parent.parent.name
-            model_tag = f"{run_dir}_{step_dir}"
-        elif parent.name.startswith("global_step"):
-            # SFT layout: huggingface -> global_step_XXX -> run_name
-            step_dir = parent.name
-            run_dir = parent.parent.name
-            model_tag = f"{run_dir}_{step_dir}"
-
     print(f"\n{'#'*60}")
     print(f"# MODEL: {model_tag}")
     print(f"{'#'*60}")
