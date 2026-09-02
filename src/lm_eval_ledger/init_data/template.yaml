@@ -134,19 +134,15 @@ db_path: null
 #   db_path: /abs/path/to/ledger.sqlite3
 
 # LLM answer verification (optional post-run pass): re-judge stored
-# responses with a verifier model - recovers correct answers that
-# ignored the \boxed{} format. Writes verified_accuracy ALONGSIDE
-# accuracy; originals are never overwritten. Also runs retroactively
-# on any past run:
+# responses with CompassVerifier - recovers correct answers that
+# ignored the \boxed{} format (essential for free-form benchmarks like
+# HLE/TheoremQA). Writes verified_accuracy ALONGSIDE accuracy; the
+# strict score is never overwritten. Also runs retroactively:
 #   lm-eval-ledger-verify results/ledger.sqlite3 --run 3
-# The verifier is prefetched at run START (so a bad name fails in
-# minute one) and loads only after the eval model unloads.
-verifier_model: null         # e.g. opencompass/CompassVerifier-7B
-verifier_mode: fallback      # fallback = re-judge only string-match
-                             # failures (a sample counts if either
-                             # pipeline accepts it); all = verifier
-                             # decides every sample
-verifier_max_model_len: 16384
+# The verifier is prefetched at run start and loads only after the
+# eval model unloads (it shares the GPU).
+verifier: null      # null = off | 3b | 7b (CompassVerifier scale;
+                    # 7b is the better judge, 3b is lighter/faster)
 
 # ════════════════════════════════════════════════════════════
 # 5. INFERENCE BACKEND - pick one block, delete the rest

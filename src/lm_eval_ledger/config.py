@@ -91,9 +91,14 @@ class RunConfig:
     db_path: str | None = None
 
     # LLM answer verification (post-run pass over the results DB).
-    # Set verifier_model (e.g. "opencompass/CompassVerifier-7B") to enable.
-    # Mode "fallback" re-judges only string-match failures (sample is correct
-    # if either pipeline accepts it); "all" lets the verifier verdict decide.
+    # verifier: null = off; "3b" or "7b" selects the CompassVerifier
+    # scale (the pass is built around that family's prompt and verdict
+    # format); true = "7b". Re-judges string-match failures and writes
+    # verified_accuracy alongside accuracy.
+    verifier: str | bool | None = None
+    # Expert knobs (normally left alone): explicit model id override,
+    # judging mode ("fallback" = re-judge only string-match failures;
+    # "all" = verifier verdict decides), verifier context window.
     verifier_model: str | None = None
     verifier_mode: str = "fallback"
     verifier_max_model_len: int = 16384
@@ -351,6 +356,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="bearer token for --backend server, if the endpoint needs one")
     p.add_argument("--server-concurrency", type=int, default=None, metavar="N",
                    help="concurrent requests for --backend server (default: 8)")
+    p.add_argument("--verifier", type=str, default=None,
+                   choices=["3b", "7b"],
+                   help="enable the CompassVerifier post-run pass at this scale")
     p.add_argument("--verifier-model", type=str, default=None, metavar="MODEL",
                    help="LLM verifier for a post-run verification pass "
                         "(e.g. opencompass/CompassVerifier-7B)")
@@ -397,7 +405,8 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
     for key in ("max_examples", "batch_size", "apply_chat_template", "temperature",
                 "top_p", "max_tokens", "pass_k", "seed", "gpu_memory_utilization",
                 "max_model_len", "enforce_eager", "results_dir", "logs_dir", "data_dir",
-                "db_path", "verifier_model", "verifier_mode", "verifier_max_model_len",
+                "db_path", "verifier", "verifier_model", "verifier_mode",
+                "verifier_max_model_len",
                 "backend", "server_url", "api_key", "server_concurrency",
                 "modality"):
         value = getattr(args, key)
@@ -440,6 +449,17 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
         raise ValueError(f"gpu_ids must be a list of ints or null, got {cfg.gpu_ids!r}")
     if cfg.modality not in ("text", "all"):
         raise ValueError(f"modality must be 'text' or 'all', got {cfg.modality!r}")
+    # verifier: single knob -> concrete CompassVerifier model id
+    if cfg.verifier is True:
+        cfg.verifier = "7b"
+    if cfg.verifier:
+        scale = str(cfg.verifier).lower()
+        if scale not in ("3b", "7b"):
+            raise ValueError(
+                f"verifier must be null/false, '3b', or '7b', got {cfg.verifier!r}")
+        if not cfg.verifier_model:
+            cfg.verifier_model = f"opencompass/CompassVerifier-{scale.upper()}"
+        cfg.verifier = scale
     if cfg.verifier_mode not in ("fallback", "all"):
         raise ValueError(
             f"verifier_mode must be 'fallback' or 'all', got {cfg.verifier_mode!r}"
