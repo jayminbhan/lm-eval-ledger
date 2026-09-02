@@ -105,9 +105,11 @@ class RunConfig:
         return self.quantization
 
     def to_dict(self) -> dict:
-        """Plain-data dict representation (tasks as {name, fewshot} mappings)."""
+        """Plain-data dict representation (tasks in the compact "name:k"
+        form users write; bare name = task-default few-shot)."""
         data = {f.name: getattr(self, f.name) for f in fields(self)}
-        data["tasks"] = [{"name": name, "fewshot": k} for name, k in self.tasks]
+        data["tasks"] = [name if k is None else f"{name}:{k}"
+                         for name, k in self.tasks]
         return data
 
     def to_yaml(self) -> str:
