@@ -129,8 +129,8 @@ def create_app(db_path: Path, token: str | None = None,
         if s >= 3600:
             return f"{s // 3600}h {s % 3600 // 60:02d}m"
         if s >= 60:
-            return f"{s // 60}m {s % 60:02d}s"
-        return f"{s}s"
+            return f"{s // 60}m"
+        return "<1m"
 
     @app.template_filter("imgids")
     def _imgids(image_ids_json):

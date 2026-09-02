@@ -26,7 +26,7 @@
   <thead><tr>
     <th>run</th><th>model</th><th>task</th>
     <th><a href="{{ url_for('benchmarks', task=task or None, sort='accuracy', dedupe=1 if dedupe else None) }}">acc</a></th>
-    <th>n</th><th>no answer</th><th>mins</th>
+    <th>n</th><th>no answer</th><th>time</th>
   </tr></thead>
   <tbody>
   {% for b in rows %}
@@ -39,7 +39,7 @@
         {% else %}{{ "%.3f"|format(b.accuracy) if b.accuracy is not none else "…" }}{% endif %}</td>
       <td>{{ b.total_examples }}</td>
       <td>{{ b.no_answer_count }}</td>
-      <td>{{ "%.0f"|format(b.duration_seconds / 60) if b.duration_seconds else "-" }}</td>
+      <td class="muted">{{ b.duration_seconds|fmtdur if b.duration_seconds else "-" }}</td>
     </tr>
   {% endfor %}
   </tbody>
