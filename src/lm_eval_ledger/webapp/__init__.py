@@ -175,11 +175,16 @@ def create_app(db_path: Path, token: str | None = None,
             f"FROM benchmarks ORDER BY benchmark_id")
         # samples_bytes is maintained at finalize; compute it live only for
         # the (few) in-progress benchmarks so streamed samples are counted.
-        live = {r["benchmark_id"]: r["b"] for r in q(f"""
-            SELECT benchmark_id, SUM({_SAMPLES_BYTES_EXPR}) AS b
-            FROM samples WHERE benchmark_id IN
-              (SELECT benchmark_id FROM benchmarks WHERE samples_bytes IS NULL)
-            GROUP BY benchmark_id""")}
+        # Pre-migration ledgers lack the column entirely - skip the live
+        # pass there (sizes render as 0 B until the harness migrates it).
+        live = {}
+        if "samples_bytes" in _columns("benchmarks"):
+            live = {r["benchmark_id"]: r["b"] for r in q(f"""
+                SELECT benchmark_id, SUM({_SAMPLES_BYTES_EXPR}) AS b
+                FROM samples WHERE benchmark_id IN
+                  (SELECT benchmark_id FROM benchmarks
+                   WHERE samples_bytes IS NULL)
+                GROUP BY benchmark_id""")}
         by_run: dict = {}
         run_bytes: dict = {}
         bench_bytes: dict = {}
