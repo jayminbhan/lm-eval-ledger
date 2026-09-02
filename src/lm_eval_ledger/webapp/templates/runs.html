@@ -27,12 +27,8 @@
     <summary>config
       <a class="btn subtle" href="{{ url_for('run_config', run_id=r.run_id) }}"
          onclick="event.stopPropagation()">view</a>
-      {% if r.source_yaml %}
       <a class="btn subtle" href="{{ url_for('run_config_download', run_id=r.run_id, kind='source') }}"
-         onclick="event.stopPropagation()">download yaml (as written)</a>
-      {% endif %}
-      <a class="btn subtle" href="{{ url_for('run_config_download', run_id=r.run_id, kind='resolved') }}"
-         onclick="event.stopPropagation()">download yaml (resolved)</a>
+         onclick="event.stopPropagation()">download yaml</a>
     </summary>
     <pre class="cfgtext">{{ r.source_yaml or r.config_yaml }}</pre>
   </details>

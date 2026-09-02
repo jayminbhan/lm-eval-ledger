@@ -37,6 +37,12 @@ Live demo: [lm-eval-ledger on Hugging Face Spaces](https://huggingface.co/spaces
 
 ```bash
 pip install lm-eval-ledger
+
+# Or install from source:
+git clone https://github.com/jayminbhan/lm-eval-ledger
+cd lm-eval-ledger
+pip install -e .   # add a backend: pip install -e ".[vllm]"
+
 ```
 
 Inference backends are optional extras — install the one you will use:
@@ -55,9 +61,9 @@ lm-eval-ledger -c config.yaml                       # run benchmarks
 lm-eval-ledger serve --db results/ledger.sqlite3    # browse at http://localhost:8090
 ```
 
-See [Configuration](#configuration) for the YAML format and [TASKS.md](TASKS.md) for available tasks.
+See [template.yaml](#configuration) for the YAML format and [TASKS.md](TASKS.md) for available tasks.
 
-## Configuration
+## Configuration 
 
 A minimal config:
 

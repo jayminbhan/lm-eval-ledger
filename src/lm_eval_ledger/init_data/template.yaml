@@ -6,13 +6,10 @@
 # `lm-eval-ledger` pick it up with no -c flag):
 #
 #   cp template.yaml bench.yaml && lm-eval-ledger
-#
-# Precedence: built-in defaults < this YAML < CLI flags
-# (any field here also exists as a --kebab-case flag, e.g. --max-tokens).
-# Unknown keys are rejected loudly, so typos can't silently no-op.
-# The resolved config of every run is stored in the ledger's runs table;
-# retrieve it with:  lm-eval-ledger config <run_id>
-#
+
+# The resolved config of every run is stored in the ledger's runs table.
+# Download it from the web app to reproduce the benchmark run exactly.
+
 # Layout: sections 1-4 apply to every run. Section 5 is grouped by
 # backend - keep the block for the backend you use, delete the rest
 # (settings for other backends are simply ignored, so leftovers are

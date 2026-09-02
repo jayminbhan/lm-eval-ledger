@@ -25,16 +25,16 @@
 # turn thinking ON for Qwen only; gemma's template has no thinking knob
 # and keeps the global settings.
 models:
-#  - name: Qwen/Qwen3.5-9B
-#    chat_template_kwargs: {enable_thinking: false}
-#  - google/gemma-4-12B-it-qat-w4a16-ct   # gated: needs `hf auth login`
+  - name: Qwen/Qwen3.5-9B
+    chat_template_kwargs: {enable_thinking: true}
+  - google/gemma-4-12B-it-qat-w4a16-ct   # gated: needs `hf auth login`
 
   # name must match what the server reports at /v1/models (add
   # --alias qwen3.8-27b-quant to the llama-server command to use a
   # shorter tag instead)
-  - name: unsloth/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:UD-Q4_K_XL
-    backend: server
-    server_url: http://localhost:8080/v1
+#  - name: unsloth/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:UD-Q4_K_XL
+#    backend: server
+#    server_url: http://localhost:8080/v1
 #    chat_template_kwargs: {enable_thinking: true, reasoning_effort: high}
 
 
@@ -127,7 +127,7 @@ server_extra_body: null
 
 # ── vLLM / hardware (in-process backends) ───────────────────
 gpu_memory_utilization: 0.90 # fraction of VRAM the engine may claim
-max_model_len: 16384          # context window. null = model default.
+max_model_len: 71000          # context window. null = model default.
                              # Prompts exceeding (max_model_len -
                              # max_tokens) are skipped with a warning;
                              # long-context tasks (mrcr_*) need 32k+.
