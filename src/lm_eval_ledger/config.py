@@ -91,11 +91,12 @@ class RunConfig:
     db_path: str | None = None
 
     # LLM answer verification (post-run pass over the results DB).
-    # verifier: null = off; "3b" or "7b" selects the CompassVerifier
-    # scale (the pass is built around that family's prompt and verdict
-    # format); true = "7b". Re-judges string-match failures and writes
-    # verified_accuracy alongside accuracy.
-    verifier: str | bool | None = None
+    # verifier: off | 3b | 7b - exactly these; the CompassVerifier scale
+    # (the pass is built around that family's prompt and verdict format).
+    # Re-judges string-match failures and writes verified_accuracy
+    # alongside accuracy. Only free-form-answer benchmarks (HLE,
+    # TheoremQA) meaningfully need it.
+    verifier: str | bool | None = None  # None/False/"off" = off
     # Expert knobs (normally left alone): explicit model id override,
     # judging mode ("fallback" = re-judge only string-match failures;
     # "all" = verifier verdict decides), verifier context window.
@@ -357,8 +358,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--server-concurrency", type=int, default=None, metavar="N",
                    help="concurrent requests for --backend server (default: 8)")
     p.add_argument("--verifier", type=str, default=None,
-                   choices=["3b", "7b"],
-                   help="enable the CompassVerifier post-run pass at this scale")
+                   choices=["off", "3b", "7b"],
+                   help="CompassVerifier post-run pass: off, or a scale")
     p.add_argument("--verifier-model", type=str, default=None, metavar="MODEL",
                    help="LLM verifier for a post-run verification pass "
                         "(e.g. opencompass/CompassVerifier-7B)")
@@ -449,14 +450,17 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
         raise ValueError(f"gpu_ids must be a list of ints or null, got {cfg.gpu_ids!r}")
     if cfg.modality not in ("text", "all"):
         raise ValueError(f"modality must be 'text' or 'all', got {cfg.modality!r}")
-    # verifier: single knob -> concrete CompassVerifier model id
-    if cfg.verifier is True:
-        cfg.verifier = "7b"
-    if cfg.verifier:
+    # verifier: precise tri-state -> concrete CompassVerifier model id.
+    # (YAML parses a bare `off` as False; both spellings mean off.)
+    if cfg.verifier in (None, False) or str(cfg.verifier).lower() == "off":
+        cfg.verifier = None
+        if str(cfg.verifier_model or "").lower() in ("off", ""):
+            cfg.verifier_model = None
+    else:
         scale = str(cfg.verifier).lower()
         if scale not in ("3b", "7b"):
             raise ValueError(
-                f"verifier must be null/false, '3b', or '7b', got {cfg.verifier!r}")
+                f"verifier must be off, 3b, or 7b, got {cfg.verifier!r}")
         if not cfg.verifier_model:
             cfg.verifier_model = f"opencompass/CompassVerifier-{scale.upper()}"
         cfg.verifier = scale

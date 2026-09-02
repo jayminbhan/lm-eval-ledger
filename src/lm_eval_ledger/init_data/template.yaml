@@ -141,8 +141,10 @@ db_path: null
 #   lm-eval-ledger-verify results/ledger.sqlite3 --run 3
 # The verifier is prefetched at run start and loads only after the
 # eval model unloads (it shares the GPU).
-verifier: null      # null = off | 3b | 7b (CompassVerifier scale;
-                    # 7b is the better judge, 3b is lighter/faster)
+# Most benchmarks score exactly without it (MCQ letters, normalized
+# math answers); it matters for the free-form ones (HLE, TheoremQA).
+verifier: off       # off | 3b | 7b (CompassVerifier scale; 7b is the
+                    # better judge, 3b lighter/faster)
 
 # ════════════════════════════════════════════════════════════
 # 5. INFERENCE BACKEND - pick one block, delete the rest
