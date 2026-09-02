@@ -41,7 +41,6 @@ def main(argv=None) -> None:
     tpl = f"{target}/template.yaml" if args.directory != "." else "template.yaml"
     print("\nNext steps:")
     print(f"  1. cp {tpl} bench.yaml   # your working copy (auto-discovered)")
-    print("  2. edit bench.yaml (every field documented in place; "
-          "task list: lm-eval-ledger --help)")
-    print("  3. lm-eval-ledger          # run it (20-example smoke as shipped)")
+    print("  2. edit bench.yaml (fields documented in place; tasks: TASKS.md)")
+    print("  3. lm-eval-ledger          # run it")
     print("  4. lm-eval-ledger serve    # browse results")
