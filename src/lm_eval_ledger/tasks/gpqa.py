@@ -97,7 +97,7 @@ def _make_task(name: str, hf_config: str, description: str, eval_mode: str) -> T
 
 def get_task_diamond_generate() -> TaskConfig:
     return _make_task(
-        "gpqa_diamond_generate", "gpqa_diamond",
+        "gpqa_diamond", "gpqa_diamond",
         "GPQA Diamond - graduate-level science MCQ (generative)", "generate")
 
 
@@ -117,7 +117,7 @@ def get_task_diamond_logprob_seq() -> TaskConfig:
 
 def get_task_main_generate() -> TaskConfig:
     return _make_task(
-        "gpqa_main_generate", "gpqa_main",
+        "gpqa_main", "gpqa_main",
         "GPQA Main - graduate-level science MCQ (generative)", "generate")
 
 
@@ -137,7 +137,7 @@ def get_task_main_logprob_seq() -> TaskConfig:
 
 def get_task_extended_generate() -> TaskConfig:
     return _make_task(
-        "gpqa_extended_generate", "gpqa_extended",
+        "gpqa_extended", "gpqa_extended",
         "GPQA Extended - graduate-level science MCQ (generative)", "generate")
 
 

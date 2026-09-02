@@ -51,7 +51,7 @@ def get_choice_texts(example: dict) -> list[str]:
 def get_task_generate() -> TaskConfig:
     """Get WinoGrande task (generative)."""
     return TaskConfig(
-        name="winogrande_generate",
+        name="winogrande",
         build_prompt=build_prompt,
         extract_gold=extract_gold,
         extract_pred=extract_pred,

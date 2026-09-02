@@ -68,7 +68,7 @@ def get_choice_texts(example: dict) -> list[str]:
 def get_task() -> TaskConfig:
     """Get MMLU Redux 2.0 task (generative)."""
     return TaskConfig(
-        name="mmlu_redux_2_generate",
+        name="mmlu_redux_2",
         build_prompt=build_prompt,
         extract_gold=extract_gold,
         extract_pred=extract_pred,

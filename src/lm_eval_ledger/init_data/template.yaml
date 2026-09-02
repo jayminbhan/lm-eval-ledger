@@ -26,11 +26,11 @@ models:
 
 
 # "name" (task-default few-shot), "name:4", or "name:0,4" (ladder).
-# Full list: lm-eval-ledger --help or ./TASKS.md (written by init). MCQ suffixes:
-# _generate | _logprob_token | _logprob_seq (seq: vllm/hf only).
+# Full list: lm-eval-ledger --help or ./TASKS.md (written by init). MCQ tasks:
+# bare name = generate scoring; _logprob_token | _logprob_seq variants.
 tasks:
   - gsm8k_main:0
-  - gpqa_diamond_generate:0
+  - gpqa_diamond:0
 
 max_examples: null   # per-task cap; null = all (set ~20 for a smoke test)
 

@@ -66,7 +66,7 @@ def _make_task(name: str, hf_config: str, description: str, eval_mode: str) -> T
 
 def get_task_easy_generate() -> TaskConfig:
     return _make_task(
-        "arc_easy_generate", "ARC-Easy",
+        "arc_easy", "ARC-Easy",
         "ARC-Easy - science MCQ (generative)", "generate")
 
 
@@ -86,7 +86,7 @@ def get_task_easy_logprob_seq() -> TaskConfig:
 
 def get_task_challenge_generate() -> TaskConfig:
     return _make_task(
-        "arc_challenge_generate", "ARC-Challenge",
+        "arc_challenge", "ARC-Challenge",
         "ARC-Challenge - science MCQ (generative)", "generate")
 
 

@@ -48,7 +48,7 @@ def get_choice_texts(example: dict) -> list[str]:
 def get_task_generate() -> TaskConfig:
     """Get MMLU-Pro task (generative)."""
     return TaskConfig(
-        name="mmlu_pro_generate",
+        name="mmlu_pro",
         build_prompt=build_prompt,
         extract_gold=extract_gold,
         extract_pred=extract_pred,

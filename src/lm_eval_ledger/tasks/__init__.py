@@ -49,35 +49,35 @@ TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
     "hendrycks_math": hendrycks_math.get_task,
 
     # MMLU Redux 2.0
-    "mmlu_redux_2_generate": mmlu_redux_2.get_task,
+    "mmlu_redux_2": mmlu_redux_2.get_task,
     "mmlu_redux_2_logprob_token": mmlu_redux_2.get_task_logprob_token,
     "mmlu_redux_2_logprob_seq": mmlu_redux_2.get_task_logprob_seq,
 
     # MMLU Redux 1.0 (edinburgh-dawg)
-    "mmlu_redux_1_generate": mmlu_redux_1.get_task_generate,
+    "mmlu_redux_1": mmlu_redux_1.get_task_generate,
     "mmlu_redux_1_logprob_token": mmlu_redux_1.get_task_logprob_token,
     "mmlu_redux_1_logprob_seq": mmlu_redux_1.get_task_logprob_seq,
 
     # MMLU-Pro
-    "mmlu_pro_generate": mmlu_pro.get_task_generate,
+    "mmlu_pro": mmlu_pro.get_task_generate,
     "mmlu_pro_logprob_token": mmlu_pro.get_task_logprob_token,
     "mmlu_pro_logprob_seq": mmlu_pro.get_task_logprob_seq,
 
     # ARC (AI2 Reasoning Challenge)
-    "arc_easy_generate": arc.get_task_easy_generate,
+    "arc_easy": arc.get_task_easy_generate,
     "arc_easy_logprob_token": arc.get_task_easy_logprob_token,
     "arc_easy_logprob_seq": arc.get_task_easy_logprob_seq,
-    "arc_challenge_generate": arc.get_task_challenge_generate,
+    "arc_challenge": arc.get_task_challenge_generate,
     "arc_challenge_logprob_token": arc.get_task_challenge_logprob_token,
     "arc_challenge_logprob_seq": arc.get_task_challenge_logprob_seq,
 
     # HellaSwag
-    "hellaswag_generate": hellaswag.get_task_generate,
+    "hellaswag": hellaswag.get_task_generate,
     "hellaswag_logprob_token": hellaswag.get_task_logprob_token,
     "hellaswag_logprob_seq": hellaswag.get_task_logprob_seq,
 
     # WinoGrande
-    "winogrande_generate": winogrande.get_task_generate,
+    "winogrande": winogrande.get_task_generate,
     "winogrande_logprob_token": winogrande.get_task_logprob_token,
     "winogrande_logprob_seq": winogrande.get_task_logprob_seq,
 
@@ -92,13 +92,13 @@ TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
     "bbh": bbh.get_task,
 
     # GPQA (Graduate-Level Google-Proof Q&A)
-    "gpqa_diamond_generate": gpqa.get_task_diamond_generate,
+    "gpqa_diamond": gpqa.get_task_diamond_generate,
     "gpqa_diamond_logprob_token": gpqa.get_task_diamond_logprob_token,
     "gpqa_diamond_logprob_seq": gpqa.get_task_diamond_logprob_seq,
-    "gpqa_main_generate": gpqa.get_task_main_generate,
+    "gpqa_main": gpqa.get_task_main_generate,
     "gpqa_main_logprob_token": gpqa.get_task_main_logprob_token,
     "gpqa_main_logprob_seq": gpqa.get_task_main_logprob_seq,
-    "gpqa_extended_generate": gpqa.get_task_extended_generate,
+    "gpqa_extended": gpqa.get_task_extended_generate,
     "gpqa_extended_logprob_token": gpqa.get_task_extended_logprob_token,
     "gpqa_extended_logprob_seq": gpqa.get_task_extended_logprob_seq,
 
@@ -112,6 +112,24 @@ TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
     "mrcr_2needle": mrcr.get_task_2needle,
     "mrcr_4needle": mrcr.get_task_4needle,
     "mrcr_8needle": mrcr.get_task_8needle,
+}
+
+
+# Old explicit-generate names stay accepted (stored configs, muscle
+# memory); they resolve to the bare name, which is what the ledger
+# records. Generate is the default eval mode - suffixes select the
+# logprob modes.
+TASK_ALIASES = {
+    "arc_challenge_generate": "arc_challenge",
+    "arc_easy_generate": "arc_easy",
+    "gpqa_diamond_generate": "gpqa_diamond",
+    "gpqa_extended_generate": "gpqa_extended",
+    "gpqa_main_generate": "gpqa_main",
+    "hellaswag_generate": "hellaswag",
+    "mmlu_pro_generate": "mmlu_pro",
+    "mmlu_redux_1_generate": "mmlu_redux_1",
+    "mmlu_redux_2_generate": "mmlu_redux_2",
+    "winogrande_generate": "winogrande",
 }
 
 
@@ -146,6 +164,8 @@ def get_task(task_name: str) -> TaskConfig:
     Returns:
         TaskConfig instance
     """
+    if task_name in TASK_ALIASES:
+        task_name = TASK_ALIASES[task_name]
     if task_name not in TASK_REGISTRY:
         available = ", ".join(sorted(TASK_REGISTRY.keys()))
         raise ValueError(f"Unknown task '{task_name}'. Available tasks: {available}")

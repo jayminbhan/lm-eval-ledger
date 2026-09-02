@@ -60,7 +60,7 @@ MMLU_REDUX_1_SUBJECTS = [
 def get_task_generate() -> TaskConfig:
     """Get MMLU Redux 1.0 task (generative)."""
     return TaskConfig(
-        name="mmlu_redux_1_generate",
+        name="mmlu_redux_1",
         build_prompt=build_prompt,
         extract_gold=extract_gold,
         extract_pred=extract_pred,

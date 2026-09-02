@@ -51,7 +51,7 @@ def get_choice_texts(example: dict) -> list[str]:
 def get_task_generate() -> TaskConfig:
     """Get HellaSwag task (generative)."""
     return TaskConfig(
-        name="hellaswag_generate",
+        name="hellaswag",
         build_prompt=build_prompt,
         extract_gold=extract_gold,
         extract_pred=extract_pred,

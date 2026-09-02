@@ -13,15 +13,23 @@ tasks:
   - mmlu_pro_generate:0,4        # few-shot ladder (two benchmarks)
 ```
 
-Eval modes (the suffix on MCQ families):
+Every bare task name scores by **generation** (free-form response +
+`\boxed{}` extraction) - the mode that matches how models are used and
+what leaderboards report. MCQ tasks additionally offer logprob scoring
+as explicit opt-in variants, named by suffix:
 
-| mode | how it scores | backends |
+| variant | how it scores | backends |
 |---|---|---|
-| `generate` | free-form generation + `\boxed{}` extraction | all |
-| `logprob_token` | first-token log-probability over choice letters | vllm, hf, sglang, server* |
-| `logprob_seq` | completion log-likelihood of each full answer | vllm, hf |
+| *(bare name)* | free-form generation + `\boxed{}` extraction | all |
+| `<task>_logprob_token` | first-token log-probability over choice letters | vllm, hf, sglang, server* |
+| `<task>_logprob_seq` | completion log-likelihood of each full answer | vllm, hf |
 
 \* server: needs an endpoint that returns logprobs.
+
+Logprob modes are cheap (no generation) and useful for base models or
+for measuring the scoring-method difference on the same model - e.g.
+run both `gpqa_diamond` and `gpqa_diamond_logprob_token` and compare.
+The old `<task>_generate` names remain accepted as aliases.
 
 Few-shot: `name:k` draws the first k exemplars from the task's few-shot
 source — a held-out HF split (never the eval set), or a curated local
@@ -46,17 +54,17 @@ the maximum k, though practical values are 0-8.
 
 ## Science / knowledge MCQ
 
-Each family below has all three eval-mode variants:
-`<family>_generate`, `<family>_logprob_token`, `<family>_logprob_seq`.
+Bare name = generate scoring; append `_logprob_token` / `_logprob_seq`
+for the logprob variants.
 
-| family | default k | few-shot | n | dataset |
+| task | default k | few-shot | n | dataset |
 |---|---|---|---|---|
-| `gpqa_diamond_*` | 0 | 0-shot only (single split, no held-out pool) | 198 | Idavidrein/gpqa [gpqa_diamond] — gated |
-| `gpqa_main_*` | 0 | 0-shot only (single split, no held-out pool) | 448 | Idavidrein/gpqa [gpqa_main] — gated |
-| `gpqa_extended_*` | 0 | 0-shot only (single split, no held-out pool) | 546 | Idavidrein/gpqa [gpqa_extended] — gated |
-| `mmlu_pro_*` | 0 | validation split (pool 70)¹ | ~12000 | TIGER-Lab/MMLU-Pro (up to 10 options) |
-| `mmlu_redux_1_*` | 0 | 0-shot only | ~3000 | edinburgh-dawg/mmlu-redux |
-| `mmlu_redux_2_*` | 0 | 0-shot only | ~5700 | edinburgh-dawg/mmlu-redux-2.0 |
+| `gpqa_diamond` | 0 | 0-shot only (single split, no held-out pool) | 198 | Idavidrein/gpqa [gpqa_diamond] — gated |
+| `gpqa_main` | 0 | 0-shot only (single split, no held-out pool) | 448 | Idavidrein/gpqa [gpqa_main] — gated |
+| `gpqa_extended` | 0 | 0-shot only (single split, no held-out pool) | 546 | Idavidrein/gpqa [gpqa_extended] — gated |
+| `mmlu_pro` | 0 | validation split (pool 70)¹ | ~12000 | TIGER-Lab/MMLU-Pro (up to 10 options) |
+| `mmlu_redux_1` | 0 | 0-shot only | ~3000 | edinburgh-dawg/mmlu-redux |
+| `mmlu_redux_2` | 0 | 0-shot only | ~5700 | edinburgh-dawg/mmlu-redux-2.0 |
 
 ¹ Exemplars are the first k of the split, not per-category as in the
 official MMLU-Pro protocol — comparable across your own runs, slightly
@@ -67,10 +75,10 @@ off-protocol versus the paper's 5-shot numbers.
 | task | default k | few-shot | n | dataset |
 |---|---|---|---|---|
 | `bbh` | 0 | 0-shot only | ~6500 | lukaemon/bbh (27 subtasks) |
-| `arc_challenge_*` (3 modes) | 0 | train split (pool 1119) | 1172 | allenai/ai2_arc [ARC-Challenge] |
-| `arc_easy_*` (3 modes) | 0 | train split (pool 2251) | 2376 | allenai/ai2_arc [ARC-Easy] |
-| `hellaswag_*` (3 modes) | 0 | train split (pool 39905) | ~10000 | Rowan/hellaswag |
-| `winogrande_*` (3 modes) | 0 | train split (pool 40398) | 1267 | allenai/winogrande [winogrande_xl] |
+| `arc_challenge` | 0 | train split (pool 1119) | 1172 | allenai/ai2_arc [ARC-Challenge] |
+| `arc_easy` | 0 | train split (pool 2251) | 2376 | allenai/ai2_arc [ARC-Easy] |
+| `hellaswag` | 0 | train split (pool 39905) | ~10000 | Rowan/hellaswag |
+| `winogrande` | 0 | train split (pool 40398) | 1267 | allenai/winogrande [winogrande_xl] |
 
 ## Frontier / specialty
 
