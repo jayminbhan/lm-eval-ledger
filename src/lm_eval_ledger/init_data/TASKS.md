@@ -80,16 +80,17 @@ off-protocol versus the paper's 5-shot numbers.
 |---|---|---|---|---|---|
 | `hle` | 0 | 0-shot only | 2500 (2158 text-only) | cais/hle | gated; 342 image questions (`modality`); string-match is a lower bound of the official LLM-judge scoring |
 | `livecodebench` | 0 | 0-shot only (self-contained prompts) | 1055 | official release jsonls (release_v6) | EXECUTES generated code locally; `max_tokens >= 2048` |
-| `livecodebench_2408_2501` | 0 | 0-shot only | 323 | release_v6, contests 2024-08 to 2025-01 only | the window labs commonly report (e.g. DeepSeek-R1); post-cutoff for mid-2024 models |
-| `livecodebench_2501_2505` | 0 | 0-shot only | 182 | release_v6, contests 2025-01 to 2025-04 only | newest problems in v6; post-cutoff for early-2025 models |
+| `livecodebench_2408_2501` | 0 | 0-shot only | 323 | release_v6, contests 2024-08 to 2025-01 | date-windowed slice |
+| `livecodebench_2501_2505` | 0 | 0-shot only | 182 | release_v6, contests 2025-01 to 2025-04 | date-windowed slice (newest contests in v6) |
 | `mrcr_2needle` / `mrcr_4needle` / `mrcr_8needle` | 0 | 0-shot only | 800 each | openai/mrcr | long context: needs `apply_chat_template` and a large `max_model_len` (32k+); partial credit (SequenceMatcher ratio) |
 
 The `livecodebench_YYMM_YYMM` variants filter the same v6 archive by
-`contest_date` (start inclusive, end exclusive): evaluate only problems
-newer than your model's training cutoff, the way LiveCodeBench results
-are conventionally reported. Bare `livecodebench` is the full archive -
-higher, contamination-inflated numbers for recent models; label which
-one you ran.
+`contest_date` (start inclusive, end exclusive) - independent of the
+release deltas. LiveCodeBench results are conventionally reported on a
+date window chosen to fall after the model's training cutoff; each
+report picks its own dates, so always state the window. Bare
+`livecodebench` is the full archive: higher, contamination-inflated
+numbers for recent models.
 
 ## Notes
 
