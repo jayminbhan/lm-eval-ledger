@@ -1,7 +1,7 @@
 # lm-eval-ledger config template
 # Copy this template or write directly in this template for benchmark run.
 # Any field is also a CLI flag (--max-tokens 4096). 
-# The resolved config of every run is stored in the ledger for reproduction.
+# The config of every run is stored in the SQLite for reproduction.
 # Layout: SHARED behaves identically on every backend; PER-BACKEND is one
 # block per backend - keep the block you use, comment out the rest.
 
@@ -16,6 +16,7 @@
 #                        from `curl <server_url>/models`. Multi-model
 #                        servers (ollama, hosted APIs) switch models per
 #                        request, so several entries work in one run.
+
 # Config under model entry overrides globals for that model only
 # (chat_template_kwargs, quantization, apply_chat_template, ...).
 models:
@@ -90,10 +91,7 @@ batch_size: 100       # write to the ledger every N samples (throughput
 # ── server (any OpenAI-compatible endpoint: llama.cpp, ollama,
 #    hosted APIs; no extra install). The server owns model loading,
 #    context size, and quantization. models: entries are the names the
-#    endpoint serves (see models: above); a single-model llama-server
-#    serves one model per launch - one entry per run, relaunch the
-#    server to benchmark another. llama-server example:
-#      llama-server -hf <repo:quant> -ngl 999 -c 65536 -np 4 --jinja
+#    endpoint serves (see models: above);
 # backend: server
 # server_url: http://localhost:8080/v1
 # api_key: null

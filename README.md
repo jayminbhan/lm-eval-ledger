@@ -61,10 +61,7 @@ lm-eval-ledger -c config.yaml                       # run benchmarks
 lm-eval-ledger serve --db results/ledger.sqlite3    # browse at http://localhost:8090
 ```
 
-See [template.yaml](#configuration) for the YAML format and [TASKS.md](TASKS.md) for available tasks.
-
-
-Every option, with defaults and per-backend settings, is documented in [`template.yaml`](template.yaml) (the same file `lm-eval-ledger init` writes). Copy it and uncomment what you need.
+YAML format: [template.yaml](#yaml-template), available tasks: [TASKS.md](src/lm_eval_ledger/init_data/TASKS.md)
 
 ## Backends
 
@@ -77,13 +74,17 @@ One config format, four engines:
 | `hf`     | `pip install "lm-eval-ledger[hf]"`     | Linux, Windows |
 | `server` | `pip install lm-eval-ledger` *(no extra)* | Linux, Windows |
 
+The first three run the model in-process. `server` talks to any OpenAI-compatible
+endpoint instead — local (llama.cpp, ollama, LM Studio) or hosted (OpenAI, Together, ...).
+
 ### Example: llama.cpp
 
 Start a llama.cpp server:
 
 ```bash
-llama-server -hf unsloth/Qwen3-30B-GGUF:Q4_K_XL -ngl 999 -c 65536 -np 4 --jinja
+llama-server -hf unsloth/Qwen3.8-27B-GGUF:Q4_K_XL -ngl 999 -c 65536 -np 4 --jinja
 ```
+
 
 Point the config at it:
 
@@ -101,7 +102,120 @@ Set `chat_template_kwargs` per model to control thinking. If it is left unset, t
 
 ```yaml
 models:
-  - name: Qwen/Qwen3-8B
+  - name: Qwen/Qwen3.8-27B
     chat_template_kwargs: {enable_thinking: true, reasoning_effort: high}
   - google/gemma-3-12b-it        # no thinking knob; global settings apply
 ```
+
+## YAML template
+
+Every option with its default in shared and per-backend blocks. Uncomment what you need.
+
+<details>
+<summary><b>template.yaml</b> (click to expand)</summary>
+
+```yaml
+# lm-eval-ledger config template
+# Copy this template or write directly in this template for benchmark run.
+# Any field is also a CLI flag (--max-tokens 4096). 
+# The config of every run is stored in the SQLite for reproduction.
+# Layout: SHARED behaves identically on every backend; PER-BACKEND is one
+# block per backend - keep the block you use, comment out the rest.
+
+# ════════════════════════════════════════════════════════════
+# SHARED - backend-agnostic
+# ════════════════════════════════════════════════════════════
+
+# List model names to evaluate. Each model is run sequentially on every task.
+# Model name depends on the backend:
+#   vllm / sglang / hf:  an HF repo id or a local checkpoint path
+#   server:              the name the endpoint reports - copy it verbatim
+#                        from `curl <server_url>/models`. Multi-model
+#                        servers (ollama, hosted APIs) switch models per
+#                        request, so several entries work in one run.
+
+# Config under model entry overrides globals for that model only
+# (chat_template_kwargs, quantization, apply_chat_template, ...).
+models:
+  - Qwen/Qwen2.5-7B-Instruct
+  # - name: Qwen/Qwen3-8B
+  #   chat_template_kwargs: {enable_thinking: true}
+  # - google/gemma-4-12B-it-qat-w4a16-ct 
+
+
+# "name" (task-default few-shot), "name:4", or "name:0,4" (ladder).
+# Full list: lm-eval-ledger --help or ./TASKS.md (written by init). MCQ tasks:
+# bare name = generate scoring; _logprob_token | _logprob_seq variants.
+tasks:
+  - gsm8k:0
+  - gpqa_diamond:0
+
+max_examples: null   # per-task cap; null = all (set ~20 for a smoke test)
+
+# Image-bearing questions (HLE, TheoremQA): text = drop them;
+# all = send images (needs a vision-capable model on backend: server).
+modality: text
+
+apply_chat_template: true   # true for instruct/chat, false for base
+
+# Thinking-mode control (model-family specific chat-template kwargs,
+# e.g. {enable_thinking: false}). Left unset, a terminal launch offers
+# a menu per model and prints the YAML to pin the choice.
+# chat_template_kwargs: {}   # uncomment to silence the menu
+
+# Sampling (thinking models need sampling - check the model card).
+temperature: 0.6
+top_p: 0.95
+max_tokens: 2048     # generation budget; thinking modes want 8192+
+pass_k: 1            # best-of-k scoring; >1 needs temperature > 0
+
+logs_dir: logs
+db_path: null        # THE ledger; null = ./results/ledger.sqlite3
+
+# Post-run LLM verification (CompassVerifier); recovers unformatted
+# answers - matters for free-form benchmarks (HLE, TheoremQA).
+verifier: off        # off | 3b | 7b
+
+# ════════════════════════════════════════════════════════════
+# PER-BACKEND - backend-specific: keep ONE block, comment out the rest
+# ════════════════════════════════════════════════════════════
+
+# ── vllm (in-process, fastest; pip install lm-eval-ledger[vllm]) ────
+backend: vllm
+gpu_memory_utilization: 0.90
+max_model_len: 8192   # context window (prompt + max_tokens must fit)
+enforce_eager: true
+gpu_ids: null         # [3] = pin GPU; [0,1] = one worker per GPU
+quantization: null    # "bitsandbytes" | "awq" | "gptq" | "fp8" | {tag: method}
+batch_size: 100       # write to the ledger every N samples (throughput
+                      # is unaffected; null = single engine call, results
+                      # land only at task end)
+
+# ── hf (transformers; every architecture, slow; [hf] extra) ─────────
+# backend: hf
+# max_model_len: 8192
+# gpu_ids: null
+# quantization: null  # "bitsandbytes" only
+# batch_size: 8       # true VRAM knob here - keep small
+
+# ── sglang (in-process; [sglang] extra) ─────────────────────────────
+# backend: sglang
+# gpu_memory_utilization: 0.90
+# max_model_len: 8192
+# gpu_ids: null
+# batch_size: 100
+
+# ── server (any OpenAI-compatible endpoint: llama.cpp, ollama,
+#    hosted APIs; no extra install). The server owns model loading,
+#    context size, and quantization. models: entries are the names the
+#    endpoint serves (see models: above);
+# backend: server
+# server_url: http://localhost:8080/v1
+# api_key: null
+# server_concurrency: 4    # = llama-server -np slots
+# request_timeout: 600     # seconds; thinking modes can take minutes
+# server_extra_body: null  # extra JSON per request, e.g. {top_k: 20}
+
+```
+
+</details>
