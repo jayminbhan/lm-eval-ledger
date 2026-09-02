@@ -9,17 +9,19 @@
 # PART 1 - backend-agnostic
 # ════════════════════════════════════════════════════════════
 
-# HF id, local path, or "verl:<run_dir>" (every checkpoint). A mapping
-# entry overrides globals for that model only (chat_template_kwargs,
-# backend, server_url, api_key, quantization, apply_chat_template, ...).
-# With backend: server, the name is what the server reports at /v1/models.
+# What a model NAME is depends on the backend:
+#   vllm / sglang / hf:  an HF repo id, a local checkpoint path, or
+#                        "verl:<run_dir>" (expands to every checkpoint)
+#   server:              the name the endpoint reports - copy it verbatim
+#                        from `curl <server_url>/models`. Multi-model
+#                        servers (ollama, hosted APIs) switch models per
+#                        request, so several entries work in one run.
+# A mapping entry overrides globals for that model only
+# (chat_template_kwargs, quantization, apply_chat_template, ...).
 models:
   - Qwen/Qwen2.5-7B-Instruct
   # - name: Qwen/Qwen3-8B
   #   chat_template_kwargs: {enable_thinking: true}
-  # - name: my-served-model          # one run can mix backends
-  #   backend: server
-  #   server_url: http://localhost:8080/v1
 
 # "name" (task-default few-shot), "name:4", or "name:0,4" (ladder).
 # Full list: lm-eval-ledger --help or configs/TASKS.md. MCQ suffixes:
@@ -86,10 +88,9 @@ batch_size: 100       # write to the ledger every N samples (throughput
 # ── server (any OpenAI-compatible endpoint: llama.cpp, ollama,
 #    hosted APIs; no extra install). The server owns model loading,
 #    context size, and quantization. models: entries are the names the
-#    endpoint serves - multi-model servers (ollama, hosted APIs) switch
-#    models per request, so several entries work; a single-model
-#    llama-server serves one model per launch (one entry per run;
-#    relaunch the server to benchmark another). llama-server example:
+#    endpoint serves (see models: above); a single-model llama-server
+#    serves one model per launch - one entry per run, relaunch the
+#    server to benchmark another. llama-server example:
 #      llama-server -hf <repo:quant> -ngl 999 -c 65536 -np 4 --jinja
 # backend: server
 # server_url: http://localhost:8080/v1
