@@ -1,7 +1,7 @@
 # Task registry
 
 Every task string accepted in a config's `tasks:` list (or `--task`).
-`lm-eval-ledger --help` always shows the current list.
+`lm-eval-ledger --help` shows the current list.
 
 Usage forms (see `template.yaml`):
 
@@ -13,15 +13,16 @@ tasks:
 ```
 
 Every bare task name scores by **generation** (free-form response +
-`\boxed{}` extraction) - the mode that matches how models are used and
-what leaderboards report. MCQ tasks additionally offer logprob scoring
-as explicit opt-in variants, named by suffix:
+`\boxed{}` answer extraction) - the mode that matches how models are used and
+what leaderboards report. MCQ tasks additionally offer logprob scoring. Named by suffix:
 
 | variant | how it scores | backends |
 |---|---|---|
 | *(bare name)* | free-form generation + `\boxed{}` extraction | all |
-| `<task>_logprob_token` | first-token log-probability over choice letters | vllm, hf, sglang; server only when the endpoint returns logprobs (llama.cpp does; many hosted APIs do not - the task fails with a clear error, never a silent zero) |
+| `<task>_logprob_token` | first-token log-probability over choice letters | vllm, hf, sglang, server* |
 | `<task>_logprob_seq` | completion log-likelihood of each full answer | vllm, hf |
+
+\* server: needs an endpoint that returns logprobs.
 
 Logprob variants exist for exactly the MCQ tasks marked **+logprob**
 in the tables below (a fixed choice set is required); every other task

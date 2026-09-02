@@ -10,8 +10,9 @@ retries with backoff on connection errors/5xx, and per-request failures
 surface as GenResult(finish_reason="error") so a run records partial
 failure instead of dying.
 
-Capabilities: generate everywhere; logprob_token where the server
-returns completions logprobs (llama-server does, many others do not);
+Capabilities: generate everywhere; logprob_token on llama.cpp
+(llama-server returns completions logprobs; most other endpoints do
+not, and fail with a clear error on the first request);
 logprob_seq is not expressible over this API.
 """
 from __future__ import annotations
