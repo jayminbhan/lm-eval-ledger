@@ -85,7 +85,11 @@ batch_size: 100       # write to the ledger every N samples (throughput
 
 # ── server (any OpenAI-compatible endpoint: llama.cpp, ollama,
 #    hosted APIs; no extra install). The server owns model loading,
-#    context size, and quantization. llama-server example:
+#    context size, and quantization. models: entries are the names the
+#    endpoint serves - multi-model servers (ollama, hosted APIs) switch
+#    models per request, so several entries work; a single-model
+#    llama-server serves one model per launch (one entry per run;
+#    relaunch the server to benchmark another). llama-server example:
 #      llama-server -hf <repo:quant> -ngl 999 -c 65536 -np 4 --jinja
 # backend: server
 # server_url: http://localhost:8080/v1
