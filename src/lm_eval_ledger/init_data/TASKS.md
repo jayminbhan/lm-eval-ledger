@@ -80,7 +80,7 @@ off-protocol versus the paper's 5-shot numbers.
 |---|---|---|---|---|---|
 | `hle` | 0 | 0-shot only | 2500 (2158 text-only) | cais/hle | gated; 342 image questions (`modality`); string-match is a lower bound of the official LLM-judge scoring |
 | `livecodebench` | 0 | 0-shot only (self-contained prompts) | 1055 | official release jsonls (release_v6) | EXECUTES generated code locally; `max_tokens >= 2048` |
-| `livecodebench_2408_2501` | 0 | 0-shot only | 323 | contests 2024-08..2025-01 (the window labs commonly report, e.g. DeepSeek-R1) | contamination-controlled slice of release_v6 |
+| `livecodebench_2408_2501` | 0 | 0-shot only | 323 | contests 2024-08..2025-01  | contamination-controlled slice of release_v6 |
 | `livecodebench_2501_2505` | 0 | 0-shot only | 182 | contests 2025-01..2025-04 (newest slice of release_v6) | contamination-controlled slice |
 | `mrcr_2needle` / `mrcr_4needle` / `mrcr_8needle` | 0 | 0-shot only | 800 each | openai/mrcr | long context: needs `apply_chat_template` and a large `max_model_len` (32k+); partial credit (SequenceMatcher ratio) |
 
