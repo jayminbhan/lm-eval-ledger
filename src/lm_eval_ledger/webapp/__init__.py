@@ -83,15 +83,22 @@ def create_app(db_path: Path, token: str | None = None,
         rows = q(sql, params)
         return rows[0] if rows else None
 
+    def _columns(table: str) -> set[str]:
+        con = _connect(app.config["DB_PATH"])
+        try:
+            return {r[1] for r in con.execute(f"PRAGMA table_info({table})")}
+        finally:
+            con.close()
+
     def has_images() -> bool:
         """Old ledgers (not yet opened by the new harness) lack the
         image columns; render without them instead of erroring."""
-        con = _connect(app.config["DB_PATH"])
-        try:
-            cols = [r[1] for r in con.execute("PRAGMA table_info(samples)")]
-            return "image_ids" in cols
-        finally:
-            con.close()
+        return "image_ids" in _columns("samples")
+
+    def _col(table: str, name: str) -> str:
+        """SELECT fragment that degrades to NULL on pre-migration
+        ledgers (the viewer is read-only and must not require them)."""
+        return name if name in _columns(table) else f"NULL AS {name}"
 
     # ---------- helpers exposed to templates ----------
 
@@ -158,11 +165,14 @@ def create_app(db_path: Path, token: str | None = None,
 
     @app.route("/")
     def runs():
-        run_rows = q("SELECT * FROM runs ORDER BY run_id DESC")
+        run_rows = q(f"SELECT run_id, run_name, started_at, harness_version, "
+                     f"config_yaml, {_col('runs', 'source_yaml')} "
+                     f"FROM runs ORDER BY run_id DESC")
         benches = q(
-            "SELECT benchmark_id, run_id, model_tag, task, fewshot_k, "
-            "accuracy, verified_accuracy, total_examples, no_answer_count, "
-            "samples_bytes, error FROM benchmarks ORDER BY benchmark_id")
+            f"SELECT benchmark_id, run_id, model_tag, task, fewshot_k, "
+            f"accuracy, verified_accuracy, total_examples, no_answer_count, "
+            f"{_col('benchmarks', 'samples_bytes')}, error "
+            f"FROM benchmarks ORDER BY benchmark_id")
         # samples_bytes is maintained at finalize; compute it live only for
         # the (few) in-progress benchmarks so streamed samples are counted.
         live = {r["benchmark_id"]: r["b"] for r in q(f"""
@@ -186,8 +196,9 @@ def create_app(db_path: Path, token: str | None = None,
 
     @app.route("/run/<int:run_id>/config")
     def run_config(run_id):
-        row = q1("SELECT run_name, config_yaml, source_yaml FROM runs "
-                 "WHERE run_id = ?", [run_id])
+        row = q1(f"SELECT run_name, config_yaml, "
+                 f"{_col('runs', 'source_yaml')} FROM runs "
+                 f"WHERE run_id = ?", [run_id])
         if row is None:
             abort(404)
         return render_template("runconfig.html", run_id=run_id,
@@ -198,8 +209,9 @@ def create_app(db_path: Path, token: str | None = None,
     @app.route("/run/<int:run_id>/config.yaml")
     def run_config_download(run_id):
         kind = request.args.get("kind", "source")
-        row = q1("SELECT run_name, config_yaml, source_yaml FROM runs "
-                 "WHERE run_id = ?", [run_id])
+        row = q1(f"SELECT run_name, config_yaml, "
+                 f"{_col('runs', 'source_yaml')} FROM runs "
+                 f"WHERE run_id = ?", [run_id])
         if row is None:
             abort(404)
         text = row["source_yaml"] if kind == "source" else row["config_yaml"]
