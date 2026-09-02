@@ -1,8 +1,9 @@
 # init_cmd.py
 """`lm-eval-ledger init`: materialize a working directory.
 
-Writes template.yaml - every config field, annotated; the intended
-workflow is copy it, edit the copy, run the copy - and creates the
+Writes template.yaml (every config field, annotated; copy it, edit
+the copy, run the copy) and TASKS.md (every task with few-shot
+support, sample counts, and dataset caveats), and creates the
 results/logs directories. Existing files are never overwritten.
 """
 from __future__ import annotations
@@ -11,7 +12,7 @@ import argparse
 from importlib import resources
 from pathlib import Path
 
-_FILES = ("template.yaml",)
+_FILES = ("template.yaml", "TASKS.md")
 _DIRS = ("results", "logs")
 
 
