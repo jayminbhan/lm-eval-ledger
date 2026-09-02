@@ -28,7 +28,7 @@ tasks:
   - gsm8k_main:0
   - gpqa_diamond_generate:0
 
-max_examples: 20     # per-task cap; null = all (20 = smoke test)
+max_examples: null   # per-task cap; null = all (set ~20 for a smoke test)
 
 # Image-bearing questions (HLE, TheoremQA): text = drop them;
 # all = send images (needs a vision-capable model on backend: server).
@@ -46,7 +46,6 @@ temperature: 0.6
 top_p: 0.95
 max_tokens: 2048     # generation budget; thinking modes want 8192+
 pass_k: 1            # best-of-k scoring; >1 needs temperature > 0
-seed: 42             # best-effort on hosted APIs
 
 logs_dir: logs
 db_path: null        # THE ledger; null = ./results/ledger.sqlite3
@@ -66,7 +65,9 @@ max_model_len: 8192   # context window (prompt + max_tokens must fit)
 enforce_eager: true
 gpu_ids: null         # [3] = pin GPU; [0,1] = one worker per GPU
 quantization: null    # "bitsandbytes" | "awq" | "gptq" | "fp8" | {tag: method}
-batch_size: null      # null = one engine call; N = write to ledger every N
+batch_size: 100       # write to the ledger every N samples (throughput
+                      # is unaffected; null = single engine call, results
+                      # land only at task end)
 
 # ── hf (transformers; every architecture, slow; [hf] extra) ─────────
 # backend: hf
@@ -80,7 +81,7 @@ batch_size: null      # null = one engine call; N = write to ledger every N
 # gpu_memory_utilization: 0.90
 # max_model_len: 8192
 # gpu_ids: null
-# batch_size: null
+# batch_size: 100
 
 # ── server (any OpenAI-compatible endpoint: llama.cpp, ollama,
 #    hosted APIs; no extra install). The server owns model loading,
