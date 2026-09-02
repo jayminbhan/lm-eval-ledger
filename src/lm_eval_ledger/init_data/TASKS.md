@@ -1,14 +1,13 @@
 # Task registry
 
 Every task string accepted in a config's `tasks:` list (or `--task`).
-Generated from the live registry (`lm_eval_ledger.tasks.TASK_REGISTRY`);
 `lm-eval-ledger --help` always shows the current list.
 
 Usage forms (see `template.yaml`):
 
 ```yaml
 tasks:
-  - gpqa_diamond_generate        # task-default few-shot count
+  - gpqa_diamond                 # task-default few-shot count
   - gsm8k_main:0                 # explicit few-shot count
   - mmlu_pro_generate:0,4        # few-shot ladder (two benchmarks)
 ```
@@ -21,10 +20,8 @@ as explicit opt-in variants, named by suffix:
 | variant | how it scores | backends |
 |---|---|---|
 | *(bare name)* | free-form generation + `\boxed{}` extraction | all |
-| `<task>_logprob_token` | first-token log-probability over choice letters | vllm, hf, sglang, server* |
+| `<task>_logprob_token` | first-token log-probability over choice letters | vllm, hf, sglang; server only when the endpoint returns logprobs (llama.cpp does; many hosted APIs do not - the task fails with a clear error, never a silent zero) |
 | `<task>_logprob_seq` | completion log-likelihood of each full answer | vllm, hf |
-
-\* server: needs an endpoint that returns logprobs.
 
 Logprob variants exist for exactly the MCQ tasks marked **+logprob**
 in the tables below (a fixed choice set is required); every other task
