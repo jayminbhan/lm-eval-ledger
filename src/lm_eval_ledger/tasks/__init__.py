@@ -160,7 +160,7 @@ def get_task(task_name: str) -> TaskConfig:
     Get a task configuration by name.
 
     Args:
-        task_name: Name of the task (e.g., "gsm8k_main", "aime_2024")
+        task_name: Name of the task (e.g., "gsm8k", "aime_2024")
 
     Returns:
         TaskConfig instance

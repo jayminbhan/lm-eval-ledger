@@ -6,14 +6,13 @@ Usage:
     lm-eval-ledger                        # settings from ./bench.yaml
     lm-eval-ledger -c my_run.yaml         # explicit config file
     lm-eval-ledger -c my_run.yaml --max-examples 10   # flag overrides file
-    lm-eval-ledger --model Qwen/Qwen2.5-0.5B-Instruct --task gsm8k_main:0
+    lm-eval-ledger --model Qwen/Qwen2.5-0.5B-Instruct --task gsm8k:0
     lm-eval-ledger --help                 # all flags
 
 Settings precedence: RunConfig defaults < YAML config < CLI flags (see config.py).
 
 Available tasks:
-    - gsm8k_main: GSM8K Main version
-    - gsm8k_socratic: GSM8K Socratic version
+    - gsm8k: GSM8K arithmetic word problems
     - aime_2024: AIME 2024
     - aime_2025: AIME 2025
     - math500: MATH-500

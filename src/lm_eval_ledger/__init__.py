@@ -5,7 +5,7 @@ Library usage:
     from lm_eval_ledger import RunConfig, run
 
     cfg = RunConfig(models=["Qwen/Qwen2.5-0.5B-Instruct"],
-                    tasks=[("gsm8k_main", 0)], max_examples=10)
+                    tasks=[("gsm8k", 0)], max_examples=10)
     db_path = run(cfg)
 
 Custom tasks:

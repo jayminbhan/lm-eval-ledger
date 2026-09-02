@@ -180,12 +180,12 @@ def parse_task_entry(entry) -> list[tuple[str, int | None]]:
     """Parse one task entry into (name, fewshot_k) pairs.
 
     Accepted forms (YAML and CLI):
-        "gsm8k_main"                         -> [(gsm8k_main, None)]  (task default k)
-        "gsm8k_main:4"                       -> [(gsm8k_main, 4)]
-        "gsm8k_main:0,4,8"                   -> ladder, 3 pairs
-        {name: gsm8k_main}                   -> [(gsm8k_main, None)]
-        {name: gsm8k_main, fewshot: 4}       -> [(gsm8k_main, 4)]
-        {name: gsm8k_main, fewshot: [0, 4]}  -> ladder, 2 pairs
+        "gsm8k"                              -> [(gsm8k, None)]  (task default k)
+        "gsm8k:4"                       -> [(gsm8k, 4)]
+        "gsm8k:0,4,8"                   -> ladder, 3 pairs
+        {name: gsm8k}                   -> [(gsm8k, None)]
+        {name: gsm8k, fewshot: 4}       -> [(gsm8k, 4)]
+        {name: gsm8k, fewshot: [0, 4]}  -> ladder, 2 pairs
     """
     if isinstance(entry, str):
         name, sep, k_part = entry.partition(":")
@@ -274,7 +274,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--model", action="append", dest="models", metavar="MODEL",
                    help="model HF id or local path; repeatable (replaces YAML models)")
     p.add_argument("--task", action="append", dest="tasks", metavar="NAME[:K[,K...]]",
-                   help="task with optional fewshot k or ladder, e.g. gsm8k_main:0,4,8; "
+                   help="task with optional fewshot k or ladder, e.g. gsm8k:0,4,8; "
                         "repeatable (replaces YAML tasks)")
     p.add_argument("--max-examples", type=_int_or_none, default=None, metavar="N",
                    help="limit examples per task (0 = all)")
