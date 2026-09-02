@@ -306,8 +306,16 @@ def create_app(db_path: Path, token: str | None = None,
                 AND accuracy IS NOT NULL {where}
             ) WHERE {("rn = 1" if dedupe else "1=1")}
             ORDER BY {sort} DESC LIMIT 500""", params)
+        # medals for the top 3 by effective accuracy within this task's
+        # listing - tied to benchmark_id so they survive re-sorting
+        ranked = sorted((r for r in rows), key=lambda r: (
+            (r["verified_accuracy"] if r["verified_accuracy"] is not None
+             else r["accuracy"]) or 0), reverse=True)
+        medals = {r["benchmark_id"]: m
+                  for r, m in zip(ranked[:3], ("🥇", "🥈", "🥉"))}
         return render_template("benchmarks.html", rows=rows, tasks=tasks,
-                               task=task, sort=sort, dedupe=dedupe)
+                               task=task, sort=sort, dedupe=dedupe,
+                               medals=medals)
 
     def _bench_options():
         return q("SELECT benchmark_id, run_id, model_tag, task, fewshot_k, "
