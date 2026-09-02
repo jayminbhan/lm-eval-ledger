@@ -37,7 +37,7 @@
   {% if benches %}
   <table>
     <thead><tr><th>model</th><th>task</th><th>acc</th>
-      <th>n</th><th>no answer</th><th>size</th><th>error</th><th></th></tr></thead>
+      <th>n</th><th>no answer</th><th>size</th><th>time</th><th></th></tr></thead>
     <tbody>
     {% for b in benches %}
       <tr>
@@ -49,7 +49,7 @@
         <td>{{ b.total_examples }}</td>
         <td>{{ b.no_answer_count }}</td>
         <td class="muted">{{ bench_bytes.get(b.benchmark_id, 0)|fmtbytes }}</td>
-        <td class="err">{{ b.error|trunc(60) if b.error else "" }}</td>
+        <td class="muted">{% if b.error %}<span class="err" title="{{ b.error }}">ERROR</span>{% else %}{{ b.duration_seconds|fmtdur }}{% endif %}</td>
         <td>
           <form method="post" action="{{ url_for('delete_benchmark', bid=b.benchmark_id) }}" class="inlineform"
                 onsubmit="return confirm('Delete {{ b.task }}({{ b.fewshot_k }}) of run {{ r.run_id }} and its samples? This cannot be undone.')">

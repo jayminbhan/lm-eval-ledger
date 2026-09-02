@@ -121,6 +121,17 @@ def create_app(db_path: Path, token: str | None = None,
         except (ValueError, TypeError):
             return iso or ""
 
+    @app.template_filter("fmtdur")
+    def _fmtdur(seconds):
+        if seconds is None:
+            return "…"
+        s = int(seconds)
+        if s >= 3600:
+            return f"{s // 3600}h {s % 3600 // 60:02d}m"
+        if s >= 60:
+            return f"{s // 60}m {s % 60:02d}s"
+        return f"{s}s"
+
     @app.template_filter("imgids")
     def _imgids(image_ids_json):
         try:
@@ -171,6 +182,7 @@ def create_app(db_path: Path, token: str | None = None,
         benches = q(
             f"SELECT benchmark_id, run_id, model_tag, task, fewshot_k, "
             f"accuracy, verified_accuracy, total_examples, no_answer_count, "
+            f"duration_seconds, "
             f"{_col('benchmarks', 'samples_bytes')}, error "
             f"FROM benchmarks ORDER BY benchmark_id")
         # samples_bytes is maintained at finalize; compute it live only for
