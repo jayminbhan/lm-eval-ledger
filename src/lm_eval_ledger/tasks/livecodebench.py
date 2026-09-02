@@ -85,9 +85,12 @@ print(_lel_json.dumps(_lel_target(*_lel_args)))
 
 def _load(release: str) -> list[dict]:
     """Download the official release jsonl files and concatenate them."""
+    return _load_files(_VERSION_FILES[release])
+
+
+def _load_files(files: list[str]) -> list[dict]:
     from huggingface_hub import hf_hub_download
 
-    files = _VERSION_FILES[release]
     rows: list[dict] = []
     for i, fname in enumerate(files, 1):
         print(f"  [{i}/{len(files)}] Loading {_REPO_ID}/{fname} "
@@ -285,22 +288,20 @@ def get_task() -> TaskConfig:
     )
 
 
-def _load_window(start: str, end: str) -> list[dict]:
-    """Problems whose contest_date falls in [start, end) - the
-    contamination-control slices labs actually report."""
-    ex = [e for e in _load("release_v6")
-          if start <= e["contest_date"][:10] < end]
-    print(f"  [INFO] livecodebench window {start}..{end}: {len(ex)} problems")
+def _load_delta(n: int) -> list[dict]:
+    """Problems ADDED in release n (the upstream per-release jsonl file) -
+    the dataset's own contamination-control unit."""
+    ex = _load_files([_ALL_FILES[n - 1]])
+    print(f"  [INFO] livecodebench release-v{n} delta: {len(ex)} problems")
     return ex
 
 
-def get_task_window(name: str, start: str, end: str) -> TaskConfig:
-    """A date-windowed LiveCodeBench task. The window is part of the task
-    name, so a name always denotes the same problem set."""
+def get_task_delta(n: int) -> TaskConfig:
+    """A single release-delta LiveCodeBench task (upstream file test{n})."""
     base = get_task()
-    base.name = name
-    base.description = (f"LiveCodeBench contests {start}..{end} - evaluate "
-                        f"only problems past a model's training cutoff; "
-                        f"EXECUTES generated code locally")
-    base.load_fn = lambda: _load_window(start, end)
+    base.name = f"livecodebench_v{n}_delta"
+    base.description = (f"LiveCodeBench problems added in release_v{n} - "
+                        f"upstream-defined slice; EXECUTES generated code "
+                        f"locally")
+    base.load_fn = lambda: _load_delta(n)
     return base

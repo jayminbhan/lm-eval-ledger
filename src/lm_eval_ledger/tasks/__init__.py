@@ -106,12 +106,11 @@ TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
 
     # LiveCodeBench (code generation; executes generated code locally)
     "livecodebench": livecodebench.get_task,
-    # date-windowed slices (contamination control; window is in the name):
-    # 2408_2501 is the widely cited window (e.g. DeepSeek-R1 reports it)
-    "livecodebench_2408_2501": lambda: livecodebench.get_task_window(
-        "livecodebench_2408_2501", "2024-08-01", "2025-02-01"),
-    "livecodebench_2501_2505": lambda: livecodebench.get_task_window(
-        "livecodebench_2501_2505", "2025-01-01", "2025-05-01"),
+    # per-release delta slices (the upstream-defined units; vN_delta =
+    # problems ADDED in release N - newest delta = best contamination
+    # control available):
+    "livecodebench_v5_delta": lambda: livecodebench.get_task_delta(5),
+    "livecodebench_v6_delta": lambda: livecodebench.get_task_delta(6),
 
     # MRCR (long-context multi-round co-reference; partial-credit scoring)
     "mrcr_2needle": mrcr.get_task_2needle,

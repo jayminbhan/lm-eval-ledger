@@ -80,17 +80,16 @@ off-protocol versus the paper's 5-shot numbers.
 |---|---|---|---|---|---|
 | `hle` | 0 | 0-shot only | 2500 (2158 text-only) | cais/hle | gated; 342 image questions (`modality`); string-match is a lower bound of the official LLM-judge scoring |
 | `livecodebench` | 0 | 0-shot only (self-contained prompts) | 1055 | official release jsonls (release_v6) | EXECUTES generated code locally; `max_tokens >= 2048` |
-| `livecodebench_2408_2501` | 0 | 0-shot only | 323 | release_v6, contests 2024-08 to 2025-01 | date-windowed slice |
-| `livecodebench_2501_2505` | 0 | 0-shot only | 182 | release_v6, contests 2025-01 to 2025-04 | date-windowed slice (newest contests in v6) |
+| `livecodebench_v5_delta` | 0 | 0-shot only | 167 | test5.jsonl (problems added in release_v5) | contests 2024-09 to 2025-01 |
+| `livecodebench_v6_delta` | 0 | 0-shot only | 175 | test6.jsonl (problems added in release_v6) | contests 2025-01 to 2025-04; the newest, most contamination-safe slice |
 | `mrcr_2needle` / `mrcr_4needle` / `mrcr_8needle` | 0 | 0-shot only | 800 each | openai/mrcr | long context: needs `apply_chat_template` and a large `max_model_len` (32k+); partial credit (SequenceMatcher ratio) |
 
-The `livecodebench_YYMM_YYMM` variants filter the same v6 archive by
-`contest_date` (start inclusive, end exclusive) - independent of the
-release deltas. LiveCodeBench results are conventionally reported on a
-date window chosen to fall after the model's training cutoff; each
-report picks its own dates, so always state the window. Bare
-`livecodebench` is the full archive: higher, contamination-inflated
-numbers for recent models.
+The `livecodebench_vN_delta` variants load exactly one upstream release
+file (`testN.jsonl` = the problems ADDED in release N), so the slices
+are the dataset's own units, not ranges we invented. Pick the newest
+delta published after your model's training cutoff and state which one
+you ran. Bare `livecodebench` is the full v6 archive: higher,
+contamination-inflated numbers for recent models.
 
 ## Notes
 
