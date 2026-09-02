@@ -299,7 +299,7 @@ def _load_delta(n: int) -> list[dict]:
 def get_task_delta(n: int) -> TaskConfig:
     """A single release-delta LiveCodeBench task (upstream file test{n})."""
     base = get_task()
-    base.name = f"livecodebench_v{n}_delta"
+    base.name = f"livecodebench_v{n}"
     base.description = (f"LiveCodeBench problems added in release_v{n} - "
                         f"upstream-defined slice; EXECUTES generated code "
                         f"locally")
