@@ -307,7 +307,7 @@ def create_app(db_path: Path, token: str | None = None,
         if task:
             where = "AND task = ?"
             params.append(task)
-        rows = q(f"""
+        rows = [dict(r) for r in q(f"""
             SELECT * FROM (
               SELECT b.*, ROW_NUMBER() OVER (
                   PARTITION BY task, model_tag
@@ -317,7 +317,7 @@ def create_app(db_path: Path, token: str | None = None,
               WHERE (error IS NULL OR error = '')
                 AND accuracy IS NOT NULL {where}
             ) WHERE {("rn = 1" if dedupe else "1=1")}
-            ORDER BY {sort} DESC LIMIT 500""", params)
+            ORDER BY {sort} DESC LIMIT 500""", params)]
         # medals for the top 3 by effective accuracy within this task's
         # listing - tied to benchmark_id so they survive re-sorting
         ranked = sorted((r for r in rows), key=lambda r: (

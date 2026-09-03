@@ -43,7 +43,7 @@
 <section class="panel">
   <div class="lbhead"><span class="lbtitle">Response {{ loop.index }}
     {% if responses|length > 1 %} of {{ responses|length }}{% endif %}</span>
-    <span class="muted">{{ "{:,}".format((r.get("text") or "")|length) }} chars
+    <span class="muted">{% if r.get("tokens") %}{{ "{:,}".format(r.get("tokens")) }} tokens · {% endif %}{{ "{:,}".format((r.get("text") or "")|length) }} chars
       · extracted: <code>{{ r.get("extracted") or "∅" }}</code>
       · {{ r.get("stop_reason") }} · correct {{ r.get("correct") }}</span></div>
   {% set thinking, answer = r.get("text", "")|split_think %}

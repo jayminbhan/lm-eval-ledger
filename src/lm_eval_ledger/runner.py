@@ -449,12 +449,15 @@ def run_task(
                                    if stop_reason else f"{finish_reason}:-")
                 pred = task.extract_pred(pred_raw)
                 score = float(task.match_fn(gold, pred))
-                responses_list.append({
+                entry_resp = {
                     "text": pred_raw,
                     "extracted": pred,
                     "stop_reason": stop_reason_str,
                     "correct": score,
-                })
+                }
+                if getattr(result, "n_tokens", None) is not None:
+                    entry_resp["tokens"] = result.n_tokens
+                responses_list.append(entry_resp)
                 best_score = max(best_score, score)
             entry = {
                 "sample_id": sample_ids[idx],
@@ -534,6 +537,12 @@ def run_task(
             return summary
         inference_time = time.time() - inference_start
         print(f"[INFO] Batch inference completed in {format_time(inference_time)}")
+        gen_tokens = sum(
+            r.n_tokens for group in outputs for r in group
+            if getattr(r, "n_tokens", None) is not None) or None
+        if gen_tokens:
+            print(f"[INFO] Generated {gen_tokens:,} tokens "
+                  f"({gen_tokens / max(inference_time, 1e-9):,.0f} tok/s)")
 
         # Score whatever the backend did not stream (non-streaming backends:
         # everything). Scoring can be slow for execution-based tasks
@@ -595,6 +604,9 @@ def run_task(
         "accuracy": acc,
         "duration_seconds": duration,
         "duration_human": format_time(duration),
+        "gen_tokens": locals().get("gen_tokens"),
+        "gen_seconds": (locals().get("inference_time")
+                        if locals().get("gen_tokens") else None),
         "timestamp": timestamp,
         "settings": {
             "temperature": cfg.temperature,

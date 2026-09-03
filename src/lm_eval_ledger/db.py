@@ -98,7 +98,9 @@ class LedgerDatabase:
                 verifier_mode TEXT,
                 verified_correct REAL,
                 verified_accuracy REAL,
-                samples_bytes INTEGER
+                samples_bytes INTEGER,
+                gen_tokens INTEGER,
+                gen_seconds REAL
             )
         """)
         c.execute("""
@@ -163,6 +165,14 @@ class LedgerDatabase:
             c.execute("ALTER TABLE runs ADD COLUMN source_yaml TEXT")
         except sqlite3.OperationalError:
             pass
+        for ddl in (
+            "ALTER TABLE benchmarks ADD COLUMN gen_tokens INTEGER",
+            "ALTER TABLE benchmarks ADD COLUMN gen_seconds REAL",
+        ):
+            try:
+                c.execute(ddl)
+            except sqlite3.OperationalError:
+                pass
         # per-benchmark sample storage footprint, maintained at finalize;
         # one-time backfill for pre-existing ledgers
         try:
@@ -265,7 +275,7 @@ class LedgerDatabase:
                 total_examples = ?, correct = ?, accuracy = ?,
                 no_answer_count = ?, stop_reason_counts = ?,
                 duration_seconds = ?, temperature = ?, top_p = ?,
-                max_tokens = ?, error = ?
+                max_tokens = ?, error = ?, gen_tokens = ?, gen_seconds = ?
                WHERE benchmark_id = ?""",
             (
                 summary.get("total_examples", 0),
@@ -278,6 +288,8 @@ class LedgerDatabase:
                 settings.get("top_p"),
                 settings.get("max_tokens"),
                 summary.get("error"),
+                summary.get("gen_tokens"),
+                summary.get("gen_seconds"),
                 benchmark_id,
             ),
         )

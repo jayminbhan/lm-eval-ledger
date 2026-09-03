@@ -17,6 +17,7 @@ class GenResult:
     text: str
     finish_reason: str = ""   # "stop" | "length" | "error" | ...
     stop_reason: object = None  # engine-specific detail (e.g. matched stop string)
+    n_tokens: int | None = None  # generated tokens, from the engine's own count
 
 
 class Backend:

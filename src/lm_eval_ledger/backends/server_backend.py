@@ -151,7 +151,9 @@ class ServerBackend(Backend):
             choice = data["choices"][0]
             return GenResult(text=choice.get("text", ""),
                              finish_reason=choice.get("finish_reason") or "",
-                             stop_reason=None)
+                             stop_reason=None,
+                             n_tokens=(data.get("usage") or {}).get(
+                                 "completion_tokens"))
         return self._completion_results(payload_for, prompts, n, parse,
                                         on_result=on_result)
 
@@ -181,7 +183,8 @@ class ServerBackend(Backend):
             return GenResult(
                 text=text,
                 finish_reason=choice.get("finish_reason") or "",
-                stop_reason=None)
+                stop_reason=None,
+                n_tokens=(data.get("usage") or {}).get("completion_tokens"))
         return self._completion_results(payload_for, messages_list, n, parse,
                                         on_result=on_result)
 

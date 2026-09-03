@@ -79,10 +79,12 @@ class SglangBackend(Backend):
             for i in range(0, len(outputs), n):
                 group = []
                 for out in outputs[i:i + n]:
-                    finish, matched = self._finish(out.get("meta_info", {}))
+                    meta = out.get("meta_info", {})
+                    finish, matched = self._finish(meta)
                     group.append(GenResult(text=out.get("text", ""),
                                            finish_reason=finish,
-                                           stop_reason=matched))
+                                           stop_reason=matched,
+                                           n_tokens=meta.get("completion_tokens")))
                 if on_result is not None:
                     on_result(start + i // n, group)
                 results.append(group)

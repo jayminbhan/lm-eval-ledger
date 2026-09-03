@@ -106,8 +106,10 @@ class HfBackend(Backend):
                         finish, matched = "stop", None
                     else:
                         finish = "length"
+                    pad_id = self.tokenizer.pad_token_id
+                    n_tok = int((seq != pad_id).sum()) if pad_id is not None else len(seq)
                     group.append(GenResult(text=text, finish_reason=finish,
-                                           stop_reason=matched))
+                                           stop_reason=matched, n_tokens=n_tok))
                 if on_result is not None:
                     on_result(i + p_idx, group)
                 results.append(group)

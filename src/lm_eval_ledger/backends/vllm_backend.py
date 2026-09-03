@@ -87,7 +87,8 @@ class VllmBackend(Backend):
             for j, out in enumerate(outs):
                 group = [GenResult(text=r.text,
                                    finish_reason=r.finish_reason or "",
-                                   stop_reason=r.stop_reason)
+                                   stop_reason=r.stop_reason,
+                                   n_tokens=len(r.token_ids))
                          for r in out.outputs]
                 if on_result is not None:
                     on_result(start + j, group)
