@@ -183,6 +183,8 @@ def create_app(db_path: Path, token: str | None = None,
             f"SELECT benchmark_id, run_id, model_tag, task, fewshot_k, "
             f"accuracy, verified_accuracy, total_examples, no_answer_count, "
             f"duration_seconds, "
+            f"{_col('benchmarks', 'gen_tokens')}, "
+            f"{_col('benchmarks', 'gen_seconds')}, "
             f"{_col('benchmarks', 'samples_bytes')}, error "
             f"FROM benchmarks ORDER BY benchmark_id")
         # samples_bytes is maintained at finalize; compute it live only for
