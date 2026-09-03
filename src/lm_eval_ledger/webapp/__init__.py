@@ -62,6 +62,10 @@ def create_app(db_path: Path, token: str | None = None,
                read_only: bool = False) -> Flask:
     app = Flask(__name__)
     app.secret_key = secrets.token_hex(32)
+    # the session cookie only carries the --token gate; Strict SameSite
+    # means a cross-site form cannot ride it into the POST delete routes
+    app.config["SESSION_COOKIE_SAMESITE"] = "Strict"
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["DB_PATH"] = Path(db_path)
     # read_only hard-disables the write routes (delete/compact): they
     # return 403 and their buttons are not rendered. For public
@@ -167,9 +171,11 @@ def create_app(db_path: Path, token: str | None = None,
             if session.get("ok"):
                 return None
             supplied = request.args.get("token") or request.form.get("token")
-            if supplied == token:
+            if supplied is not None and secrets.compare_digest(supplied, token):
                 session["ok"] = True
-                return redirect(request.path)
+                kept = {k: v for k, v in request.args.items() if k != "token"}
+                return redirect(url_for(request.endpoint, **request.view_args,
+                                        **kept) if request.endpoint else request.path)
             return render_template("token.html"), 401
 
     # ---------- pages ----------
@@ -228,6 +234,8 @@ def create_app(db_path: Path, token: str | None = None,
     @app.route("/run/<int:run_id>/config.yaml")
     def run_config_download(run_id):
         kind = request.args.get("kind", "source")
+        if kind not in ("source", "resolved"):
+            abort(400)
         row = q1(f"SELECT run_name, config_yaml, "
                  f"{_col('runs', 'source_yaml')} FROM runs "
                  f"WHERE run_id = ?", [run_id])
@@ -371,14 +379,22 @@ def create_app(db_path: Path, token: str | None = None,
         bid = request.args.get("benchmark_id", "")
         run = request.args.get("run", "")
         outcome = request.args.get("outcome", "")
+        invalid_scope = False
         if scope:
             kind, _, val = scope.partition(":")
-            task = val if kind == "t" else ""
-            model = val if kind == "m" else ""
-            run = val if kind == "r" else ""
-            bid = val if kind == "b" else ""
+            ok = ((kind in ("b", "r") and val.isdigit())
+                  or (kind in ("t", "m") and bool(val)))
+            if ok:
+                task = val if kind == "t" else ""
+                model = val if kind == "m" else ""
+                run = val if kind == "r" else ""
+                bid = val if kind == "b" else ""
+            else:
+                invalid_scope = True
 
         where, params = ["1=1"], []
+        if invalid_scope:
+            where.append("0=1")  # a malformed scope must not silently widen to everything
         if task:
             where.append("b.task = ?"); params.append(task)
         if model:
@@ -436,14 +452,21 @@ def create_app(db_path: Path, token: str | None = None,
         if outcome in ("wrong", "right"):
             chips.append((f"{outcome} only", url_without("outcome")))
 
-        page = max(1, int(request.args.get("page", "1") or 1))
+        try:
+            page = max(1, int(request.args.get("page", "1") or 1))
+        except ValueError:
+            page = 1
         total = q1(f"SELECT COUNT(*) AS n FROM samples s "
                    f"JOIN benchmarks b USING (benchmark_id) "
                    f"WHERE {' AND '.join(where)}", params)["n"]
         img_col = ("s.image_ids" if has_images() else "NULL AS image_ids")
+        ext_col = ("s.extracted" if "extracted" in _columns("samples")
+                   else "json_extract(s.responses, '$[0].extracted') AS extracted")
+        sr_col = ("s.stop_reason" if "stop_reason" in _columns("samples")
+                  else "json_extract(s.responses, '$[0].stop_reason') AS stop_reason")
         rows = q(f"""
             SELECT s.sample_pk, s.sample_id, s.benchmark_id, s.model_tag,
-                   b.task, s.gold, s.extracted, s.stop_reason, s.score,
+                   b.task, s.gold, {ext_col}, {sr_col}, s.score,
                    s.verified_score, {img_col},
                    substr(s.prompt, 1, 500) AS prompt_snip,
                    substr(json_extract(s.responses, '$[0].text'), 1, 1200)
@@ -468,9 +491,12 @@ def create_app(db_path: Path, token: str | None = None,
                  f'run {r["run_id"]} · {r["model_tag"]} · '
                  f'{r["task"]}({r["fewshot_k"]}) · acc {r["acc"]}'
                  for r in ctx["benches"]}
-        raw = q("""
+        has_ext = "extracted" in _columns("samples")
+        ans_a = "sa.extracted" if has_ext else "json_extract(sa.responses, '$[0].extracted')"
+        ans_b = "sb.extracted" if has_ext else "json_extract(sb.responses, '$[0].extracted')"
+        raw = q(f"""
             SELECT sa.sample_pk AS pk_a, sb.sample_pk AS pk_b, sa.sample_id,
-                   sa.gold, sa.extracted AS ans_a, sb.extracted AS ans_b,
+                   sa.gold, {ans_a} AS ans_a, {ans_b} AS ans_b,
                    COALESCE(sa.verified_score, sa.score) AS score_a,
                    COALESCE(sb.verified_score, sb.score) AS score_b
             FROM samples sa JOIN samples sb ON sa.sample_id = sb.sample_id

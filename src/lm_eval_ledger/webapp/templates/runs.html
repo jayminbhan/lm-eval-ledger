@@ -44,7 +44,7 @@
         <td>{{ b.model_tag }}</td>
         <td><a href="{{ url_for('samples', mode='browse', scope='b:' ~ b.benchmark_id) }}">{{ b.task }}({{ b.fewshot_k }})</a></td>
         <td>{% if b.verified_accuracy is not none %}
-          <span class="verified" title="LLM-verified (strict string-match: {{ "%.3f"|format(b.accuracy) }})">{{ "%.3f"|format(b.verified_accuracy) }}<sup>✓</sup></span>
+          <span class="verified" title="LLM-verified (strict string-match: {{ "%.3f"|format(b.accuracy) if b.accuracy is not none else "n/a" }})">{{ "%.3f"|format(b.verified_accuracy) }}<sup>✓</sup></span>
           {% else %}{{ "%.3f"|format(b.accuracy) if b.accuracy is not none else "…" }}{% endif %}</td>
         <td>{{ b.total_examples }}</td>
         <td>{{ b.no_answer_count }}</td>

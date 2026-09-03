@@ -162,7 +162,7 @@
     <th>gold</th><th>extracted</th><th>stop</th><th>score</th></tr></thead>
   <tbody>
   {% for r in rows %}
-    {% set eff = r.verified_score if r.verified_score is not none else r.score %}
+    {% set eff = (r.verified_score if r.verified_score is not none else r.score) or 0 %}
     <tr class="{{ 'improved' if eff >= 1 else 'regressed' }} rowlink"
         data-href="{{ url_for('sample', pk=r.sample_pk) }}">
       <td><a href="{{ url_for('sample', pk=r.sample_pk) }}">{{ r.sample_id|trunc(24) }}</a>

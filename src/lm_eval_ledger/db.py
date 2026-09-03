@@ -191,6 +191,15 @@ class LedgerDatabase:
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_task ON benchmarks(task, model_tag)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_samples_benchmark ON samples(benchmark_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_samples_sample_id ON samples(sample_id)")
+        # cross-benchmark joins pair on sample_id; guarantee one row per
+        # (benchmark, sample). Existing ledgers with duplicates keep working
+        # (plain index) but are warned about.
+        try:
+            c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_samples_bench_sample "
+                      "ON samples(benchmark_id, sample_id)")
+        except sqlite3.IntegrityError:
+            print("[WARN] ledger has duplicate (benchmark_id, sample_id) rows; "
+                  "pairwise comparisons may double-count those samples")
         # Dropped from the schema; also cleans it out of existing ledgers.
         c.execute("DROP VIEW IF EXISTS samples_flat")
         c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

@@ -6,7 +6,7 @@
 
 <section class="panel">
   <div class="lbhead"><span class="lbtitle">Verdict</span></div>
-  <p>score <strong>{{ "%g"|format(s.score) }}</strong>
+  <p>score <strong>{{ "%g"|format(s.score or 0) }}</strong>
     {% if s.verified_score is not none %} · verified
       <strong>{{ "%g"|format(s.verified_score) }}</strong>
       {% if s.verifier_verdicts %}<span class="muted">({{ s.verifier_verdicts }})</span>{% endif %}
