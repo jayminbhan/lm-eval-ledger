@@ -398,6 +398,20 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
     )
 
     # ---------- validation ----------
+    # Unknown task names fail HERE, before any model loads (a typo or a
+    # renamed task must not cost a model load + an error row per task).
+    from .tasks import get_available_tasks
+    known = set(get_available_tasks())
+    unknown = sorted({name for name, _ in cfg.tasks if name not in known})
+    if unknown:
+        import difflib
+        hints = []
+        for u in unknown:
+            close = difflib.get_close_matches(u, known, n=1, cutoff=0.6)
+            hints.append(f"{u!r}" + (f" (did you mean {close[0]!r}?)" if close else ""))
+        raise ValueError(
+            f"Unknown task(s): {', '.join(hints)}. "
+            f"Full list: lm-eval-ledger --help or TASKS.md")
     if not cfg.models:
         raise ValueError(
             "No models configured. Add a 'models:' list to the config file "
