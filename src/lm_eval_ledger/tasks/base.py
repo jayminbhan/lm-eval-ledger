@@ -218,7 +218,29 @@ def load_from_hf(task: TaskConfig, split: str | None = None) -> list[dict]:
 # ============================================================
 
 _NUMBER_RE = re.compile(r"-?\d+(?:,\d{3})*(?:\.\d+)?")
-_BOXED_RE = re.compile(r"\\boxed\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}")
+def find_boxed(text: str) -> list[str]:
+    """Contents of every \\boxed{...} in text, with arbitrary brace nesting
+    (a fixed-depth regex silently missed \\boxed{\\frac{1+\\sqrt{5}}{2}})."""
+    out: list[str] = []
+    i = 0
+    while True:
+        j = text.find("\\boxed{", i)
+        if j < 0:
+            return out
+        k = j + len("\\boxed{")
+        depth, start = 1, k
+        while k < len(text) and depth:
+            c = text[k]
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+            k += 1
+        if depth:  # unterminated - take what is there
+            out.append(text[start:])
+            return out
+        out.append(text[start:k - 1])
+        i = k
 
 
 def extract_number(text: str) -> str:
@@ -239,7 +261,7 @@ def extract_last_number(text: str) -> str:
 
 def extract_boxed(text: str) -> str:
     """Extract content from the LAST \\boxed{...}, falling back to the full text."""
-    matches = _BOXED_RE.findall(text)
+    matches = find_boxed(text)
     if matches:
         return matches[-1].strip()
     return text.strip()
@@ -253,7 +275,7 @@ def extract_boxed_strict(text: str) -> str:
     instruction (a literal \\boxed{<answer>}) or box intermediate values
     while thinking before concluding. The final box is the answer.
     """
-    matches = _BOXED_RE.findall(text)
+    matches = find_boxed(text)
     if matches:
         return matches[-1].strip()
     return ""
@@ -264,9 +286,14 @@ def extract_boxed_letter(text: str, labels: list[str]) -> str:
 
     Returns "" if there is no \\boxed{} or its first character isn't a valid label.
     """
-    answer = extract_boxed_strict(text).upper()
-    if answer and answer[0] in labels:
-        return answer[0]
+    answer = extract_boxed_strict(text).strip()
+    # drop wrappers and lead-ins: \\text{D}, (D), "Answer: D", "The answer is D"
+    answer = re.sub(r"\\(?:text|mathrm|textbf|mathbf)\{([^{}]*)\}", r"\1", answer)
+    answer = re.sub(r"^(?:the\s+)?(?:correct\s+)?(?:answer|option|choice)"
+                    r"(?:\s+is)?\s*[:\-]?\s*", "", answer, flags=re.I).strip()
+    m = re.match(r"^\(?([A-Za-z])\)?(?=$|[\s.):,])", answer)
+    if m and m.group(1).upper() in labels:
+        return m.group(1).upper()
     return ""
 
 
@@ -299,9 +326,20 @@ def numeric_match(gold: str, pred: str) -> bool:
         return gold.strip() == pred.strip()
 
 
+_TEXT_WRAP_RE = re.compile(r"\\(?:text|mathrm|textbf|mathbf|operatorname)\{([^{}]*)\}")
+
+
+def strip_text_wrappers(s: str) -> str:
+    """\\text{42} -> 42 (models wrap boxed answers in \\text{} routinely)."""
+    prev = None
+    while prev != s:
+        prev, s = s, _TEXT_WRAP_RE.sub(r"\1", s)
+    return s
+
+
 def normalize_answer(text: str) -> str:
     """Normalize answer text for comparison."""
-    text = text.strip().lower()
+    text = strip_text_wrappers(text).strip().lower()
     # Remove LaTeX sizing/formatting commands (before removing backslashes)
     text = text.replace("\\left", "").replace("\\right", "")
     text = text.replace("\\bigl", "").replace("\\bigr", "")
@@ -325,17 +363,26 @@ def _to_sympy(s: str):
     expression as fallback). Returns None when unparseable."""
     import sympy
     from latex2sympy2_extended import latex2sympy
-    s = s.strip().strip("$").strip()
+    s = strip_text_wrappers(s).strip().strip("$").strip()
     if not s:
         return None
-    try:
+
+    def _latex():
         return latex2sympy(s)
-    except Exception:
-        pass
-    try:
+
+    def _plain():
         return sympy.sympify(s.replace("^", "**"), evaluate=True)
-    except Exception:
-        return None
+
+    # LaTeX-looking input (backslashes/braces) -> latex parser first; plain
+    # input -> sympify first. latex2sympy happily "parses" plain text like
+    # sqrt(5) into products of one-letter symbols, so order matters.
+    order = (_latex, _plain) if ("\\" in s or "{" in s) else (_plain, _latex)
+    for parse in order:
+        try:
+            return parse()
+        except Exception:
+            continue
+    return None
 
 
 def symbolic_match(gold: str, pred: str) -> bool:
@@ -378,3 +425,41 @@ def numeric_match_strict(gold: str, pred: str) -> bool:
         return abs(g - p) < 1e-6
     except (ValueError, TypeError):
         return False
+
+
+def apply_mmlu_redux_annotations(examples: list[dict]) -> list[dict]:
+    """Honor MMLU-Redux's error annotations - the point of the Redux variant.
+
+    ok                 -> keep as-is
+    wrong_groundtruth  -> remap `answer` to the annotated correct_answer
+                          (letter or index); drop if none was recorded
+    everything else    -> drop (no_correct_answer, bad_question_clarity,
+                          bad_options_clarity, multiple correct, ...)
+    """
+    kept, remapped, dropped = [], 0, 0
+    for ex in examples:
+        et = ex.get("error_type") or "ok"
+        if et == "ok":
+            kept.append(ex)
+            continue
+        if et == "wrong_groundtruth":
+            ca = ex.get("correct_answer")
+            idx = None
+            if isinstance(ca, str) and ca.strip():
+                c = ca.strip().upper()
+                if c.isdigit():
+                    idx = int(c)
+                elif len(c) == 1 and c in "ABCD":
+                    idx = ord(c) - ord("A")
+            elif isinstance(ca, int):
+                idx = ca
+            if idx is not None and 0 <= idx < 4:
+                ex = dict(ex, answer=idx)
+                kept.append(ex)
+                remapped += 1
+                continue
+        dropped += 1
+    print(f"  [INFO] mmlu-redux: kept {len(kept)}/{len(examples)} "
+          f"({remapped} golds remapped from annotations, {dropped} flawed "
+          f"questions dropped)")
+    return kept

@@ -2,7 +2,7 @@
 """MMLU Redux 1.0 (edinburgh-dawg) benchmark task - Error-annotated MMLU subset."""
 from __future__ import annotations
 
-from .base import TaskConfig, exact_match, extract_boxed_letter
+from .base import apply_mmlu_redux_annotations, TaskConfig, exact_match, extract_boxed_letter
 
 CHOICE_LABELS = ["A", "B", "C", "D"]
 
@@ -71,6 +71,7 @@ def get_task_generate() -> TaskConfig:
         hf_repo="edinburgh-dawg/mmlu-redux",
         hf_split="test",
         hf_configs=MMLU_REDUX_1_SUBJECTS,
+        hf_post_process=apply_mmlu_redux_annotations,
         hf_config_field="subject",
     )
 
@@ -91,6 +92,7 @@ def get_task_logprob_token() -> TaskConfig:
         hf_repo="edinburgh-dawg/mmlu-redux",
         hf_split="test",
         hf_configs=MMLU_REDUX_1_SUBJECTS,
+        hf_post_process=apply_mmlu_redux_annotations,
         hf_config_field="subject",
     )
 
@@ -112,5 +114,6 @@ def get_task_logprob_seq() -> TaskConfig:
         hf_repo="edinburgh-dawg/mmlu-redux",
         hf_split="test",
         hf_configs=MMLU_REDUX_1_SUBJECTS,
+        hf_post_process=apply_mmlu_redux_annotations,
         hf_config_field="subject",
     )

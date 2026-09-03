@@ -2,7 +2,7 @@
 """MMLU Redux 2.0 benchmark task - Multiple choice question answering."""
 from __future__ import annotations
 
-from .base import TaskConfig, exact_match, extract_boxed_letter
+from .base import apply_mmlu_redux_annotations, TaskConfig, exact_match, extract_boxed_letter
 
 CHOICE_LABELS = ["A", "B", "C", "D"]
 
@@ -80,6 +80,7 @@ def get_task() -> TaskConfig:
         hf_repo="edinburgh-dawg/mmlu-redux-2.0",
         hf_split="test",
         hf_configs=MMLU_SUBJECTS,
+        hf_post_process=apply_mmlu_redux_annotations,
         hf_config_field="subject",
     )
 
@@ -101,6 +102,7 @@ def get_task_logprob_token() -> TaskConfig:
         hf_repo="edinburgh-dawg/mmlu-redux-2.0",
         hf_split="test",
         hf_configs=MMLU_SUBJECTS,
+        hf_post_process=apply_mmlu_redux_annotations,
         hf_config_field="subject",
     )
 
@@ -123,5 +125,6 @@ def get_task_logprob_seq() -> TaskConfig:
         hf_repo="edinburgh-dawg/mmlu-redux-2.0",
         hf_split="test",
         hf_configs=MMLU_SUBJECTS,
+        hf_post_process=apply_mmlu_redux_annotations,
         hf_config_field="subject",
     )

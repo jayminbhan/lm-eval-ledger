@@ -87,6 +87,7 @@ def _make_task(name: str, hf_config: str, description: str, eval_mode: str) -> T
         choice_labels=CHOICE_LABELS if eval_mode != "generate" else [],
         get_choice_texts=get_choice_texts if eval_mode == "logprob_seq" else None,
         hf_repo="Idavidrein/gpqa",
+        hf_revision="633f5ee89ab8ad4522a9f850766b73f62147ffdd",  # pinned 2026-09
         hf_config=hf_config,
         hf_split="train",
         hf_post_process=_hf_post_process,

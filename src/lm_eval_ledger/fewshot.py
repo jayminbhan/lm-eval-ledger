@@ -171,8 +171,10 @@ def _load_fewshot_raw(data_dir: Path, task, k: int) -> list[dict]:
 
     if task.hf_repo and task.hf_fewshot_split:
         from datasets import load_dataset
-        config = task.hf_fewshot_config or task.hf_config
-        ds = load_dataset(task.hf_repo, config, split=task.hf_fewshot_split)
+        config = (task.hf_fewshot_config or task.hf_config
+                  or (task.hf_configs[0] if task.hf_configs else None))
+        ds = load_dataset(task.hf_repo, config, split=task.hf_fewshot_split,
+                          revision=task.hf_revision)
         return [dict(row) for row in ds][:k]
 
     return []

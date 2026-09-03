@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import pickle
 import re
 import subprocess
@@ -233,6 +234,9 @@ def _run_one_test(code: str, test: dict, func_name: str | None) -> bool:
         proc = subprocess.run(
             argv, input=test.get("input", ""), capture_output=True,
             text=True, timeout=_TEST_TIMEOUT_S,
+            # untrusted code: do not inherit API keys/tokens from our env
+            env={"PATH": os.environ.get("PATH", ""),
+                 "PYTHONIOENCODING": "utf-8", "PYTHONHASHSEED": "0"},
         )
     except (subprocess.TimeoutExpired, OSError):
         return False

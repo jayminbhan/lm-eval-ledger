@@ -46,7 +46,11 @@ def match_fn(gold: str, pred: str) -> bool:
     # prediction whose first character is that letter (e.g. "B" vs "B. 7.2 eV")
     g = gold.strip().upper()
     if len(g) == 1 and g.isalpha():
-        return pred.strip().upper()[:1] == g
+        # only when the prediction is itself letter-shaped ("B", "B.",
+        # "(B) text") - never "Arginine" against an exact-match gold "A"
+        import re
+        m = re.match(r"^\(?([A-Za-z])\)?(?=$|[\s.):,])", pred.strip())
+        return bool(m) and m.group(1).upper() == g
     return False
 
 
