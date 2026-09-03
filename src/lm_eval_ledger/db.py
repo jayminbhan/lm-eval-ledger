@@ -147,8 +147,9 @@ class LedgerDatabase:
         ):
             try:
                 c.execute(ddl)
-            except sqlite3.OperationalError:
-                pass  # column already exists
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e).lower():
+                    raise
         # model_tag denormalized onto samples (the table view cannot join);
         # backfill runs once, only when the column was just added.
         try:
@@ -157,22 +158,25 @@ class LedgerDatabase:
                 "UPDATE samples SET model_tag = (SELECT b.model_tag "
                 "FROM benchmarks b WHERE b.benchmark_id = samples.benchmark_id)"
             )
-        except sqlite3.OperationalError:
-            pass  # column already exists (or fresh DB created with it)
+        except sqlite3.OperationalError as e:
+            if "duplicate column" not in str(e).lower():
+                raise
         # the config file exactly as the user wrote it (resolved config
         # remains in config_yaml)
         try:
             c.execute("ALTER TABLE runs ADD COLUMN source_yaml TEXT")
-        except sqlite3.OperationalError:
-            pass
+        except sqlite3.OperationalError as e:
+            if "duplicate column" not in str(e).lower():
+                raise
         for ddl in (
             "ALTER TABLE benchmarks ADD COLUMN gen_tokens INTEGER",
             "ALTER TABLE benchmarks ADD COLUMN gen_seconds REAL",
         ):
             try:
                 c.execute(ddl)
-            except sqlite3.OperationalError:
-                pass
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e).lower():
+                    raise
         # per-benchmark sample storage footprint, maintained at finalize;
         # one-time backfill for pre-existing ledgers
         try:
@@ -180,8 +184,9 @@ class LedgerDatabase:
             print("[INFO] Backfilling per-benchmark storage sizes "
                   "(one-time; may take a while on a large ledger)...")
             c.execute(_SAMPLES_BYTES_UPDATE_ALL)
-        except sqlite3.OperationalError:
-            pass
+        except sqlite3.OperationalError as e:
+            if "duplicate column" not in str(e).lower():
+                raise
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_run ON benchmarks(run_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_benchmarks_task ON benchmarks(task, model_tag)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_samples_benchmark ON samples(benchmark_id)")
@@ -227,8 +232,8 @@ class LedgerDatabase:
                 run_id, model_tag, model, task, fewshot_k, eval_mode, pass_k,
                 total_examples, correct, accuracy, no_answer_count,
                 stop_reason_counts, duration_seconds, timestamp,
-                temperature, top_p, max_tokens, error
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                temperature, top_p, max_tokens, error, samples_bytes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)""",
             (
                 run_id,
                 summary.get("model_tag", ""),
@@ -270,6 +275,15 @@ class LedgerDatabase:
     def finalize_benchmark(self, benchmark_id: int, summary: dict) -> None:
         """Fill in the final stats (or error) of an in-progress benchmark."""
         settings = summary.get("settings", {})
+        self.conn.execute("BEGIN IMMEDIATE")
+        try:
+            self._finalize_statements(benchmark_id, summary, settings)
+            self.conn.execute("COMMIT")
+        except Exception:
+            self.conn.execute("ROLLBACK")
+            raise
+
+    def _finalize_statements(self, benchmark_id, summary, settings) -> None:
         self.conn.execute(
             """UPDATE benchmarks SET
                 total_examples = ?, correct = ?, accuracy = ?,

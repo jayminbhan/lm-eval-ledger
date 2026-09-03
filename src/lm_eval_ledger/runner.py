@@ -487,12 +487,30 @@ def run_task(
                 buffer.clear()
                 last_flush[0] = time.time()
 
-        def on_result(idx, all_responses):
+        def safe_entry(idx, all_responses) -> dict:
+            """build_entry, or a score-0 entry that preserves the model's
+            text and records the scoring failure as the stop_reason - a
+            sample that broke the scorer must still count and be visible."""
             try:
-                entry = build_entry(idx, all_responses)
+                return build_entry(idx, all_responses)
             except Exception as e:
-                print(f"[WARN] scoring failed for sample {idx}: {e}")
-                return
+                print(f"[WARN] scoring failed for sample {idx}: "
+                      f"{type(e).__name__}: {e}")
+                return {
+                    "sample_id": sample_ids[idx],
+                    "prompt": prompts_without_fewshot[idx],
+                    "prompt_full": prompts[idx],
+                    "gold": gold_displays[idx] or gold_answers[idx],
+                    "gold_data": gold_answers[idx] if gold_displays[idx] else None,
+                    "score": 0.0,
+                    "responses": [{
+                        "text": getattr(r, "text", ""), "extracted": "",
+                        "stop_reason": f"error:scoring:{type(e).__name__}",
+                        "correct": 0.0} for r in all_responses],
+                }
+
+        def on_result(idx, all_responses):
+            entry = safe_entry(idx, all_responses)
             with write_lock:
                 written.add(idx)
                 log_entries.append(entry)
@@ -532,14 +550,28 @@ def run_task(
             summary = _error_summary(cfg, task, fewshot_k, model_name,
                                      model_tag, timestamp,
                                      f"{type(e).__name__}: {e}")
-            summary["total_examples"] = len(log_entries)
+            # keep the stats of the samples that did complete (the rows
+            # are in the ledger; the summary must agree with them)
+            done = len(log_entries)
+            if done:
+                correct_done = sum(e["score"] for e in log_entries)
+                summary.update({
+                    "total_examples": done,
+                    "correct": correct_done,
+                    "accuracy": correct_done / done,
+                    "no_answer_count": sum(
+                        1 for en in log_entries
+                        if en["responses"] and en["responses"][0].get("extracted") == ""),
+                    "stop_reason_counts": dict(Counter(
+                        r["stop_reason"] for en in log_entries for r in en["responses"])),
+                })
             ledger.finalize_benchmark(benchmark_id, summary)
             return summary
         inference_time = time.time() - inference_start
         print(f"[INFO] Batch inference completed in {format_time(inference_time)}")
-        gen_tokens = sum(
-            r.n_tokens for group in outputs for r in group
-            if getattr(r, "n_tokens", None) is not None) or None
+        counted = [r.n_tokens for group in outputs for r in group
+                   if getattr(r, "n_tokens", None) is not None]
+        gen_tokens = sum(counted) if counted else None
         if gen_tokens:
             print(f"[INFO] Generated {gen_tokens:,} tokens "
                   f"({gen_tokens / max(inference_time, 1e-9):,.0f} tok/s)")
@@ -559,7 +591,7 @@ def run_task(
                 eta = (len(outputs) - idx) / rate if rate > 0 else 0
                 print(f"[INFO] scoring: {idx}/{len(outputs)} "
                       f"(ETA {int(eta // 60)}m{int(eta % 60):02d}s)", flush=True)
-            entry = build_entry(idx, all_responses)
+            entry = safe_entry(idx, all_responses)
             with write_lock:
                 log_entries.append(entry)
                 buffer.append(entry)
@@ -606,7 +638,7 @@ def run_task(
         "duration_human": format_time(duration),
         "gen_tokens": locals().get("gen_tokens"),
         "gen_seconds": (locals().get("inference_time")
-                        if locals().get("gen_tokens") else None),
+                        if locals().get("gen_tokens") is not None else None),
         "timestamp": timestamp,
         "settings": {
             "temperature": cfg.temperature,
@@ -904,27 +936,31 @@ def _run_coordinator(cfg: RunConfig) -> Path:
     print(f"Total duration: {format_time(total_duration)}")
 
     ledger = LedgerDatabase(ledger_path)
-    rows = ledger.conn.execute(
-        "SELECT task, fewshot_k, model_tag, accuracy, total_examples, correct, error "
-        "FROM benchmarks WHERE run_id = ? ORDER BY benchmark_id", (run_id,)
-    ).fetchall()
-
-    if rows:
-        print(f"\nResults by model:")
-        print(f"{'-'*60}")
-        current_model = None
-        for row in rows:
-            if row["model_tag"] != current_model:
-                current_model = row["model_tag"]
-                print(f"\n{current_model}:")
-            label = f"{row['task']}({row['fewshot_k']})"
-            if row["error"]:
-                print(f"  {label}: ERROR - {row['error']}")
-            else:
-                print(f"  {label}: {row['accuracy']:.4f} ({row['correct']:g}/{row['total_examples']})")
-
-    # All workers have exited, so it's safe to clean up the WAL/SHM files
-    ledger.close(remove_sidecars=True)
+    try:
+        rows = ledger.conn.execute(
+            "SELECT task, fewshot_k, model_tag, accuracy, total_examples, correct, error "
+            "FROM benchmarks WHERE run_id = ? ORDER BY benchmark_id", (run_id,)
+        ).fetchall()
+        if rows:
+            print(f"\nResults by model:")
+            print(f"{'-'*60}")
+            current_model = None
+            for row in rows:
+                if row["model_tag"] != current_model:
+                    current_model = row["model_tag"]
+                    print(f"\n{current_model}:")
+                label = f"{row['task']}({row['fewshot_k']})"
+                if row["error"]:
+                    print(f"  {label}: ERROR - {row['error']}")
+                elif row["accuracy"] is None:
+                    # started but never finalized (worker died mid-task)
+                    print(f"  {label}: INCOMPLETE (no final stats recorded)")
+                else:
+                    print(f"  {label}: {row['accuracy']:.4f} "
+                          f"({row['correct'] or 0:g}/{row['total_examples']})")
+    finally:
+        # All workers have exited, so it's safe to clean up the WAL/SHM files
+        ledger.close(remove_sidecars=True)
 
     if failed:
         print(f"\n[WARN] {len(failed)} worker(s) failed: {failed}")
