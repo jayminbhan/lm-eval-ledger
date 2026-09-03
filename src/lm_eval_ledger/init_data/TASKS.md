@@ -57,8 +57,8 @@ All tasks in this section are **+logprob** (both suffix variants).
 | `gpqa_main` | 0 | 0-shot only (single split, no held-out pool) | 448 | Idavidrein/gpqa [gpqa_main] — gated |
 | `gpqa_extended` | 0 | 0-shot only (single split, no held-out pool) | 546 | Idavidrein/gpqa [gpqa_extended] — gated |
 | `mmlu_pro` | 0 | validation split (pool 70)¹ | 12032 | TIGER-Lab/MMLU-Pro (up to 10 options) |
-| `mmlu_redux_1` | 0 | 0-shot only | 3000 | edinburgh-dawg/mmlu-redux |
-| `mmlu_redux_2` | 0 | 0-shot only | 5700 | edinburgh-dawg/mmlu-redux-2.0 |
+| `mmlu_redux_1` | 0 | 0-shot only | 2801 | edinburgh-dawg/mmlu-redux (3000 minus questions the dataset flags as flawed; wrong-groundtruth golds remapped) |
+| `mmlu_redux_2` | 0 | 0-shot only | 5431 | edinburgh-dawg/mmlu-redux-2.0 (5700 minus flagged-flawed questions; wrong-groundtruth golds remapped) |
 
 ¹ Exemplars are the first k of the split, not per-category as in the
 official MMLU-Pro protocol — comparable across your own runs, slightly

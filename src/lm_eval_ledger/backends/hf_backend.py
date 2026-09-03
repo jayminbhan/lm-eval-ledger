@@ -11,7 +11,7 @@ from __future__ import annotations
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from .base import Backend, GenResult
+from .base import safe_on_result, Backend, GenResult
 
 _DEFAULT_BATCH = 8
 
@@ -106,12 +106,21 @@ class HfBackend(Backend):
                         finish, matched = "stop", None
                     else:
                         finish = "length"
-                    pad_id = self.tokenizer.pad_token_id
-                    n_tok = int((seq != pad_id).sum()) if pad_id is not None else len(seq)
+                    # generated length = through the first EOS (inclusive);
+                    # pad==eos on many tokenizers, so counting non-pad
+                    # tokens would drop the real EOS. A post-hoc stop cut
+                    # shortens the text, so recount from the kept text.
+                    if matched is not None:
+                        n_tok = len(self.tokenizer.encode(text, add_special_tokens=False))
+                    elif hit_eos:
+                        eos_pos = int((seq == self.tokenizer.eos_token_id).nonzero()[0][0])
+                        n_tok = eos_pos + 1
+                    else:
+                        pad_id = self.tokenizer.pad_token_id
+                        n_tok = int((seq != pad_id).sum()) if pad_id is not None else len(seq)
                     group.append(GenResult(text=text, finish_reason=finish,
                                            stop_reason=matched, n_tokens=n_tok))
-                if on_result is not None:
-                    on_result(i + p_idx, group)
+                safe_on_result(on_result, i + p_idx, group)
                 results.append(group)
         return results
 

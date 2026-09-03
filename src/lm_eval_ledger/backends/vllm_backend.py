@@ -10,7 +10,7 @@ os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
 from vllm import LLM, SamplingParams  # noqa: E402
 from vllm.distributed.parallel_state import destroy_model_parallel  # noqa: E402
 
-from .base import Backend, GenResult
+from .base import safe_on_result, Backend, GenResult
 
 
 class VllmBackend(Backend):
@@ -27,7 +27,8 @@ class VllmBackend(Backend):
     def load(self, model: str, cfg, quantization: str | None = None) -> None:
         import sys
         import vllm as _vllm
-        if sys.version_info < (3, 13) and _vllm.__version__ < "0.28":
+        from packaging.version import Version
+        if sys.version_info < (3, 13) and Version(_vllm.__version__) < Version("0.28"):
             # vLLM <= 0.27 imports flashinfer (which used 3.13-only syntax)
             # unconditionally during engine warmup; fixed in 0.28.
             print(f"[WARN] vLLM {_vllm.__version__} on Python < 3.13 may crash "
@@ -90,8 +91,7 @@ class VllmBackend(Backend):
                                    stop_reason=r.stop_reason,
                                    n_tokens=len(r.token_ids))
                          for r in out.outputs]
-                if on_result is not None:
-                    on_result(start + j, group)
+                safe_on_result(on_result, start + j, group)
                 results.append(group)
         return results
 

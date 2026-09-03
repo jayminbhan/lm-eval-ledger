@@ -6,7 +6,7 @@ logprob_token; logprob_seq is not implemented (use vllm or hf).
 """
 from __future__ import annotations
 
-from .base import Backend, GenResult
+from .base import safe_on_result, Backend, GenResult
 
 
 class SglangBackend(Backend):
@@ -32,6 +32,12 @@ class SglangBackend(Backend):
             kwargs["context_length"] = cfg.max_model_len
         if quantization:
             kwargs["quantization"] = quantization
+        # sglang has no per-request seed; the engine-level random_seed is
+        # the only reproducibility handle it offers
+        kwargs["random_seed"] = cfg.seed
+        print("[INFO] sglang: no per-request seeds - engine random_seed set "
+              f"to {cfg.seed}; pass_k>1 samples differ but a rerun is not "
+              "guaranteed bit-identical")
         self.engine = sgl.Engine(**kwargs)
         self.tokenizer = AutoTokenizer.from_pretrained(
             model, trust_remote_code=True)
@@ -85,8 +91,7 @@ class SglangBackend(Backend):
                                            finish_reason=finish,
                                            stop_reason=matched,
                                            n_tokens=meta.get("completion_tokens")))
-                if on_result is not None:
-                    on_result(start + i // n, group)
+                safe_on_result(on_result, start + i // n, group)
                 results.append(group)
         return results
 

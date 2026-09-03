@@ -115,7 +115,7 @@ def maybe_prompt_thinking_mode(cfg) -> None:
     when non-interactive, chat templating is off, or the global
     chat_template_kwargs is set ({} = explicit opt-out).
     """
-    if not cfg.apply_chat_template or cfg.chat_template_kwargs is not None:
+    if cfg.chat_template_kwargs is not None:
         return
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         return
@@ -129,6 +129,8 @@ def maybe_prompt_thinking_mode(cfg) -> None:
         if "chat_template_kwargs" in overrides:
             continue  # this model already chose in the config
         eff = (_dc_replace(cfg, **overrides) if overrides else cfg)
+        if not eff.apply_chat_template:
+            continue  # no template rendered for this model -> kwargs would be inert
         template = fetch_chat_template(eff, name)
         if not template:
             continue

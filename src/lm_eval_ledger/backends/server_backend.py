@@ -23,7 +23,7 @@ import time
 
 import httpx
 
-from .base import Backend, GenResult
+from .base import safe_on_result, Backend, GenResult
 
 _RETRIES = 3
 
@@ -55,6 +55,13 @@ class ServerBackend(Backend):
         self.template_kwargs = dict(cfg.chat_template_kwargs or {})
         if self.extra_body:
             print(f"[INFO] server extra body: {self.extra_body}")
+            clash = set(self.extra_body) & {"model", "messages", "prompt",
+                                            "temperature", "top_p", "max_tokens",
+                                            "stop", "seed", "n"}
+            if clash:
+                print(f"[WARN] server_extra_body overrides standard sampling "
+                      f"fields {sorted(clash)}; the recorded config's values "
+                      f"for those fields are NOT what the server receives")
         headers = {}
         if cfg.api_key:
             headers["Authorization"] = f"Bearer {cfg.api_key}"
@@ -89,6 +96,11 @@ class ServerBackend(Backend):
                 return r.json()
             except (httpx.TransportError, httpx.HTTPStatusError) as e:
                 last = e
+                # 4xx is deterministic (bad request, context exceeded):
+                # retrying only burns time
+                if (isinstance(e, httpx.HTTPStatusError)
+                        and 400 <= e.response.status_code < 500):
+                    break
                 if attempt < _RETRIES - 1:
                     time.sleep(1.5 * (attempt + 1))
         raise last
@@ -132,8 +144,7 @@ class ServerBackend(Backend):
                 except Exception as e:
                     group.append(GenResult(text="", finish_reason="error",
                                            stop_reason=f"{type(e).__name__}: {e}"))
-            if on_result is not None:
-                on_result(idx, group)
+            safe_on_result(on_result, idx, group)
             return group
         return self._map(one, list(enumerate(items)), desc="generations")
 

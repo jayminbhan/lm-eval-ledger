@@ -403,6 +403,8 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
             "No models configured. Add a 'models:' list to the config file "
             f"(default: ./{DEFAULT_CONFIG_FILE}) or pass --model."
         )
+    if cfg.server_concurrency < 1:
+        raise ValueError(f"server_concurrency must be >= 1, got {cfg.server_concurrency}")
     if cfg.pass_k < 1:
         raise ValueError(f"pass_k must be >= 1, got {cfg.pass_k}")
     if cfg.pass_k > 1 and cfg.temperature <= 0:

@@ -20,6 +20,19 @@ class GenResult:
     n_tokens: int | None = None  # generated tokens, from the engine's own count
 
 
+def safe_on_result(on_result, idx, group) -> None:
+    """Invoke a caller's streaming callback without letting its failure
+    (e.g. a transient ledger write error) abort the whole generation
+    batch; the runner scores anything un-streamed after the call returns."""
+    if on_result is None:
+        return
+    try:
+        on_result(idx, group)
+    except Exception as e:  # noqa: BLE001 - deliberately broad
+        print(f"[WARN] on_result callback failed for sample {idx}: "
+              f"{type(e).__name__}: {e}")
+
+
 class Backend:
     """Interface; subclasses implement one inference engine."""
 
