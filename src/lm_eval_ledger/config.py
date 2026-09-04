@@ -73,6 +73,7 @@ class RunConfig:
     max_model_len: int | None = 4096  # None = model default
     enforce_eager: bool = True
     gpu_ids: list[int] | None = None  # None = default GPU, [3] = pin, [0,1] = parallel workers
+    tensor_parallel_size: int = 1  # GPUs one model is sharded across (vllm/sglang TP; hf layer split)
 
     # Quantization: null, a single method for all models ("bitsandbytes",
     # "awq", "gptq", "fp8"), or a {model_tag: method} mapping.
@@ -297,6 +298,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="disable CUDA graphs to save memory")
     p.add_argument("--gpu-ids", type=str, default=None, metavar="I[,I...]",
                    help="GPUs to use, e.g. 3 (pin) or 0,1,2 (parallel workers)")
+    p.add_argument("--tensor-parallel-size", type=int, default=None, metavar="N",
+                   help="GPUs one model is sharded across (len(gpu_ids) must divide by N)")
     p.add_argument("--quantization", type=str, default=None, metavar="METHOD",
                    help="quantization for all models (bitsandbytes/awq/gptq/fp8; "
                         "'none' to force model default; per-model maps are YAML-only)")
@@ -371,7 +374,8 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
     # ---------- CLI override layer (only flags the user actually passed) ----------
     for key in ("max_examples", "batch_size", "apply_chat_template", "temperature",
                 "top_p", "max_tokens", "pass_k", "seed", "gpu_memory_utilization",
-                "max_model_len", "enforce_eager", "results_dir", "logs_dir", "data_dir",
+                "max_model_len", "enforce_eager", "tensor_parallel_size",
+                "results_dir", "logs_dir", "data_dir",
                 "db_path", "verifier", "verifier_model", "verifier_mode",
                 "verifier_max_model_len",
                 "backend", "server_url", "api_key", "server_concurrency",
@@ -430,6 +434,14 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
         not isinstance(cfg.gpu_ids, list) or not all(isinstance(g, int) for g in cfg.gpu_ids)
     ):
         raise ValueError(f"gpu_ids must be a list of ints or null, got {cfg.gpu_ids!r}")
+    if not isinstance(cfg.tensor_parallel_size, int) or cfg.tensor_parallel_size < 1:
+        raise ValueError(
+            f"tensor_parallel_size must be an int >= 1, got {cfg.tensor_parallel_size!r}")
+    if cfg.tensor_parallel_size > 1 and cfg.gpu_ids and len(cfg.gpu_ids) % cfg.tensor_parallel_size:
+        raise ValueError(
+            f"gpu_ids has {len(cfg.gpu_ids)} entries, not a multiple of "
+            f"tensor_parallel_size={cfg.tensor_parallel_size} (each model spans "
+            f"{cfg.tensor_parallel_size} GPUs)")
     if cfg.modality not in ("text", "all"):
         raise ValueError(f"modality must be 'text' or 'all', got {cfg.modality!r}")
     # verifier: precise tri-state -> concrete CompassVerifier model id.
@@ -463,6 +475,11 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
         raise ValueError(
             "backend 'server' does not use local GPUs; multi-GPU worker mode "
             "(gpu_ids with 2+ entries) is not applicable"
+        )
+    if cfg.backend == "server" and cfg.tensor_parallel_size > 1:
+        raise ValueError(
+            "backend 'server' does not use local GPUs; tensor_parallel_size "
+            "belongs to the server's own launch command"
         )
 
     return cfg

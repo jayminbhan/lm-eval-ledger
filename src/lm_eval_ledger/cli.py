@@ -87,6 +87,12 @@ def main() -> None:
             print(f"[ERROR] {e}", file=sys.stderr)
             sys.exit(1)
 
+    # Interactive server model-name reconciliation: a models: entry the
+    # endpoint does not serve is offered the served ids (TTY only)
+    if args.shard is None and cfg.models:
+        from .servermodel import maybe_prompt_server_model
+        maybe_prompt_server_model(cfg)
+
     # Interactive thinking-mode selection when the config left it unset
     # (TTY only; workers inherit the coordinator's resolved choice)
     if args.shard is None and cfg.models:

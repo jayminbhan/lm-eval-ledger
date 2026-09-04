@@ -891,7 +891,11 @@ def _run_coordinator(cfg: RunConfig) -> Path:
     run_name = _make_run_name(cfg, len(cfg.models), len(tasks_to_run))
     ledger_path = _ledger_path(cfg)
 
-    gpu_ids = [str(g) for g in cfg.gpu_ids]
+    # Each worker owns tensor_parallel_size consecutive GPUs from gpu_ids
+    # (validated to divide evenly); "0,1" as one CUDA_VISIBLE_DEVICES value.
+    tp = cfg.tensor_parallel_size
+    gpu_ids = [",".join(str(g) for g in cfg.gpu_ids[i:i + tp])
+               for i in range(0, len(cfg.gpu_ids), tp)]
     num_workers = min(len(gpu_ids), len(cfg.models))
 
     # Pre-create the ledger and the run row before workers connect. The run
@@ -905,9 +909,10 @@ def _run_coordinator(cfg: RunConfig) -> Path:
     # ---------- print header ----------
     task_strs = [f"{name}({k})" if k is not None else name for name, k in tasks_to_run]
     print(f"{'='*60}")
-    print(f"LLM BENCHMARK RUNNER - MULTI-GPU ({num_workers} GPUs)")
+    unit = "GPUs" if tp == 1 else f"GPU groups of {tp}"
+    print(f"LLM BENCHMARK RUNNER - MULTI-GPU ({num_workers} {unit})")
     print(f"{'='*60}")
-    print(f"Models: {len(cfg.models)} (distributed across {num_workers} GPUs)")
+    print(f"Models: {len(cfg.models)} (distributed across {num_workers} {unit})")
     for i, m in enumerate(cfg.models):
         m = model_spec(m)[0]
         print(f"  GPU {gpu_ids[i % num_workers]}: {Path(m).name}")
@@ -1000,16 +1005,19 @@ def run(cfg: RunConfig, *, shard: str | None = None, run_name: str | None = None
     This is the library entry point: build a RunConfig and call run(cfg).
     shard and run_name are internal parameters for multi-GPU worker processes.
     """
-    # Multi-GPU coordinator mode: gpu_ids has 2+ GPUs and not already a worker
-    if cfg.gpu_ids and len(cfg.gpu_ids) > 1 and shard is None:
+    # Multi-GPU coordinator mode: gpu_ids holds 2+ worker groups (each group
+    # is tensor_parallel_size GPUs) and this is not already a worker
+    if cfg.gpu_ids and len(cfg.gpu_ids) > cfg.tensor_parallel_size and shard is None:
         return _run_coordinator(cfg)
 
-    # ---------- single-GPU / worker mode ----------
+    # ---------- single-worker mode ----------
 
-    # Pin to specific GPU if gpu_ids has exactly one entry (e.g., gpu_ids: [7])
-    if cfg.gpu_ids and len(cfg.gpu_ids) == 1 and shard is None:
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(cfg.gpu_ids[0])
-        print(f"[INFO] Pinning to GPU {cfg.gpu_ids[0]} (CUDA_VISIBLE_DEVICES={cfg.gpu_ids[0]})")
+    # Pin to the listed GPU(s): [7] = one GPU; [0,1] with tensor_parallel_size
+    # 2 = one model sharded across both
+    if cfg.gpu_ids and shard is None:
+        vis = ",".join(str(g) for g in cfg.gpu_ids)
+        os.environ["CUDA_VISIBLE_DEVICES"] = vis
+        print(f"[INFO] Pinning to GPU(s) {vis} (CUDA_VISIBLE_DEVICES={vis})")
 
     total_start = time.time()
 

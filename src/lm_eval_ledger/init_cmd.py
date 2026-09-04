@@ -40,7 +40,7 @@ def main(argv=None) -> None:
     print(f"  [INIT] directories: {', '.join(_DIRS)}")
     tpl = f"{target}/template.yaml" if args.directory != "." else "template.yaml"
     print("\nNext steps:")
-    print(f"  1. cp {tpl} bench.yaml   # your working copy (auto-discovered)")
+    print(f"  1. cp {tpl} bench.yaml   # your working copy")
     print("  2. edit bench.yaml (fields documented in place; tasks: TASKS.md)")
-    print("  3. lm-eval-ledger          # run it")
-    print("  4. lm-eval-ledger serve    # browse results")
+    print("  3. lm-eval-ledger -c bench.yaml   # run it")
+    print("  4. lm-eval-ledger serve           # browse results")

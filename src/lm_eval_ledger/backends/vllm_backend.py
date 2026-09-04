@@ -43,6 +43,8 @@ class VllmBackend(Backend):
         }
         if cfg.max_model_len is not None:
             kwargs["max_model_len"] = cfg.max_model_len
+        if cfg.tensor_parallel_size > 1:
+            kwargs["tensor_parallel_size"] = cfg.tensor_parallel_size
         if quantization:
             kwargs["quantization"] = quantization
         self.llm = LLM(**kwargs)
