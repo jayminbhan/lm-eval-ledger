@@ -59,7 +59,7 @@ db_path: null        # THE ledger; null = ./results/ledger.sqlite3
 # (other tasks score exactly and are never judged). Runs after the task
 # with CompassVerifier; the official protocol uses a GPT-4o judge, only
 # CompassVerifier is implemented here.
-verifier: 7b         # 7b | 3b | off
+verifier: off         # 7b | 3b | off
 
 # ════════════════════════════════════════════════════════════
 # PER-BACKEND - backend-specific: keep ONE block, comment out the rest
