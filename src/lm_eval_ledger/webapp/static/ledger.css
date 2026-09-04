@@ -312,3 +312,4 @@ tr.rowlink.improved:hover td { background: #e2f7e9; }
 .btn.subtle:disabled:hover { color: var(--muted);
   border-color: var(--border); box-shadow: none; }
 .verified sup { color: var(--good); font-weight: 700; cursor: help; }
+.shots { color: var(--muted); font-size: 0.72rem; margin-left: 0.3rem; white-space: nowrap; }
