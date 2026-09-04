@@ -55,3 +55,9 @@ lm-eval-ledger-verify = "lm_eval_ledger.verifier:main"
 [build-system]
 requires = ["uv_build>=0.9.18,<0.10.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# README screenshots live in webapp/static so GitHub renders them; they are
+# not needed at runtime and would add ~1.4MB to every install.
+source-exclude = ["**/*.png"]
+wheel-exclude = ["**/*.png"]
