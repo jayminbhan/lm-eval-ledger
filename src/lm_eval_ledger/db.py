@@ -274,8 +274,7 @@ class LedgerDatabase:
         cur = self.conn.execute(
             """INSERT INTO benchmarks (
                 run_id, model_tag, model, task, fewshot_k, eval_mode,
-                pass_k, timestamp
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                pass_k, timestamp, samples_bytes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)""",
             (run_id, model_tag, model, task, fewshot_k, eval_mode,
              pass_k, timestamp),
         )
@@ -370,6 +369,15 @@ class LedgerDatabase:
             )
             for entry in entries
         ]
+        # keep benchmarks.samples_bytes current as samples stream in, so
+        # the viewer never has to LENGTH() gigabytes of responses to show
+        # an in-progress size (finalize recomputes it authoritatively)
+        batch_bytes = sum(
+            len(r[3] or "") + len(r[4] or "") + len(r[5] or "")
+            + len(r[6] or "") + len(r[7] or "") for r in rows)
+        self.conn.execute(
+            "UPDATE benchmarks SET samples_bytes = COALESCE(samples_bytes, 0) + ? "
+            "WHERE benchmark_id = ?", (batch_bytes, benchmark_id))
         self.conn.executemany(
             "INSERT INTO samples (benchmark_id, model_tag, sample_id, prompt, "
             "prompt_full, gold, gold_data, responses, score, image_ids) "

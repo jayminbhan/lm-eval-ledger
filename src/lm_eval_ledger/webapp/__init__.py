@@ -28,7 +28,6 @@ from pathlib import Path
 from flask import (Flask, abort, redirect, render_template, request,
                    session, url_for)
 
-from ..db import _SAMPLES_BYTES_EXPR
 
 PAGE_SIZE = 100
 
@@ -193,24 +192,15 @@ def create_app(db_path: Path, token: str | None = None,
             f"{_col('benchmarks', 'gen_seconds')}, "
             f"{_col('benchmarks', 'samples_bytes')}, error "
             f"FROM benchmarks ORDER BY benchmark_id")
-        # samples_bytes is maintained at finalize; compute it live only for
-        # the (few) in-progress benchmarks so streamed samples are counted.
-        # Pre-migration ledgers lack the column entirely - skip the live
-        # pass there (sizes render as 0 B until the harness migrates it).
-        live = {}
-        if "samples_bytes" in _columns("benchmarks"):
-            live = {r["benchmark_id"]: r["b"] for r in q(f"""
-                SELECT benchmark_id, SUM({_SAMPLES_BYTES_EXPR}) AS b
-                FROM samples WHERE benchmark_id IN
-                  (SELECT benchmark_id FROM benchmarks
-                   WHERE samples_bytes IS NULL)
-                GROUP BY benchmark_id""")}
+        # samples_bytes is maintained incrementally by the writer (every
+        # flush) and recomputed at finalize - never scanned here: LENGTH()
+        # over gigabytes of in-progress responses made this page take
+        # seconds. NULL only on rows written before that existed.
         by_run: dict = {}
         run_bytes: dict = {}
         bench_bytes: dict = {}
         for b in benches:
-            nbytes = (b["samples_bytes"] if b["samples_bytes"] is not None
-                      else live.get(b["benchmark_id"], 0))
+            nbytes = b["samples_bytes"]
             bench_bytes[b["benchmark_id"]] = nbytes
             by_run.setdefault(b["run_id"], []).append(b)
             run_bytes[b["run_id"]] = run_bytes.get(b["run_id"], 0) + (nbytes or 0)
