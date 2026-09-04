@@ -401,7 +401,8 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
     # the resolved form. Plain attribute (not a dataclass field), so it stays
     # out of to_dict()/to_yaml() and the resolved-config round-trip.
     cfg.source_yaml_text = (
-        Path(config_path).read_text() if config_path is not None else None
+        Path(config_path).read_text(encoding="utf-8")
+        if config_path is not None else None
     )
 
     # ---------- validation ----------

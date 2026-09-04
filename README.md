@@ -56,9 +56,9 @@ pip install "lm-eval-ledger[hf]"       # HF transformers
 ## Quickstart
 
 ```bash
-lm-eval-ledger init                                 # write template.yaml + TASKS.md, create results/ and logs/
-lm-eval-ledger -c config.yaml                       # run benchmarks
-lm-eval-ledger serve --db results/ledger.sqlite3    # browse at http://localhost:8090
+lm-eval-ledger init                    # write template.yaml + TASKS.md, create results/ and logs/
+lm-eval-ledger -c bench.yaml           # run benchmarks
+lm-eval-ledger serve                   # browse at http://localhost:8090
 ```
 
 YAML format: [template.yaml](#yaml-template), available tasks: [TASKS.md](src/lm_eval_ledger/init_data/TASKS.md)

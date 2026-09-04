@@ -5,6 +5,9 @@ build/
 dist/
 wheels/
 *.egg-info
+TASKS.md
+bench.yaml
+template.yaml
 
 # Virtual environments
 .venv*

@@ -33,7 +33,8 @@ def main(argv=None) -> None:
         if dest.exists():
             print(f"  [SKIP] {dest} exists, not overwriting")
             continue
-        dest.write_text((pkg / name).read_text())
+        dest.write_text((pkg / name).read_text(encoding="utf-8"),
+                        encoding="utf-8")
         print(f"  [INIT] wrote {dest}")
     for d in _DIRS:
         (target / d).mkdir(exist_ok=True)
