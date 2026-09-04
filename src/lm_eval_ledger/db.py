@@ -378,9 +378,15 @@ class LedgerDatabase:
         batch_bytes = sum(
             len(r[3] or "") + len(r[4] or "") + len(r[5] or "")
             + len(r[6] or "") + len(r[7] or "") for r in rows)
-        batch_no_answer = sum(
-            1 for e in entries
-            if e.get("responses") and (e["responses"][0].get("extracted") or "") == "")
+        def _first_extracted(e):
+            resps = e.get("responses") or []
+            if isinstance(resps, str):  # tolerate pre-serialized JSON
+                try:
+                    resps = json.loads(resps)
+                except ValueError:
+                    return None
+            return (resps[0].get("extracted") or "") if resps else None
+        batch_no_answer = sum(1 for e in entries if _first_extracted(e) == "")
         self.conn.execute(
             "UPDATE benchmarks SET samples_bytes = COALESCE(samples_bytes, 0) + ?, "
             "total_examples = COALESCE(total_examples, 0) + ?, "
