@@ -46,12 +46,13 @@
         <td>{% if b.verified_accuracy is not none %}
           <span class="verified" title="LLM-verified (strict string-match: {{ "%.3f"|format(b.accuracy) if b.accuracy is not none else "n/a" }})">{{ "%.3f"|format(b.verified_accuracy) }}<sup>✓</sup></span>
           {% else %}{{ "%.3f"|format(b.accuracy) if b.accuracy is not none else "…" }}{% endif %}</td>
-        <td>{{ b.total_examples }}</td>
-        <td>{{ b.no_answer_count }}</td>
-        <td class="muted">{% set nb = bench_bytes.get(b.benchmark_id) %}{{ nb|fmtbytes if nb is not none else "…" }}</td>
-        <td class="muted">{% if b.error %}<span class="err" title="{{ b.error }}">ERROR</span>{% else %}{{ b.duration_seconds|fmtdur }}{% endif %}</td>
+        {% set pending = b.accuracy is none and not b.error %}
+        <td>{{ b.total_examples if b.total_examples is not none else ("…" if pending else "-") }}</td>
+        <td>{{ b.no_answer_count if b.no_answer_count is not none else ("…" if pending else "-") }}</td>
+        <td class="muted">{% set nb = bench_bytes.get(b.benchmark_id) %}{{ nb|fmtbytes if nb is not none else ("…" if pending else "-") }}</td>
+        <td class="muted">{% if b.error %}<span class="err" title="{{ b.error }}">ERROR</span>{% elif b.duration_seconds is none %}{{ "…" if pending else "-" }}{% else %}{{ b.duration_seconds|fmtdur }}{% endif %}</td>
         <td class="muted">{{ "%.0f"|format(b.gen_tokens / b.gen_seconds)
-            if b.gen_tokens and b.gen_seconds else "-" }}</td>
+            if b.gen_tokens and b.gen_seconds else ("…" if pending else "-") }}</td>
         <td>
           <form method="post" action="{{ url_for('delete_benchmark', bid=b.benchmark_id) }}" class="inlineform"
                 onsubmit="return confirm('Delete {{ b.task }}({{ b.fewshot_k }}) of run {{ r.run_id }} and its samples? This cannot be undone.')">
