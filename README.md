@@ -137,8 +137,8 @@ Every option with its default in shared and per-backend blocks. Uncomment what y
 # Config under model entry overrides globals for that model only
 # (chat_template_kwargs, quantization, apply_chat_template, ...).
 models:
-  - Qwen/Qwen2.5-7B-Instruct
-  # - name: Qwen/Qwen3-8B
+  # - Qwen/Qwen3.5-2B
+  # - name: Qwen/Qwen3.5-9B
   #   chat_template_kwargs: {enable_thinking: true}
   # - google/gemma-4-12B-it-qat-w4a16-ct 
 
@@ -188,6 +188,7 @@ gpu_memory_utilization: 0.90
 max_model_len: 8192   # context window (prompt + max_tokens must fit)
 enforce_eager: true
 gpu_ids: null         # [3] = pin GPU; [0,1] = one worker per GPU
+tensor_parallel_size: 1   # GPUs per model; gpu_ids is split into groups of this size
 quantization: null    # "bitsandbytes" | "awq" | "gptq" | "fp8" | {tag: method}
 batch_size: 100       # write to the ledger every N samples (throughput
                       # is unaffected; null = single engine call, results
@@ -197,6 +198,7 @@ batch_size: 100       # write to the ledger every N samples (throughput
 # backend: hf
 # max_model_len: 8192
 # gpu_ids: null
+# tensor_parallel_size: 1  # GPUs per model; gpu_ids is split into groups of this size (hf: layer split)
 # quantization: null  # "bitsandbytes" only
 # batch_size: 8       # true VRAM knob here - keep small
 
@@ -205,6 +207,7 @@ batch_size: 100       # write to the ledger every N samples (throughput
 # gpu_memory_utilization: 0.90
 # max_model_len: 8192
 # gpu_ids: null
+# tensor_parallel_size: 1  # GPUs per model; gpu_ids is split into groups of this size
 # batch_size: 100
 
 # ── server (any OpenAI-compatible endpoint: llama.cpp, ollama,
