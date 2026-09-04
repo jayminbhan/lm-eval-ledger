@@ -42,7 +42,7 @@
     {% for b in benches %}
       <tr>
         <td>{{ b.model_tag }}</td>
-        <td><a href="{{ url_for('samples', mode='browse', scope='b:' ~ b.benchmark_id) }}">{{ b.task }}({{ b.fewshot_k }})</a></td>
+        <td><a href="{{ url_for('samples', mode='browse', scope='b:' ~ b.benchmark_id) }}">{{ b.task }}{% if b.fewshot_k is not none %}({{ b.fewshot_k }}){% endif %}</a></td>
         <td>{% if b.verified_accuracy is not none %}
           <span class="verified" title="LLM-verified (strict string-match: {{ "%.3f"|format(b.accuracy) if b.accuracy is not none else "n/a" }})">{{ "%.3f"|format(b.verified_accuracy) }}<sup>✓</sup></span>
           {% else %}{{ "%.3f"|format(b.accuracy) if b.accuracy is not none else "…" }}{% endif %}</td>
@@ -55,7 +55,7 @@
             if b.gen_tokens and b.gen_seconds else ("…" if pending else "-") }}</td>
         <td>
           <form method="post" action="{{ url_for('delete_benchmark', bid=b.benchmark_id) }}" class="inlineform"
-                onsubmit="return confirm('Delete {{ b.task }}({{ b.fewshot_k }}) of run {{ r.run_id }} and its samples? This cannot be undone.')">
+                onsubmit="return confirm('Delete {{ b.task }}{% if b.fewshot_k is not none %}({{ b.fewshot_k }}){% endif %} of run {{ r.run_id }} and its samples? This cannot be undone.')">
             <button type="submit" class="btn danger" {{ "disabled title='disabled: read-only viewer'"|safe if read_only }}>delete</button>
           </form>
         </td>

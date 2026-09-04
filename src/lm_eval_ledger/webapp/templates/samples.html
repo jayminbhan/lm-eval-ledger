@@ -28,7 +28,7 @@
           {% for o in g.benches %}
           <option value="b:{{ o.benchmark_id }}"
             {{ "selected" if scope_value == "b:" ~ o.benchmark_id }}>
-            {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</option>
+            {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc if o.acc is not none else "…" }}</option>
           {% endfor %}
         </optgroup>
         {% endfor %}
@@ -59,13 +59,13 @@
       <select name="a">{% for o in pair_benches or benches %}
         <option value="{{ o.benchmark_id }}" data-task="{{ o.task }}"
           {{ "selected" if args.get("a")|string == o.benchmark_id|string }}>
-          run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</option>
+          run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc if o.acc is not none else "…" }}</option>
       {% endfor %}</select></label>
     <label class="pair-only">benchmark B
       <select name="b">{% for o in pair_benches or benches %}
         <option value="{{ o.benchmark_id }}" data-task="{{ o.task }}"
           {{ "selected" if args.get("b")|string == o.benchmark_id|string }}>
-          run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</option>
+          run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc if o.acc is not none else "…" }}</option>
       {% endfor %}</select></label>
     <button type="submit" class="notcons">Apply</button>
   </div>
@@ -75,7 +75,7 @@
       <label class="check" data-task="{{ o.task }}">
         <input type="checkbox" name="bs" value="{{ o.benchmark_id }}"
           {{ "checked" if o.benchmark_id|string in (sel or []) }}>
-        <span>run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc }}</span>
+        <span>run {{ o.run_id }} · {{ o.model_tag }} · {{ o.task }}({{ o.fewshot_k }}) · acc {{ o.acc if o.acc is not none else "…" }}</span>
       </label>
       {% endfor %}
     </div>

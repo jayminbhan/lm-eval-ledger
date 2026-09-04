@@ -33,7 +33,7 @@
     <tr>
       <td>{{ b.run_id }}</td>
       <td>{{ b.model_tag }}</td>
-      <td><a href="{{ url_for('samples', mode='browse', scope='b:' ~ b.benchmark_id) }}">{{ b.task }}({{ b.fewshot_k }})</a></td>
+      <td><a href="{{ url_for('samples', mode='browse', scope='b:' ~ b.benchmark_id) }}">{{ b.task }}{% if b.fewshot_k is not none %}({{ b.fewshot_k }}){% endif %}</a></td>
       <td>{{ medals.get(b.benchmark_id, "") }}{% if b.verified_accuracy is not none %}
         <span class="verified" title="LLM-verified (strict string-match: {{ "%.3f"|format(b.accuracy) if b.accuracy is not none else "n/a" }})">{{ "%.3f"|format(b.verified_accuracy) }}<sup>✓</sup></span>
         {% else %}{{ "%.3f"|format(b.accuracy) if b.accuracy is not none else "…" }}{% endif %}</td>
