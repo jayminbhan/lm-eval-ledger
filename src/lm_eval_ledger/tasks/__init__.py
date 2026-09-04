@@ -85,7 +85,7 @@ TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
     "olympiad_bench_physics_en": olympiad_bench.get_task_physics_en,
 
     # TheoremQA
-    "theoremqa": theoremqa.get_task,
+    # "theoremqa": theoremqa.get_task,
 
     # BIG-Bench Hard (27 subtasks aggregated)
     "bbh": bbh.get_task,
@@ -102,7 +102,7 @@ TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
     "gpqa_extended_logprob_seq": gpqa.get_task_extended_logprob_seq,
 
     # HLE (Humanity's Last Exam, text-only; gated dataset)
-    "hle": hle.get_task,
+    # "hle": hle.get_task,
 
     # LiveCodeBench (code generation; executes generated code locally)
     "livecodebench": livecodebench.get_task,
@@ -113,9 +113,9 @@ TASK_REGISTRY: dict[str, Callable[..., TaskConfig]] = {
        for n in range(1, 7)},
 
     # MRCR (long-context multi-round co-reference; partial-credit scoring)
-    "mrcr_2needle": mrcr.get_task_2needle,
-    "mrcr_4needle": mrcr.get_task_4needle,
-    "mrcr_8needle": mrcr.get_task_8needle,
+    # "mrcr_2needle": mrcr.get_task_2needle,
+    # "mrcr_4needle": mrcr.get_task_4needle,
+    # "mrcr_8needle": mrcr.get_task_8needle,
 }
 
 

@@ -20,8 +20,8 @@
 # Config under model entry overrides globals for that model only
 # (chat_template_kwargs, quantization, apply_chat_template, ...).
 models:
-  - Qwen/Qwen2.5-7B-Instruct
-  # - name: Qwen/Qwen3-8B
+  # - Qwen/Qwen3.5-2B
+  # - name: Qwen/Qwen3.5-9B
   #   chat_template_kwargs: {enable_thinking: true}
   # - google/gemma-4-12B-it-qat-w4a16-ct 
 

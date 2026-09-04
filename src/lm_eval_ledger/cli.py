@@ -26,14 +26,11 @@ Available tasks:
     - winogrande_generate / _logprob_token / _logprob_seq: WinoGrande
     - olympiad_bench_math_en: OlympiadBench Math (English)
     - olympiad_bench_physics_en: OlympiadBench Physics (English)
-    - theoremqa: TheoremQA (text-only)
     - gpqa_diamond_generate / _logprob_token / _logprob_seq: GPQA Diamond (198)
     - gpqa_main_generate / _logprob_token / _logprob_seq: GPQA Main (448)
     - gpqa_extended_generate / _logprob_token / _logprob_seq: GPQA Extended (546)
     - bbh: BIG-Bench Hard (27 subtasks)
-    - hle: Humanity's Last Exam (text-only; gated dataset)
     - livecodebench: LiveCodeBench code generation (executes generated code)
-    - mrcr_2needle / _4needle / _8needle: MRCR long-context (partial credit)
 """
 
 from __future__ import annotations
