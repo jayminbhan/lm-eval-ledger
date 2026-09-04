@@ -25,10 +25,10 @@
 # turn thinking ON for Qwen only; gemma's template has no thinking knob
 # and keeps the global settings.
 models:
-  - name: Qwen/Qwen3.5-9B
-    chat_template_kwargs: {enable_thinking: true}
 
   - google/gemma-4-12B-it-qat-w4a16-ct   # gated: needs `hf auth login`
+  - name: Qwen/Qwen3.5-9B
+    chat_template_kwargs: {enable_thinking: true}
 
 
   # name must match what the server reports at /v1/models (add
@@ -53,10 +53,9 @@ models:
 # _logprob_seq (completion log-likelihood; vllm/hf backends only).
 tasks:
   - aime_2025:0
-  - gpqa_diamond_generate
-#  - gsm8k_main:0
+  - gpqa_diamond
   - livecodebench
-  - gsm8k_main:4
+  - gsm8k:4
   - math500
   # - {name: mmlu_pro_generate, fewshot: [4]}
 

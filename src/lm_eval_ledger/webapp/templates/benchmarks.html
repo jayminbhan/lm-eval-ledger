@@ -24,7 +24,7 @@
 <p class="lbtitle" style="margin: 1.4rem 0 0.55rem;">Benchmark results</p>
 <table>
   <thead><tr>
-    <th>run</th><th>model</th><th>task</th>
+    <th>run</th><th>model</th><th>task (fewshot)</th>
     <th><a href="{{ url_for('benchmarks', task=task or None, sort='accuracy', dedupe=1 if dedupe else None) }}">acc</a></th>
     <th>n</th><th>no answer</th><th>time</th><th>tok/s</th>
   </tr></thead>

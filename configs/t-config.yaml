@@ -22,7 +22,7 @@
 models:
   # - Qwen/Qwen2.5-7B-Instruct
   - google/gemma-4-12B-it-qat-w4a16-ct 
-  - name: Qwen/Qwen3-8B
+  - name: Qwen/Qwen3.5-9B
     chat_template_kwargs: {enable_thinking: true}
 
 
@@ -31,10 +31,9 @@ models:
 # bare name = generate scoring; _logprob_token | _logprob_seq variants.
 tasks:
   - aime_2025:0
-  - gpqa_diamond_generate
-#  - gsm8k_main:0
+  - gpqa_diamond
   - livecodebench
-  - gsm8k_main:4
+  - gsm8k:4
   - math500
 
 max_examples: null   # per-task cap; null = all (set ~20 for a smoke test)

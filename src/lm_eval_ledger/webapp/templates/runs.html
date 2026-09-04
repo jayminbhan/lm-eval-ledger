@@ -36,7 +36,7 @@
   {% set benches = by_run.get(r.run_id, []) %}
   {% if benches %}
   <table>
-    <thead><tr><th>model</th><th>task</th><th>acc</th>
+    <thead><tr><th>model</th><th>task (fewshot)</th><th>acc</th>
       <th>n</th><th>no answer</th><th>size</th><th>time</th><th>tok/s</th><th></th></tr></thead>
     <tbody>
     {% for b in benches %}
