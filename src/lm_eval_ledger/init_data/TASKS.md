@@ -45,7 +45,7 @@ the maximum k.
 | `math500` | 0 | 0-shot only | 500 | HuggingFaceH4/MATH-500 |
 | `olympiad_bench_math_en` | 0 | 0-shot only | 674 | Hothan/OlympiadBench [OE_TO_maths_en_COMP] |
 | `olympiad_bench_physics_en` | 0 | 0-shot only | 236 | Hothan/OlympiadBench [OE_TO_physics_en_COMP] |
-| `theoremqa` | 0 | 0-shot only | 800 | TIGER-Lab/TheoremQA — 53 image questions (`modality`) |
+| `theoremqa` | 0 | 0-shot only | 800 | TIGER-Lab/TheoremQA — 53 image questions (`modality`); judged with CompassVerifier-7B after the run by default |
 
 ## Science / knowledge MCQ
 
@@ -78,7 +78,7 @@ off-protocol versus the paper's 5-shot numbers.
 
 | task | default k | few-shot | n | dataset | notes |
 |---|---|---|---|---|---|
-| `hle` | 0 | 0-shot only | 2500 (2158 text-only) | cais/hle | gated; 342 image questions (`modality`); string-match is a lower bound of the official LLM-judge scoring |
+| `hle` | 0 | 0-shot only | 2500 (2158 text-only) | cais/hle | gated; 342 image questions (`modality`); judged with CompassVerifier-7B after the run by default (official protocol: GPT-4o judge); string match alone is a lower bound |
 | `livecodebench` | 0 | 0-shot only (self-contained prompts) | 1055 | official release jsonls (release_v6) | EXECUTES generated code locally; `max_tokens >= 2048` |
 | `livecodebench_v1` … `livecodebench_v6` | 0 | 0-shot only | 400 / 111 / 101 / 101 / 167 / 175 | testN.jsonl | the problems ADDED in release N (upstream's own slices); highest N = newest = most contamination-safe |
 | `mrcr_2needle` / `mrcr_4needle` / `mrcr_8needle` | 0 | 0-shot only | 800 each | openai/mrcr | long context: needs `apply_chat_template` and a large `max_model_len` (32k+); partial credit (SequenceMatcher ratio) |

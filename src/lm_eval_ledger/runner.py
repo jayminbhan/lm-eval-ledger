@@ -814,10 +814,23 @@ def _harness_version() -> str:
     return __version__
 
 
+def _verifier_tasks(cfg: RunConfig) -> list[str]:
+    """Task names in this run that need the LLM judge (HLE, TheoremQA...)."""
+    names = []
+    for name, _ in cfg.tasks:
+        try:
+            if get_task(name).needs_verifier:
+                names.append(name)
+        except ValueError:
+            pass
+    return names
+
+
 def _prefetch_verifier(cfg: RunConfig) -> None:
     """Download the verifier model BEFORE benchmarking, so a typo'd name or
     an undownloadable model surfaces immediately instead of after hours."""
-    if not cfg.verifier_model or Path(cfg.verifier_model).exists():
+    if not cfg.verifier_model or not _verifier_tasks(cfg) \
+            or Path(cfg.verifier_model).exists():
         return
     from huggingface_hub import snapshot_download
     print(f"[INFO] Prefetching verifier model {cfg.verifier_model} ...")
@@ -839,11 +852,16 @@ def _maybe_verify(cfg: RunConfig, db_path: Path | None, run_id: int | None) -> N
     """
     if not cfg.verifier_model or db_path is None or run_id is None:
         return
+    tasks = _verifier_tasks(cfg)
+    if not tasks:
+        return  # nothing in this run needs a judge
+    print(f"\n[VERIFY] Judging {tasks} with {cfg.verifier_model} "
+          f"(free-form answers; string match alone is a lower bound)")
     from .verifier import verify_run
     try:
         verify_run(
             db_path, cfg.verifier_model,
-            run_id=run_id,
+            run_id=run_id, tasks=set(tasks),
             mode=cfg.verifier_mode,
             max_model_len=cfg.verifier_max_model_len,
             gpu_memory_utilization=cfg.gpu_memory_utilization,

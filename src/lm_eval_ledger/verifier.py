@@ -114,6 +114,7 @@ def verify_run(
     enforce_eager: bool = True,
     seed: int = 42,
     _generate=None,
+    tasks: set[str] | None = None,
 ) -> None:
     """Judge one run's stored responses with an LLM verifier and record
     verified scores in the ledger.
@@ -141,9 +142,14 @@ def verify_run(
         "SELECT benchmark_id, task, model_tag, eval_mode, accuracy FROM benchmarks "
         "WHERE run_id = ? AND (error IS NULL OR error = '')", (run_id,)
     ).fetchall()
+    if tasks is None:
+        # default: only tasks whose scoring needs a judge (HLE, TheoremQA)
+        from .tasks import TASK_REGISTRY
+        tasks = {n for n, f in TASK_REGISTRY.items() if f().needs_verifier}
     judgeable, skipped = [], []
     for b in bench_rows:
-        if b["eval_mode"] != "generate" or b["task"].startswith(_SKIP_TASK_PREFIXES):
+        if (b["eval_mode"] != "generate" or b["task"].startswith(_SKIP_TASK_PREFIXES)
+                or b["task"] not in tasks):
             skipped.append(f"{b['task']} ({b['model_tag']})")
         else:
             judgeable.append(b)

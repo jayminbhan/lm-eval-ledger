@@ -69,4 +69,5 @@ def get_task() -> TaskConfig:
         hf_repo="cais/hle",
         hf_split="test",
         image_field="image",
+        needs_verifier=True,
     )

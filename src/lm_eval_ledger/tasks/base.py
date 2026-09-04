@@ -77,6 +77,10 @@ class TaskConfig:
     # examples; modality="all" keeps them, normalized into ex["_images"]
     # as [(bytes, mime), ...].
     image_field: str | None = None
+    # Free-form-answer tasks whose string match is only a lower bound: the
+    # post-run CompassVerifier judge runs on these by default (verifier:
+    # auto). MCQ/numeric tasks score exactly and never need it.
+    needs_verifier: bool = False
 
 
 # ============================================================

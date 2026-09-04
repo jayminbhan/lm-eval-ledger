@@ -94,7 +94,9 @@ class RunConfig:
     # Re-judges string-match failures and writes verified_accuracy
     # alongside accuracy. Only free-form-answer benchmarks (HLE,
     # TheoremQA) meaningfully need it.
-    verifier: str | bool | None = None  # None/False/"off" = off
+    # None = auto: judge the tasks that need it (HLE, TheoremQA) with
+    # CompassVerifier-7B after the run; "off" disables; "3b"/"7b" pick the scale.
+    verifier: str | bool | None = None
     # Expert knobs (normally left alone): explicit model id override,
     # judging mode ("fallback" = re-judge only string-match failures;
     # "all" = verifier verdict decides), verifier context window.
@@ -322,7 +324,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="concurrent requests for --backend server (default: 8)")
     p.add_argument("--verifier", type=str, default=None,
                    choices=["off", "3b", "7b"],
-                   help="CompassVerifier post-run pass: off, or a scale")
+                   help="CompassVerifier judge for HLE/TheoremQA (default: 7b "
+                        "automatically for those tasks); off disables")
     p.add_argument("--verifier-model", type=str, default=None, metavar="MODEL",
                    help="LLM verifier for a post-run verification pass "
                         "(e.g. opencompass/CompassVerifier-7B)")
@@ -431,15 +434,20 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
         raise ValueError(f"modality must be 'text' or 'all', got {cfg.modality!r}")
     # verifier: precise tri-state -> concrete CompassVerifier model id.
     # (YAML parses a bare `off` as False; both spellings mean off.)
-    if cfg.verifier in (None, False) or str(cfg.verifier).lower() == "off":
-        cfg.verifier = None
-        if str(cfg.verifier_model or "").lower() in ("off", ""):
-            cfg.verifier_model = None
+    if cfg.verifier is None:
+        cfg.verifier = "auto"
+        if not cfg.verifier_model:
+            cfg.verifier_model = "opencompass/CompassVerifier-7B"
+    elif cfg.verifier is False or str(cfg.verifier).lower() == "off":
+        cfg.verifier = "off"
+        cfg.verifier_model = None
     else:
         scale = str(cfg.verifier).lower()
-        if scale not in ("3b", "7b"):
+        if scale not in ("3b", "7b", "auto"):
             raise ValueError(
                 f"verifier must be off, 3b, or 7b, got {cfg.verifier!r}")
+        if scale == "auto":
+            scale = "7b"
         if not cfg.verifier_model:
             cfg.verifier_model = f"opencompass/CompassVerifier-{scale.upper()}"
         cfg.verifier = scale

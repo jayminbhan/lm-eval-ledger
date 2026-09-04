@@ -36,4 +36,5 @@ def get_task() -> TaskConfig:
         hf_repo="TIGER-Lab/TheoremQA",
         hf_split="test",
         image_field="Picture",
+        needs_verifier=True,
     )
