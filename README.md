@@ -172,9 +172,11 @@ pass_k: 1            # best-of-k scoring; >1 needs temperature > 0
 logs_dir: logs
 db_path: null        # THE ledger; null = ./results/ledger.sqlite3
 
-# Post-run LLM verification (CompassVerifier); recovers unformatted
-# answers - matters for free-form benchmarks (HLE, TheoremQA).
-verifier: off        # off | 3b | 7b
+# LLM judge for free-form answers - applies ONLY to HLE and TheoremQA
+# (other tasks score exactly and are never judged). Runs after the task
+# with CompassVerifier; the official protocol uses a GPT-4o judge, only
+# CompassVerifier is implemented here.
+verifier: off         # 7b | 3b | off
 
 # ════════════════════════════════════════════════════════════
 # PER-BACKEND - backend-specific: keep ONE block, comment out the rest
