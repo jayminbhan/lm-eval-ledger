@@ -265,7 +265,7 @@ def _int_or_none(value: str) -> int | None:
 def build_arg_parser() -> argparse.ArgumentParser:
     """Build the CLI parser: config file, per-field overrides, internal flags."""
     p = argparse.ArgumentParser(
-        prog="run_bench",
+        prog="lm-eval-ledger",
         description="LLM benchmark runner. Settings come from a YAML config "
                     "file; any flag given here overrides the file.",
     )
