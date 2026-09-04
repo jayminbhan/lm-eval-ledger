@@ -100,7 +100,8 @@ class LedgerDatabase:
                 verified_accuracy REAL,
                 samples_bytes INTEGER,
                 gen_tokens INTEGER,
-                gen_seconds REAL
+                gen_seconds REAL,
+                started_at TEXT
             )
         """)
         c.execute("""
@@ -171,6 +172,7 @@ class LedgerDatabase:
         for ddl in (
             "ALTER TABLE benchmarks ADD COLUMN gen_tokens INTEGER",
             "ALTER TABLE benchmarks ADD COLUMN gen_seconds REAL",
+            "ALTER TABLE benchmarks ADD COLUMN started_at TEXT",
         ):
             try:
                 c.execute(ddl)
@@ -274,9 +276,10 @@ class LedgerDatabase:
         cur = self.conn.execute(
             """INSERT INTO benchmarks (
                 run_id, model_tag, model, task, fewshot_k, eval_mode,
-                pass_k, timestamp, samples_bytes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)""",
+                pass_k, timestamp, samples_bytes, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)""",
             (run_id, model_tag, model, task, fewshot_k, eval_mode,
-             pass_k, timestamp),
+             pass_k, timestamp,
+             datetime.now().isoformat(timespec="seconds")),
         )
         return cur.lastrowid
 
@@ -375,9 +378,15 @@ class LedgerDatabase:
         batch_bytes = sum(
             len(r[3] or "") + len(r[4] or "") + len(r[5] or "")
             + len(r[6] or "") + len(r[7] or "") for r in rows)
+        batch_no_answer = sum(
+            1 for e in entries
+            if e.get("responses") and (e["responses"][0].get("extracted") or "") == "")
         self.conn.execute(
-            "UPDATE benchmarks SET samples_bytes = COALESCE(samples_bytes, 0) + ? "
-            "WHERE benchmark_id = ?", (batch_bytes, benchmark_id))
+            "UPDATE benchmarks SET samples_bytes = COALESCE(samples_bytes, 0) + ?, "
+            "total_examples = COALESCE(total_examples, 0) + ?, "
+            "no_answer_count = COALESCE(no_answer_count, 0) + ? "
+            "WHERE benchmark_id = ?",
+            (batch_bytes, len(rows), batch_no_answer, benchmark_id))
         self.conn.executemany(
             "INSERT INTO samples (benchmark_id, model_tag, sample_id, prompt, "
             "prompt_full, gold, gold_data, responses, score, image_ids) "

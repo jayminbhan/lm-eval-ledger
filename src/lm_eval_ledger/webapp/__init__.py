@@ -190,7 +190,8 @@ def create_app(db_path: Path, token: str | None = None,
             f"duration_seconds, "
             f"{_col('benchmarks', 'gen_tokens')}, "
             f"{_col('benchmarks', 'gen_seconds')}, "
-            f"{_col('benchmarks', 'samples_bytes')}, error "
+            f"{_col('benchmarks', 'samples_bytes')}, "
+            f"{_col('benchmarks', 'started_at')}, error "
             f"FROM benchmarks ORDER BY benchmark_id")
         # samples_bytes is maintained incrementally by the writer (every
         # flush) and recomputed at finalize - never scanned here: LENGTH()
@@ -205,7 +206,17 @@ def create_app(db_path: Path, token: str | None = None,
             by_run.setdefault(b["run_id"], []).append(b)
             run_bytes[b["run_id"]] = run_bytes.get(b["run_id"], 0) + (nbytes or 0)
         db_file_bytes = app.config["DB_PATH"].stat().st_size
-        return render_template("runs.html", runs=run_rows, by_run=by_run,
+        # elapsed time for in-progress benchmarks (since their recorded start)
+        from datetime import datetime
+        elapsed = {}
+        for b in benches:
+            if b["accuracy"] is None and not b["error"] and b["started_at"]:
+                try:
+                    elapsed[b["benchmark_id"]] = (
+                        datetime.now() - datetime.fromisoformat(b["started_at"])).total_seconds()
+                except ValueError:
+                    pass
+        return render_template("runs.html", runs=run_rows, by_run=by_run, elapsed=elapsed,
                                run_bytes=run_bytes, bench_bytes=bench_bytes,
                                db_file_bytes=db_file_bytes)
 
