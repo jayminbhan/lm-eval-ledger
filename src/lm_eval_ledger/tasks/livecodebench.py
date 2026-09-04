@@ -236,7 +236,10 @@ def _run_one_test(code: str, test: dict, func_name: str | None) -> bool:
             text=True, timeout=_TEST_TIMEOUT_S,
             # untrusted code: do not inherit API keys/tokens from our env
             env={"PATH": os.environ.get("PATH", ""),
-                 "PYTHONIOENCODING": "utf-8", "PYTHONHASHSEED": "0"},
+                 "PYTHONIOENCODING": "utf-8", "PYTHONHASHSEED": "0",
+                 # Windows: the interpreter cannot start without these
+                 **{k: os.environ[k] for k in ("SYSTEMROOT", "TEMP", "TMP")
+                    if k in os.environ}},
         )
     except (subprocess.TimeoutExpired, OSError):
         return False
