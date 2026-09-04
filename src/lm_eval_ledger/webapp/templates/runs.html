@@ -36,13 +36,13 @@
   {% set benches = by_run.get(r.run_id, []) %}
   {% if benches %}
   <table>
-    <thead><tr><th>model</th><th>task</th><th>acc</th>
+    <thead><tr><th>model</th><th>task (few-shot)</th><th>acc</th>
       <th>n</th><th>no answer</th><th>size</th><th>time</th><th>tok/s</th><th></th></tr></thead>
     <tbody>
     {% for b in benches %}
       <tr>
         <td>{{ b.model_tag }}</td>
-        <td><a href="{{ url_for('samples', mode='browse', scope='b:' ~ b.benchmark_id) }}">{{ b.task }}</a> <span class="shots">{{ b.fewshot_k }}-shot</span></td>
+        <td><a href="{{ url_for('samples', mode='browse', scope='b:' ~ b.benchmark_id) }}">{{ b.task }}({{ b.fewshot_k }})</a></td>
         <td>{% if b.verified_accuracy is not none %}
           <span class="verified" title="LLM-verified (strict string-match: {{ "%.3f"|format(b.accuracy) if b.accuracy is not none else "n/a" }})">{{ "%.3f"|format(b.verified_accuracy) }}<sup>✓</sup></span>
           {% else %}{{ "%.3f"|format(b.accuracy) if b.accuracy is not none else "…" }}{% endif %}</td>
