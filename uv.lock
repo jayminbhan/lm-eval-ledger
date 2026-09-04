@@ -2024,14 +2024,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-all = [
-    { name = "accelerate" },
-    { name = "bitsandbytes", marker = "sys_platform == 'linux'" },
-    { name = "sglang", marker = "sys_platform == 'linux'" },
-    { name = "torch" },
-    { name = "transformers" },
-    { name = "vllm", marker = "sys_platform == 'linux'" },
-]
 hf = [
     { name = "accelerate" },
     { name = "torch" },
@@ -2047,9 +2039,7 @@ vllm = [
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate", marker = "extra == 'all'", specifier = ">=1.2" },
     { name = "accelerate", marker = "extra == 'hf'", specifier = ">=1.2" },
-    { name = "bitsandbytes", marker = "sys_platform == 'linux' and extra == 'all'", specifier = ">=0.45" },
     { name = "bitsandbytes", marker = "sys_platform == 'linux' and extra == 'vllm'", specifier = ">=0.45" },
     { name = "datasets", specifier = ">=2.19" },
     { name = "flask", specifier = ">=3.0" },
@@ -2057,17 +2047,13 @@ requires-dist = [
     { name = "huggingface-hub", specifier = ">=0.23" },
     { name = "latex2sympy2-extended", specifier = "==1.0.6" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "sglang", marker = "sys_platform == 'linux' and extra == 'all'", specifier = ">=0.4" },
     { name = "sglang", marker = "sys_platform == 'linux' and extra == 'sglang'", specifier = ">=0.4" },
-    { name = "torch", marker = "extra == 'all'", specifier = ">=2.4" },
     { name = "torch", marker = "extra == 'hf'", specifier = ">=2.4" },
-    { name = "transformers", marker = "extra == 'all'", specifier = ">=4.48" },
     { name = "transformers", marker = "extra == 'hf'", specifier = ">=4.48" },
-    { name = "vllm", marker = "sys_platform == 'linux' and extra == 'all'", specifier = ">=0.28" },
     { name = "vllm", marker = "sys_platform == 'linux' and extra == 'vllm'", specifier = ">=0.28" },
     { name = "waitress", specifier = ">=3.0" },
 ]
-provides-extras = ["vllm", "hf", "sglang", "all"]
+provides-extras = ["vllm", "hf", "sglang"]
 
 [[package]]
 name = "lm-format-enforcer"

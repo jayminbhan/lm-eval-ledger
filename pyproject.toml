@@ -41,12 +41,6 @@ vllm = ["vllm>=0.28; sys_platform == 'linux'",
         "bitsandbytes>=0.45; sys_platform == 'linux'"]
 hf = ["torch>=2.4", "transformers>=4.48", "accelerate>=1.2"]
 sglang = ["sglang>=0.4; sys_platform == 'linux'"]
-all = [
-    "vllm>=0.28; sys_platform == 'linux'",
-    "bitsandbytes>=0.45; sys_platform == 'linux'",
-    "torch>=2.4", "transformers>=4.48", "accelerate>=1.2",
-    "sglang>=0.4; sys_platform == 'linux'",
-]
 
 [project.scripts]
 lm-eval-ledger = "lm_eval_ledger.cli:main"
