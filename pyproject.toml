@@ -34,7 +34,7 @@ classifiers = [
 
 [project.optional-dependencies]
 # vllm/sglang publish Linux-only wheels; the platform markers keep
-# `pip install lm-eval-ledger[vllm]` (and [all]) resolvable on Windows
+# `pip install lm-eval-ledger[vllm]` resolvable on Windows
 # by skipping them there - the harness explains at runtime instead.
 # Windows-supported routes: base install (server backend) and [hf].
 vllm = ["vllm>=0.28; sys_platform == 'linux'",
