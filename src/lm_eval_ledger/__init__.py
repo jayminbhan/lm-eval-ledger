@@ -15,7 +15,11 @@ Custom tasks:
 """
 from __future__ import annotations
 
-__version__ = "0.1.0"
+try:  # single source of truth: pyproject's version, via installed metadata
+    from importlib.metadata import version as _pkg_version
+    __version__ = _pkg_version("lm-eval-ledger")
+except Exception:  # running from a bare source tree
+    __version__ = "0.0.0+src"
 
 from .config import RunConfig, load_yaml_config, resolve_config
 from .db import LedgerDatabase
