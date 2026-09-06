@@ -216,9 +216,12 @@ def create_app(db_path: Path, token: str | None = None,
                         datetime.now() - datetime.fromisoformat(b["started_at"])).total_seconds()
                 except ValueError:
                     pass
+        # backend per run, from the resolved config (per-model overrides
+        # may mix backends -> list every distinct one)
+        run_backend = {r["run_id"]: _backends_of(r["config_yaml"]) for r in run_rows}
         return render_template("runs.html", runs=run_rows, by_run=by_run, elapsed=elapsed,
                                run_bytes=run_bytes, bench_bytes=bench_bytes,
-                               db_file_bytes=db_file_bytes)
+                               db_file_bytes=db_file_bytes, run_backend=run_backend)
 
     @app.route("/run/<int:run_id>/config")
     def run_config(run_id):
@@ -635,3 +638,23 @@ def main(argv=None) -> None:
     else:
         from waitress import serve as waitress_serve
         waitress_serve(app, host=args.host, port=args.port, threads=8)
+
+
+def _backends_of(config_yaml: str | None) -> str:
+    """'vllm', or 'vllm, server' when per-model overrides mix backends."""
+    if not config_yaml:
+        return ""
+    try:
+        import yaml
+        cfg = yaml.safe_load(config_yaml) or {}
+    except Exception:
+        return ""
+    seen: list[str] = []
+    base = cfg.get("backend")
+    for m in cfg.get("models") or []:
+        b = m.get("backend", base) if isinstance(m, dict) else base
+        if b and b not in seen:
+            seen.append(b)
+    if base and base not in seen and not cfg.get("models"):
+        seen.append(base)
+    return ", ".join(seen)

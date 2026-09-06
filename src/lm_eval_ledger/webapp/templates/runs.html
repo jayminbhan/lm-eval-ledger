@@ -12,7 +12,8 @@
 {% for r in runs %}
 <section class="panel">
   <div class="lbhead">
-    <span class="lbtitle">run {{ r.run_id }} · {{ r.run_name }}</span>
+    <span class="lbtitle">run {{ r.run_id }}{% if run_backend.get(r.run_id) %}
+      <span class="muted">· {{ run_backend[r.run_id] }}</span>{% endif %}</span>
     <span class="rowactions">
       <span class="muted">{{ r.started_at|fmtdate }}
         · {{ run_bytes.get(r.run_id, 0)|fmtbytes }} of samples</span>
