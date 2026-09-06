@@ -1,7 +1,7 @@
 [project]
 name = "lm-eval-ledger"
 version = "0.1.2"
-description = "LLM benchmark harness (vLLM, SGLang, HF, or any OpenAI-compatible server) that records every prompt, response, and score to one SQLite ledger with a built-in viewer"
+description = "LLM benchmark harness that records every prompt, response, and score to one SQLite ledger with a built-in viewer"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
