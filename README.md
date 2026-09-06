@@ -15,7 +15,7 @@ Live demo: [lm-eval-ledger on Hugging Face Spaces](https://huggingface.co/spaces
 - **Custom tasks** — add your own tasks and get the same per-sample logging and inspection.
 
 <p align="center">
-  <img src="src/lm_eval_ledger/webapp/static/sample-inspection.png" width="100%" alt="Sample Inspection">
+  <img src="https://raw.githubusercontent.com/jayminbhan/lm-eval-ledger/main/src/lm_eval_ledger/webapp/static/sample-inspection.png" width="100%" alt="Sample Inspection">
 </p>
 
 **Sample Inspection** — every prompt, response, extracted answer, and score, color-coded by outcome. Filter by model, task, or right/wrong, and compare how different models answered the same question.
@@ -23,11 +23,11 @@ Live demo: [lm-eval-ledger on Hugging Face Spaces](https://huggingface.co/spaces
 <table>
   <tr>
     <td width="50%" valign="top">
-      <img src="src/lm_eval_ledger/webapp/static/leaderboard.png" alt="Leaderboard"><br>
+      <img src="https://raw.githubusercontent.com/jayminbhan/lm-eval-ledger/main/src/lm_eval_ledger/webapp/static/leaderboard.png" alt="Leaderboard"><br>
       <b>Leaderboard</b> — pick a task and see every model ranked by accuracy, across all runs. One click to keep only the best per model.
     </td>
     <td width="50%" valign="top">
-      <img src="src/lm_eval_ledger/webapp/static/run-history.png" alt="Run History"><br>
+      <img src="https://raw.githubusercontent.com/jayminbhan/lm-eval-ledger/main/src/lm_eval_ledger/webapp/static/run-history.png" alt="Run History"><br>
       <b>Run History</b> — browse all runs, check accuracy per model and task, grab the exact YAML that produced them, or delete a whole run or a single benchmark.
     </td>
   </tr>
