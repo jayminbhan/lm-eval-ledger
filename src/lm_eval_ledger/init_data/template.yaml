@@ -26,8 +26,8 @@ models:
   # - google/gemma-4-12B-it-qat-w4a16-ct 
 
 
-# "name" (task-default few-shot), "name:4", or "name:0,4" (ladder).
-# Full list: lm-eval-ledger --help or ./TASKS.md (written by init). MCQ tasks:
+# "name":(task-default few-shot), "name:4", or "name:0,4" (0-shot and 4-shot).
+# Full list: lm-eval-ledger --help or the README's Tasks section. MCQ tasks:
 # bare name = generate scoring; _logprob_token | _logprob_seq variants.
 tasks:
   - gsm8k:0
@@ -35,7 +35,7 @@ tasks:
 
 max_examples: null   # per-task cap; null = all (set ~20 for a smoke test)
 
-# Image-bearing questions (HLE, TheoremQA): text = drop them;
+# For image-bearing questions: text = drop them;
 # all = send images (needs a vision-capable model on backend: server).
 modality: text
 
@@ -54,12 +54,6 @@ pass_k: 1            # best-of-k scoring; >1 needs temperature > 0
 
 logs_dir: logs
 db_path: null        # THE ledger; null = ./results/ledger.sqlite3
-
-# LLM judge for free-form answers - applies ONLY to HLE and TheoremQA
-# (other tasks score exactly and are never judged). Runs after the task
-# with CompassVerifier; the official protocol uses a GPT-4o judge, only
-# CompassVerifier is implemented here.
-verifier: off         # 7b | 3b | off
 
 # ════════════════════════════════════════════════════════════
 # PER-BACKEND - backend-specific: keep ONE block, comment out the rest

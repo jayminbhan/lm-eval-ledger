@@ -56,12 +56,12 @@ pip install "lm-eval-ledger[hf]"       # HF transformers
 ## Quickstart
 
 ```bash
-lm-eval-ledger init                    # write template.yaml + TASKS.md, create results/ and logs/
-lm-eval-ledger -c bench.yaml           # run benchmarks
-lm-eval-ledger serve                   # browse at http://localhost:8090
+lm-eval-ledger init            # write template.yaml, create results/ and logs/
+lm-eval-ledger -c bench.yaml   # run benchmarks
+lm-eval-ledger serve           # browse at http://localhost:8090
 ```
 
-YAML format: [template.yaml](#yaml-template), available tasks: [TASKS.md](src/lm_eval_ledger/init_data/TASKS.md)
+YAML format: [template.yaml](#yaml-template), available tasks: [Task Registry](#task-registry)
 
 ## Backends
 
@@ -75,7 +75,7 @@ One config format, four engines:
 | `server` | `pip install lm-eval-ledger` *(no extra)* | Linux, Windows |
 
 The first three run the model in-process. `server` talks to any OpenAI-compatible
-endpoint instead — local (llama.cpp, ollama, LM Studio) or hosted (OpenAI, Together, ...).
+endpoint instead — local (llama.cpp, ollama, LM Studio) or hosted (OpenAI...).
 
 ### Example: llama.cpp
 
@@ -98,7 +98,7 @@ Any OpenAI-compatible endpoint works the same way.
 
 ## Thinking mode
 
-Set `chat_template_kwargs` per model to control thinking. If it is left unset, the harness reads the model's chat template (from the HF cache, or a llama.cpp server's `/props`), detects the available knobs, offers a menu, and prints the YAML to make the choice permanent. Set `chat_template_kwargs: {}` to skip the prompt and use the template defaults.
+Set `chat_template_kwargs` per model to control thinking. If it is left unset, the harness reads the model's chat template (from the HF cache, or a llama.cpp server's `/props`), detects the available knobs, offers a menu, and prints the YAML to make the choice permanent.
 
 ```yaml
 models:
@@ -111,8 +111,7 @@ models:
 
 Every option with its default in shared and per-backend blocks. Uncomment what you need.
 
-<details>
-<summary><b>template.yaml</b> (click to expand)</summary>
+<summary><b>template.yaml</b></summary>
 
 ```yaml
 # lm-eval-ledger config template
@@ -143,8 +142,8 @@ models:
   # - google/gemma-4-12B-it-qat-w4a16-ct 
 
 
-# "name" (task-default few-shot), "name:4", or "name:0,4" (ladder).
-# Full list: lm-eval-ledger --help or ./TASKS.md (written by init). MCQ tasks:
+# "name":(task-default few-shot), "name:4", or "name:0,4" (0-shot and 4-shot).
+# Full list: lm-eval-ledger --help or the README's Tasks section. MCQ tasks:
 # bare name = generate scoring; _logprob_token | _logprob_seq variants.
 tasks:
   - gsm8k:0
@@ -152,7 +151,7 @@ tasks:
 
 max_examples: null   # per-task cap; null = all (set ~20 for a smoke test)
 
-# Image-bearing questions (HLE, TheoremQA): text = drop them;
+# For image-bearing questions: text = drop them;
 # all = send images (needs a vision-capable model on backend: server).
 modality: text
 
@@ -171,12 +170,6 @@ pass_k: 1            # best-of-k scoring; >1 needs temperature > 0
 
 logs_dir: logs
 db_path: null        # THE ledger; null = ./results/ledger.sqlite3
-
-# LLM judge for free-form answers - applies ONLY to HLE and TheoremQA
-# (other tasks score exactly and are never judged). Runs after the task
-# with CompassVerifier; the official protocol uses a GPT-4o judge, only
-# CompassVerifier is implemented here.
-verifier: off         # 7b | 3b | off
 
 # ════════════════════════════════════════════════════════════
 # PER-BACKEND - backend-specific: keep ONE block, comment out the rest
@@ -224,3 +217,91 @@ batch_size: 100       # write to the ledger every N samples (throughput
 ```
 
 </details>
+
+# Task registry
+
+Every task string accepted in a config's `tasks:` list (or `--task`).
+
+Usage forms (see `template.yaml`):
+
+```yaml
+tasks:
+  - gpqa_diamond      # task-default few-shot count
+  - gsm8k:0           # explicit few-shot count
+  - mmlu_pro:0,4      # few-shot ladder (two benchmarks)
+```
+
+Every bare task name scores by **generation** (free-form response +
+`\boxed{}` answer extraction). MCQ tasks additionally offer logprob scoring. Named by suffix:
+
+| variant | how it scores | backends |
+|---|---|---|
+| *(bare name)* | free-form generation + `\boxed{}` extraction | all |
+| `<task>_logprob_token` | first-token log-probability over choice letters | vllm, hf, sglang, server* |
+| `<task>_logprob_seq` | completion log-likelihood of each full answer | vllm, hf |
+
+\* server: llama.cpp only 
+
+Logprob variants exist for exactly the MCQ tasks marked **+logprob**
+in the tables below; every other task
+is generate-only. Logprob modes are cheap (no generation) and useful for
+base models or for measuring the scoring-method difference on the same
+model - e.g. run both `gpqa_diamond` and `gpqa_diamond_logprob_token`
+and compare.
+
+Few-shot: `name:k` draws the first k exemplars from the task's few-shot
+source. Tasks listed as **0-shot only** have no such source. The few-shot size below is
+the maximum k.
+
+## Math
+
+| task | default k | few-shot | n | dataset |
+|---|---|---|---|---|
+| `aime_2024` | 0 | 0-shot only | 30 | HuggingFaceH4/aime_2024 |
+| `aime_2025` | 0 | 0-shot only | 30 | MathArena/aime_2025 |
+| `gsm8k` | 8 | train split (pool 7473) | 1319 | openai/gsm8k |
+| `math` | 0 | algebra/train split (pool 1744) | 5000 | EleutherAI/hendrycks_math (7 subjects; the MATH benchmark, Hendrycks et al.) |
+| `math500` | 0 | 0-shot only | 500 | HuggingFaceH4/MATH-500 |
+| `olympiad_bench_math_en` | 0 | 0-shot only | 674 | Hothan/OlympiadBench [OE_TO_maths_en_COMP] |
+| `olympiad_bench_physics_en` | 0 | 0-shot only | 236 | Hothan/OlympiadBench [OE_TO_physics_en_COMP] |
+
+## Science / knowledge MCQ
+
+All tasks in this section are **+logprob** (both suffix variants).
+
+| task | default k | few-shot | n | dataset |
+|---|---|---|---|---|
+| `gpqa_diamond` | 0 | 0-shot only (single split, no held-out pool) | 198 | Idavidrein/gpqa [gpqa_diamond] — gated |
+| `gpqa_main` | 0 | 0-shot only (single split, no held-out pool) | 448 | Idavidrein/gpqa [gpqa_main] — gated |
+| `gpqa_extended` | 0 | 0-shot only (single split, no held-out pool) | 546 | Idavidrein/gpqa [gpqa_extended] — gated |
+| `mmlu_pro` | 0 | validation split (pool 70)¹ | 12032 | TIGER-Lab/MMLU-Pro (up to 10 options) |
+| `mmlu_redux_1` | 0 | 0-shot only | 2801 | edinburgh-dawg/mmlu-redux (3000 minus questions the dataset flags as flawed; wrong-groundtruth golds remapped) |
+| `mmlu_redux_2` | 0 | 0-shot only | 5431 | edinburgh-dawg/mmlu-redux-2.0 (5700 minus flagged-flawed questions; wrong-groundtruth golds remapped) |
+
+¹ Exemplars are the first k of the split, not per-category as in the
+official MMLU-Pro protocol — comparable across your own runs, slightly
+off-protocol versus the paper's 5-shot numbers.
+
+## Reasoning / commonsense
+
+| task | default k | few-shot | n | dataset |
+|---|---|---|---|---|
+| `bbh` | 0 | 0-shot only | 6511 | lukaemon/bbh (27 subtasks) |
+| `arc_challenge` **+logprob** | 0 | train split (pool 1119) | 1172 | allenai/ai2_arc [ARC-Challenge] |
+| `arc_easy` **+logprob** | 0 | train split (pool 2251) | 2376 | allenai/ai2_arc [ARC-Easy] |
+| `hellaswag` **+logprob** | 0 | train split (pool 39905) | 10042 | Rowan/hellaswag |
+| `winogrande` **+logprob** | 0 | train split (pool 40398) | 1267 | allenai/winogrande [winogrande_xl] |
+
+## Frontier / specialty
+
+| task | default k | few-shot | n | dataset | notes |
+|---|---|---|---|---|---|
+| `livecodebench` | 0 | 0-shot only (self-contained prompts) | 1055 | official release jsonls (release_v6) | EXECUTES generated code locally; `max_tokens >= 2048` |
+| `livecodebench_v1` … `livecodebench_v6` | 0 | 0-shot only | 400 / 111 / 101 / 101 / 167 / 175 | testN.jsonl | the problems ADDED in release N (upstream's own slices); highest N = newest = most contamination-safe |
+
+`livecodebench_vN` (N = 1-6) loads exactly one upstream release file. Bare `livecodebench` is the full archive (all six).
+
+## Notes
+
+- **Gated datasets** (GPQA): accept the terms on the HF dataset page,
+  then `hf auth login`, before first load.

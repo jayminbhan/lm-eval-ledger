@@ -7,9 +7,9 @@ Usage forms (see `template.yaml`):
 
 ```yaml
 tasks:
-  - gpqa_diamond                 # task-default few-shot count
-  - gsm8k:0                 # explicit few-shot count
-  - mmlu_pro_generate:0,4        # few-shot ladder (two benchmarks)
+  - gpqa_diamond      # task-default few-shot count
+  - gsm8k:0           # explicit few-shot count
+  - mmlu_pro:0,4      # few-shot ladder (two benchmarks)
 ```
 
 Every bare task name scores by **generation** (free-form response +

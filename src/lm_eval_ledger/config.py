@@ -419,7 +419,7 @@ def resolve_config(args: argparse.Namespace) -> RunConfig:
             hints.append(f"{u!r}" + (f" (did you mean {close[0]!r}?)" if close else ""))
         raise ValueError(
             f"Unknown task(s): {', '.join(hints)}. "
-            f"Full list: lm-eval-ledger --help or TASKS.md")
+            f"Full list: lm-eval-ledger --help or the README")
     if not cfg.models:
         raise ValueError(
             "No models configured. Add a 'models:' list to the config file "
