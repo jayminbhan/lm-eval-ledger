@@ -2,7 +2,7 @@
 **lm-eval-ledger** is an LLM evaluation harness with a built-in web app for browsing and comparing what models generate. Every generation is logged to SQLite in real time, so you can read the prompt, response, extracted answer, and score for any sample while the run is still going. Models and tasks are defined in one YAML file: benchmark many models × many tasks in a single run.
 
 
-Live demo: [lm-eval-ledger on Hugging Face Spaces](https://huggingface.co/spaces/...)
+Live demo: [lm-eval-ledger on Hugging Face Spaces](https://huggingface.co/spaces/jayminbhan/lm-eval-ledger)
 
 
 **Features**
