@@ -31,6 +31,13 @@ class TaskConfig:
     # in the samples.gold column; the full value is stored in gold_data.
     extract_gold_display: Callable[[dict], str] | None = None
 
+    # What to PERSIST in samples.gold_data when extract_gold is large
+    # (LiveCodeBench test suites reach 90MB per problem): a compact
+    # reference from which the payload can be re-fetched. When unset,
+    # gold_data holds extract_gold's full value (only if a display form
+    # exists, else NULL).
+    extract_gold_data: Callable[[dict], str | None] | None = None
+
     # Custom dataset loader for repos the `datasets` library can't load
     # (e.g., script-based datasets). When set, used instead of load_from_hf.
     load_fn: Callable[[], list[dict]] | None = None

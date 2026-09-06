@@ -153,8 +153,7 @@ def extract_gold(example: dict) -> str:
     })
 
 
-def extract_gold_display(example: dict) -> str:
-    """Short human-readable gold for the ledger (full tests go to gold_data)."""
+def _test_counts(example: dict) -> tuple[int, int]:
     try:
         n_public = len(json.loads(example.get("public_test_cases") or "[]"))
     except (json.JSONDecodeError, ValueError):
@@ -163,9 +162,34 @@ def extract_gold_display(example: dict) -> str:
         n_private = len(_decode_private_tests(example.get("private_test_cases", "")))
     except Exception:
         n_private = 0
+    return n_public, n_private
+
+
+def extract_gold_display(example: dict) -> str:
+    """Short human-readable gold for the ledger."""
+    n_public, n_private = _test_counts(example)
     return (f"pass all {n_public + n_private} tests "
             f"({n_public} public, {n_private} private) - "
             f"{example.get('platform', '')} {example.get('question_title', '')}")
+
+
+def extract_gold_data(example: dict) -> str:
+    """Compact reference persisted in samples.gold_data.
+
+    The full test suite (up to ~90MB per problem) is NOT stored - it is
+    re-fetchable from the dataset by question_id; scoring uses the
+    in-memory extract_gold payload, never this column.
+    """
+    n_public, n_private = _test_counts(example)
+    return json.dumps({
+        "dataset": _REPO_ID,
+        "question_id": example.get("question_id", ""),
+        "platform": example.get("platform", ""),
+        "contest_date": str(example.get("contest_date", "")),
+        "difficulty": example.get("difficulty", ""),
+        "n_public_tests": n_public,
+        "n_private_tests": n_private,
+    })
 
 
 def extract_pred(model_output: str) -> str:
@@ -285,6 +309,7 @@ def get_task() -> TaskConfig:
         build_prompt=build_prompt,
         extract_gold=extract_gold,
         extract_gold_display=extract_gold_display,
+        extract_gold_data=extract_gold_data,
         extract_pred=extract_pred,
         match_fn=match_fn,
         default_fewshot_k=0,
